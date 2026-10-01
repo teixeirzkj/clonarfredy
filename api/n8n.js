@@ -28,7 +28,8 @@ export default route(async ({ body }) => {
 
     case 'build': {
       const workflow = await loadTemplate(body);
-      const needsToken = body.replaceToken || (body.create && body.createCredential);
+      const auth = body.auth === 'header' ? 'header' : 'credential';
+      const needsToken = body.replaceToken || auth === 'header' || (body.create && body.createCredential);
       const clientToken = needsToken ? customerClient(body.clientToken) && body.clientToken.trim() : null;
       const options = {
         mapping: body.mapping,
@@ -39,13 +40,14 @@ export default route(async ({ body }) => {
         replaceToken: Boolean(body.replaceToken),
         clientSlug: body.clientSlug,
         modelSlug: body.modelSlug,
+        auth,
       };
       // Gera antes de criar qualquer coisa no n8n: erro de validação não deixa credencial órfã.
       let result = buildWorkflow(workflow, options);
       if (!body.create) return result;
 
       let credential = null;
-      if (body.createCredential) {
+      if (auth === 'credential' && body.createCredential) {
         credential = reusableCredential(body.credential) ?? await createWtsCredential(requireName(body.clientName), clientToken);
         result = buildWorkflow(workflow, { ...options, credential });
       }

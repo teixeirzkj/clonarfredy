@@ -1177,16 +1177,24 @@ function renderN8nMapping(container, source, scan, slugForm) {
   const wtsCreds = scan.credentials.filter((c) => c.wts);
   const otherCreds = scan.credentials.filter((c) => !c.wts);
   const wtsNodes = wtsCreds.reduce((n, c) => n + c.nodes.length, 0);
-  const credentialBox = wtsCreds.length && state.n8nConfigured
-    ? h('label', { class: 'check-toggle' }, h('input', { type: 'checkbox', checked: true }),
-      `Ao clicar em "Criar no n8n", criar a credencial do cliente (Header Auth · Authorization: Bearer + token) e ligar nos ${wtsNodes} nó(s) do WTS`)
-    : null;
+  // Como autenticar os nós do WTS: token direto no header (padrão) ou credencial do n8n.
+  const authGroup = `auth-${Date.now()}`;
+  const authOption = (value, title, desc, checked) => h('label', { class: 'choice' },
+    h('input', { type: 'radio', name: authGroup, value, checked }),
+    h('span', {}, h('span', { class: 'choice-title' }, title), h('span', { class: 'choice-desc' }, desc)));
+  const authChoice = wtsCreds.length ? h('div', { class: 'choices' },
+    authOption('header', 'Colocar o token direto nos nós',
+      `Header "Authorization: Bearer + token do cliente" nos ${wtsNodes} nó(s) do WTS. Funciona no download, no copiar e no criar. O token fica dentro do fluxo: não compartilhe o .json.`, true),
+    authOption('credential', 'Usar uma credencial do n8n com o nome do cliente',
+      state.n8nConfigured
+        ? 'Criada sozinha ao clicar em "Criar no n8n" (Header Auth). No download, você escolhe a credencial ao importar.'
+        : 'Ao importar, crie no n8n a credencial Header Auth com o nome do cliente e selecione nos nós.', false)) : null;
+  const selectedAuth = () => authChoice?.querySelector('input:checked')?.value ?? 'credential';
+
   const credentialNotes = [
-    credentialBox,
-    wtsCreds.length && notice(state.n8nConfigured
-      ? `A credencial "${wtsCreds.map((c) => c.name).join(', ')}" da conta modelo é trocada pela do cliente, com o nome do cliente. No download, os nós ficam com esse nome e você escolhe a credencial no n8n.`
-      : `A credencial "${wtsCreds.map((c) => c.name).join(', ')}" da conta modelo é trocada nos ${wtsNodes} nó(s) do WTS. Ao importar, crie no n8n a credencial com o nome do cliente (Header Auth · Name: Authorization · Value: Bearer + token) e selecione nesses nós. Para criar sozinho, configure a API do n8n.`, 'info'),
-    otherCreds.length && notice(`Outras credenciais ficam como estão: ${otherCreds.map((c) => `${c.name || c.type} (${c.nodes.join(', ')})`).join('; ')}.`, 'info'),
+    wtsCreds.length ? notice(`A credencial "${wtsCreds.map((c) => c.name).join(', ')}" da conta modelo sai de todos os nós do WTS.`, 'info') : null,
+    authChoice,
+    otherCreds.length ? notice(`Outras credenciais ficam como estão: ${otherCreds.map((c) => `${c.name || c.type} (${c.nodes.join(', ')})`).join('; ')}.`, 'info') : null,
   ];
   // Reaproveita a credencial criada nesta sessão para o mesmo cliente e token.
   const reusableCredential = () => {
@@ -1224,7 +1232,8 @@ function renderN8nMapping(container, source, scan, slugForm) {
       replaceToken: Boolean(tokenBox?.querySelector('input').checked),
       clientToken: clientToken(),
       create: mode === 'create',
-      createCredential: Boolean(credentialBox?.querySelector('input').checked),
+      auth: selectedAuth(),
+      createCredential: selectedAuth() === 'credential' && Boolean(state.n8nConfigured),
       credential: reusableCredential(),
       ...slugForm.input(),
     };
@@ -1252,6 +1261,7 @@ function renderN8nMapping(container, source, scan, slugForm) {
           : 'Download feito. No n8n: Importar do arquivo, ou abra o .json e cole no canvas.', 'ok'),
       ...data.warnings.map((w) => notice(w, 'warn')),
       data.credential && notice(`Credencial "${data.credential.name}" ligada em ${data.credentialNodes} nó(s) do WTS.`, 'ok'),
+      data.headerNodes ? notice(`Token do cliente colocado no header Authorization de ${data.headerNodes} nó(s) do WTS.`, 'ok') : null,
       data.created && h('div', { class: 'toolbar' }, h('a', { class: 'btn btn-primary', href: data.created.url, target: '_blank', rel: 'noopener' }, svg('arrow'), h('span', {}, 'Abrir no n8n'))),
       data.webhookPaths?.length && notice(`Path do webhook: ${data.webhookPaths.map((w) => w.path).join(', ')}`, 'info'),
       h('p', { class: 'summary' }, `${data.applied.length} valor(es) trocados${data.slugReplaced ? ` · identificador da empresa trocado ${data.slugReplaced}×` : ''}.`));
