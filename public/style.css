@@ -439,6 +439,7 @@ input:focus, select:focus, textarea:focus { outline: none; border-color: var(--b
 .btn:hover:not(:disabled) { border-color: var(--blue-200); color: var(--blue-700); transform: translateY(-1px); box-shadow: 0 8px 18px -12px rgba(16, 52, 120, 0.45); }
 .btn:active:not(:disabled) { transform: translateY(0) scale(0.96); transition-duration: 0.08s; }
 .btn:disabled { opacity: 0.45; cursor: not-allowed; }
+a.btn { text-decoration: none; }
 .btn svg { transition: transform 0.35s var(--spring); }
 .btn:hover:not(:disabled) svg.i-play, .btn:hover:not(:disabled) svg.i-arrow, .btn:hover:not(:disabled) svg.i-download { transform: translateX(2px); }
 .btn:hover:not(:disabled) svg.i-download { transform: translateY(2px); }

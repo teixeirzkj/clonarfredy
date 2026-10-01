@@ -1429,6 +1429,10 @@ async function renderPrompt(view) {
 
   const runBtn = button('Montar prompt', null, { variant: 'btn-primary', icon: 'sparkle' });
   const stopBtn = button('Parar', null, { icon: 'stop', hidden: true });
+  // Alternativa sem custo de API: usa a assinatura do Claude.ai (copiar → colar → colar a resposta).
+  const claudeBtn = button('Copiar para o Claude.ai', null, { icon: 'copy' });
+  const claudeBox = h('div', { hidden: true });
+  let instructions = '';
   const afterActions = h('div', { class: 'toolbar', hidden: true },
     h('span', { class: 'spacer' }),
     button('Copiar', (e) => flashOnCopy(e.currentTarget, output.textContent), { icon: 'copy' }),
@@ -1445,16 +1449,67 @@ async function renderPrompt(view) {
       h('p', { class: 'panel-desc' }, 'Pode editar: suas alterações ficam salvas neste navegador.'),
       template, h('div', { class: 'toolbar' }, restore)),
     section('3', 'Mensagens e respostas do cliente', info),
-    h('div', { class: 'toolbar' }, h('span', { class: 'spacer' }), stopBtn, runBtn),
+    h('div', { class: 'toolbar' }, h('span', { class: 'spacer' }), stopBtn, claudeBtn, runBtn),
     status,
+    claudeBox,
     h('div', {}, outputBox));
   outputBox.append(section('4', 'Prompt montado', output, afterActions));
 
   try {
-    ({ prompt: defaultText } = await api('prompt', { action: 'default' }));
+    ({ prompt: defaultText, instructions = '' } = await api('prompt', { action: 'default' }));
   } catch (err) {
     if (err instanceof ApiError) status.replaceChildren(notice(err.message));
   }
+
+  // Mostra o prompt pronto (do montador ou colado do Claude.ai) com as ações.
+  const showResult = (text) => {
+    output.textContent = text;
+    outputBox.hidden = false;
+    afterActions.hidden = false;
+    state.builtPrompt = text;
+    enter(outputBox, { y: 10 });
+    stagger(afterActions.querySelectorAll('.btn'), { y: 6, step: 50 });
+    outputBox.scrollIntoView({ behavior: reducedMotion.matches ? 'auto' : 'smooth', block: 'start' });
+  };
+
+  claudeBtn.onclick = async () => {
+    status.replaceChildren();
+    if (!template.value.trim() || !info.value.trim()) {
+      status.replaceChildren(notice('Preencha o prompt padrão e as mensagens do cliente.', 'info'));
+      return;
+    }
+    // Mesmo conteúdo que o montador envia para a API.
+    const text = [
+      instructions,
+      `<prompt_padrao>\n${template.value.trim()}\n</prompt_padrao>`,
+      `<informacoes_cliente>\n${state.clientName.trim() ? `Cliente: ${state.clientName.trim()}\n\n` : ''}${info.value.trim()}\n</informacoes_cliente>`,
+      'Monte o prompt final deste cliente.',
+    ].filter(Boolean).join('\n\n');
+    if (!(await copyText(text))) {
+      status.replaceChildren(notice('Não consegui copiar. Tente de novo.'));
+      return;
+    }
+    claudeBtn.classList.add('is-done');
+    pop(claudeBtn);
+    setTimeout(() => claudeBtn.classList.remove('is-done'), 1200);
+
+    const answer = h('textarea', { rows: 10, placeholder: 'Cole aqui a resposta do Claude...' });
+    const useAnswer = button('Usar esta resposta', () => {
+      // Tira a cerca de código (```) se o Claude responder dentro de uma.
+      const cleaned = answer.value.trim().replace(/^```[\w-]*\n([\s\S]*?)\n```$/, '$1').trim();
+      if (!cleaned) return answer.focus();
+      showResult(cleaned);
+    }, { variant: 'btn-primary', icon: 'check' });
+    swap(claudeBox, section('', 'Montar pelo Claude.ai',
+      notice('Copiado! Abra o Claude.ai, cole com Ctrl+V e envie. Quando ele responder, copie a resposta e cole abaixo.', 'ok'),
+      h('div', { class: 'toolbar' },
+        h('a', { class: 'btn', href: 'https://claude.ai/new', target: '_blank', rel: 'noopener' }, svg('arrow'), h('span', {}, 'Abrir Claude.ai')),
+        button('Copiar de novo', (e) => flashOnCopy(e.currentTarget, text), { variant: 'btn-ghost btn-small', icon: 'copy' })),
+      h('label', { class: 'field' }, 'Resposta do Claude', answer),
+      h('div', { class: 'toolbar' }, h('span', { class: 'spacer' }), useAnswer)));
+    claudeBox.hidden = false;
+    claudeBox.scrollIntoView({ behavior: reducedMotion.matches ? 'auto' : 'smooth', block: 'start' });
+  };
   template.placeholder = 'Escreva o prompt padrão da Frédy.';
   template.value = loadSavedPrompt() || defaultText;
 
