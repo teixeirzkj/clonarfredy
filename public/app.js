@@ -1039,6 +1039,7 @@ async function loadN8nTemplates(step1, step2) {
     ].filter(Boolean));
   };
   select.onchange = showInfo;
+  const fromPrompt = Boolean(state.preferAgent); // veio do botão "Usar no fluxo do n8n"
   fillSelect();
 
   const fileInput = h('input', { type: 'file', accept: '.json,application/json' });
@@ -1071,7 +1072,20 @@ async function loadN8nTemplates(step1, step2) {
 
   const source = () => (select.value === '__upload' ? { template: state.uploadedTemplate.workflow } : { templateId: select.value });
 
+  const analyzeBtn = button('Puxar painéis e analisar fluxo', () => {
+    if (!select.value) return swap(step2, notice('Escolha ou envie um fluxo padrão.', 'info'));
+    scanN8n(step2, source(), slugForm);
+  }, { variant: 'btn-primary', icon: 'refresh' });
+
+  // Deixa claro que o prompt montado veio junto e onde ele aparece.
+  const promptReady = state.builtPrompt.trim()
+    ? notice(fromPrompt
+      ? `Prompt da IA pronto (${state.builtPrompt.length.toLocaleString('pt-BR')} caracteres). Confira o fluxo e o nome do cliente e clique em "Puxar painéis e analisar fluxo": o prompt aparece no passo 4, já preenchido.`
+      : 'Há um prompt da IA montado nesta sessão: ele aparece no passo 4 depois de analisar o fluxo do agente.', 'ok')
+    : null;
+
   swap(step1, section('1', 'Fluxo padrão e cliente',
+    promptReady,
     !mains.length && !state.uploadedTemplate
       ? notice('Ainda não há fluxos padrão no servidor (pasta templates/n8n). Envie o .json abaixo ou peça para incluírem no repositório.', 'info')
       : null,
@@ -1082,12 +1096,16 @@ async function loadN8nTemplates(step1, step2) {
     slugForm.el,
     h('div', { class: 'drop-wrap' }, drop),
     fileError,
-    h('div', { class: 'toolbar' },
-      h('span', { class: 'spacer' }),
-      button('Puxar painéis e analisar fluxo', () => {
-        if (!select.value) return swap(step2, notice('Escolha ou envie um fluxo padrão.', 'info'));
-        scanN8n(step2, source(), slugForm);
-      }, { variant: 'btn-primary', icon: 'refresh' }))));
+    h('div', { class: 'toolbar' }, h('span', { class: 'spacer' }), analyzeBtn)));
+
+  // Vindo do montador: chama a atenção para o próximo passo.
+  if (fromPrompt) {
+    setTimeout(() => {
+      analyzeBtn.scrollIntoView({ behavior: reducedMotion.matches ? 'auto' : 'smooth', block: 'center' });
+      if (!reducedMotion.matches) analyzeBtn.animate([{ transform: 'scale(1)' }, { transform: 'scale(1.06)' }, { transform: 'scale(1)' }], { duration: 700, iterations: 2, easing: SPRING });
+      analyzeBtn.focus({ preventScroll: true });
+    }, 350);
+  }
 }
 
 async function scanN8n(container, source, slugForm) {
