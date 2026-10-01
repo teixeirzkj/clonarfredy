@@ -11,7 +11,7 @@ export default route(async ({ body }) => {
     case 'scan': {
       const workflow = await loadTemplate(body);
       const accounts = await openAccounts(body.clientToken);
-      return scanTemplate(workflow, { ...accounts, modelToken: process.env.WTS_MODEL_TOKEN });
+      return scanTemplate(workflow, { ...accounts, modelToken: process.env.WTS_MODEL_TOKEN, modelSlug: body.modelSlug });
     }
 
     case 'build': {
@@ -24,6 +24,8 @@ export default route(async ({ body }) => {
         modelToken: process.env.WTS_MODEL_TOKEN,
         clientToken,
         replaceToken: Boolean(body.replaceToken),
+        clientSlug: body.clientSlug,
+        modelSlug: body.modelSlug,
       });
       if (body.create) result.created = await createInN8n(result.workflow);
       return result;

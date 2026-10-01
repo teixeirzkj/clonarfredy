@@ -10,5 +10,6 @@ export default route(async ({ body }) => {
 
   return {
     items: plan.map(({ key, label, detail, exists }) => ({ key, label, detail, exists })),
+    meta: plan.meta,
   };
 });

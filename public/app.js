@@ -46,7 +46,7 @@ const SECTIONS = [
       { id: 'tags', kind: 'sync', icon: 'tag', title: 'Etiquetas padrão', desc: 'Copia as etiquetas da conta modelo, pulando as que já existem.' },
       { id: 'departments', kind: 'sync', icon: 'team', title: 'Equipes padrão', desc: 'Cria as equipes do modelo com as mesmas regras de distribuição.' },
       { id: 'agents', kind: 'agents', icon: 'userPlus', title: 'Usuários', desc: 'Cadastra usuários na conta a partir de um formulário.' },
-      { id: 'webhooks', kind: 'sync', icon: 'webhook', title: 'Webhooks padrão', desc: 'Assina os mesmos eventos e URLs dos webhooks do modelo.' },
+      { id: 'webhooks', kind: 'webhooks', icon: 'webhook', title: 'Webhooks padrão', desc: 'Copia os webhooks do modelo trocando o nome da empresa na URL.' },
     ],
   },
   {
@@ -101,6 +101,8 @@ const state = {
   view: 'grid',
   busy: false,
   clientName: '',
+  clientSlug: '', // identificador do cliente nas URLs dos webhooks
+  modelSlug: '', // trecho da conta modelo nas URLs (vazio = servidor decide)
   builtPrompt: '',
   uploadedTemplate: null, // { name, workflow }
   lastPanelId: '',
@@ -252,6 +254,9 @@ function download(filename, content, type) {
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
+// "Conta Exemplo" → "contaexemplo" (formato do final das URLs dos webhooks)
+const compactSlug = (text) => String(text || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/[^a-z0-9]/g, '');
+
 const slug = (text) => String(text || 'cliente').normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^\w]+/g, '-').replace(/^-|-$/g, '').toLowerCase();
 
 // ---------- Sessão e API ----------
@@ -367,6 +372,7 @@ function openBlock(block) {
   view.replaceChildren();
   const renderers = {
     sync: renderSyncBlock,
+    webhooks: renderWebhooksBlock,
     agents: renderAgentsBlock,
     check: renderCheckBlock,
     setupAll: renderSetupAll,
@@ -413,7 +419,7 @@ function renderGrid({ animate = false } = {}) {
           h('span', { class: 'card-icon', 'aria-hidden': 'true' }, svg(block.icon)),
           h('span', { class: 'card-body' },
             h('span', { class: 'card-top' }, h('span', { class: 'card-title' }, block.title),
-              ['sync', 'agents', 'check'].includes(block.kind) ? statusBadge(block) : null),
+              ['sync', 'webhooks', 'agents', 'check'].includes(block.kind) ? statusBadge(block) : null),
             h('span', { class: 'card-desc' }, block.desc))))),
     );
   }
@@ -449,7 +455,11 @@ async function loadPreview(container, groups) {
   swap(container, loading('Comparando a conta modelo com a conta do cliente...'));
   try {
     const results = await Promise.all(groups.map((g) => api('preview', { block: g.block.id, clientToken: clientToken(), input: g.input })));
-    results.forEach((r, i) => { groups[i].items = r.items; });
+    results.forEach((r, i) => {
+      groups[i].items = r.items;
+      groups[i].meta = r.meta;
+      groups[i].onMeta?.(r.meta);
+    });
   } catch (err) {
     retry(container, err, () => loadPreview(container, groups));
     return;
@@ -530,6 +540,7 @@ function renderPreview(container, groups) {
 
   swap(container,
     notice('Prévia: nada foi criado ainda. Desmarque o que não quiser criar.', 'info'),
+    ...groups.map((g) => g.meta?.warning && notice(g.meta.warning, 'warn')),
     tiles,
     toolbar,
     ...lists);
@@ -643,14 +654,75 @@ async function runApply(container, plan, originalGroups) {
   stagger(actions.slice(1), { y: 4, step: 60 });
 }
 
+// ---------- Webhooks (trocam o nome da empresa na URL) ----------
+
+function webhookSlugForm() {
+  const clientInput = h('input', {
+    type: 'text',
+    placeholder: 'ex.: contaexemplo',
+    value: state.clientSlug || compactSlug(state.clientName),
+    spellcheck: false,
+    oninput: (e) => { state.clientSlug = e.target.value.trim().toLowerCase(); },
+  });
+  const modelInput = h('input', {
+    type: 'text',
+    placeholder: 'automático',
+    value: state.modelSlug,
+    spellcheck: false,
+    oninput: (e) => { state.modelSlug = e.target.value.trim().toLowerCase(); },
+  });
+  const el = h('div', { class: 'panel-section' },
+    h('div', { class: 'form-grid' },
+      h('label', { class: 'field' },
+        h('span', {}, 'Identificador do cliente na URL', h('span', { class: 'field-hint' }, ' · sem espaço nem acento')), clientInput),
+      h('label', { class: 'field' },
+        h('span', {}, 'Trecho da conta modelo', h('span', { class: 'field-hint' }, ' · o que será trocado')), modelInput)),
+    h('p', { class: 'hint' }, 'Ex.: …/webhook/alteracaodepainelembarque22palmitos vira …/webhook/alteracaodepainelcontaexemplo.'));
+
+  let autoValue = clientInput.value;
+  return {
+    el,
+    // Acompanha o nome do cliente enquanto o identificador não foi editado à mão.
+    syncFromName: (name) => {
+      if (clientInput.value !== autoValue) return;
+      clientInput.value = autoValue = compactSlug(name);
+      state.clientSlug = clientInput.value;
+    },
+    input: () => {
+      state.clientSlug = clientInput.value.trim().toLowerCase();
+      return { clientSlug: state.clientSlug, modelSlug: modelInput.value.trim().toLowerCase() };
+    },
+    // Mostra o trecho que o servidor usou (env ou detectado), para conferência.
+    onMeta: (meta) => {
+      if (meta?.modelSlug && !modelInput.value) modelInput.value = meta.modelSlug;
+    },
+  };
+}
+
+function renderWebhooksBlock(view, block) {
+  const form = webhookSlugForm();
+  const body = h('div');
+  view.append(form.el,
+    h('div', { class: 'toolbar' }, h('span', { class: 'spacer' }),
+      button('Gerar prévia', () => loadPreview(body, [{ block, input: form.input(), onMeta: form.onMeta }]), { variant: 'btn-primary', icon: 'play' })),
+    body);
+  if (state.clientSlug || state.clientName) loadPreview(body, [{ block, input: form.input(), onMeta: form.onMeta }]);
+}
+
 // ---------- Configurar tudo ----------
 
 function renderSetupAll(view) {
+  const form = webhookSlugForm();
   const body = h('div');
+  const start = () => loadPreview(body, SETUP_ALL_BLOCKS.map((id) => (id === 'webhooks'
+    ? { block: BLOCK_BY_ID[id], input: form.input(), onMeta: form.onMeta }
+    : { block: BLOCK_BY_ID[id] })));
   view.append(
     h('p', { class: 'panel-desc' }, 'Junta Etiquetas, Equipes e Webhooks padrão numa prévia só. Usuários continuam no bloco próprio, porque precisam de formulário.'),
+    form.el,
+    h('div', { class: 'toolbar' }, h('span', { class: 'spacer' }), button('Gerar prévia', start, { variant: 'btn-primary', icon: 'play' })),
     body);
-  loadPreview(body, SETUP_ALL_BLOCKS.map((id) => ({ block: BLOCK_BY_ID[id] })));
+  if (state.clientSlug || state.clientName) start();
 }
 
 // ---------- Usuários (formulário → mesmo fluxo de prévia) ----------
@@ -919,7 +991,13 @@ async function loadN8nTemplates(step1, step2) {
   drop.ondragleave = () => drop.classList.remove('dragging');
   drop.ondrop = (e) => { e.preventDefault(); drop.classList.remove('dragging'); if (e.dataTransfer.files[0]) readFile(e.dataTransfer.files[0]); };
 
-  const nameInput = h('input', { type: 'text', placeholder: 'Ex.: Clínica Sorriso', value: state.clientName, oninput: (e) => { state.clientName = e.target.value; } });
+  const slugForm = webhookSlugForm();
+  const nameInput = h('input', {
+    type: 'text',
+    placeholder: 'Ex.: Clínica Sorriso',
+    value: state.clientName,
+    oninput: (e) => { state.clientName = e.target.value; slugForm.syncFromName(e.target.value); },
+  });
 
   const source = () => (select.value === '__upload' ? { template: state.uploadedTemplate.workflow } : { templateId: select.value });
 
@@ -930,31 +1008,60 @@ async function loadN8nTemplates(step1, step2) {
     h('div', { class: 'form-grid' },
       h('label', { class: 'field' }, 'Fluxo padrão', select),
       h('label', { class: 'field' }, 'Nome do cliente', nameInput)),
+    slugForm.el,
     h('div', { class: 'drop-wrap' }, drop),
     fileError,
     h('div', { class: 'toolbar' },
       h('span', { class: 'spacer' }),
       button('Puxar painéis e analisar fluxo', () => {
         if (!select.value) return swap(step2, notice('Escolha ou envie um fluxo padrão.', 'info'));
-        scanN8n(step2, source());
+        scanN8n(step2, source(), slugForm);
       }, { variant: 'btn-primary', icon: 'refresh' }))));
 }
 
-async function scanN8n(container, source) {
+async function scanN8n(container, source, slugForm) {
   if (!requireToken(container)) return;
   swap(container, loading('Lendo painéis, etapas, campos e chatbots das duas contas...'));
   let scan;
   try {
-    scan = await api('n8n', { action: 'scan', clientToken: clientToken(), ...source });
+    scan = await api('n8n', { action: 'scan', clientToken: clientToken(), ...source, modelSlug: slugForm.input().modelSlug });
   } catch (err) {
-    retry(container, err, () => scanN8n(container, source));
+    retry(container, err, () => scanN8n(container, source, slugForm));
     return;
   }
   setTokenStatus('ok');
-  renderN8nMapping(container, source, scan);
+  slugForm.onMeta({ modelSlug: scan.slug?.modelSlug });
+  renderN8nMapping(container, source, scan, slugForm);
 }
 
-function renderN8nMapping(container, source, scan) {
+// Path antigo → novo dos nós Webhook (atualiza ao editar o identificador).
+function webhookPathSection(scan, slugForm) {
+  const { modelSlug, count, webhookPaths } = scan.slug ?? {};
+  if (!count && !webhookPaths?.length) return null;
+  const rows = h('div', { class: 'list' });
+  const render = () => {
+    const { clientSlug } = slugForm.input();
+    const swapPath = (p) => (clientSlug ? p.replace(new RegExp(modelSlug.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi'), clientSlug) : p);
+    rows.replaceChildren(
+      h('div', { class: 'list-title' }, 'Path do webhook', badge('', String(webhookPaths.length))),
+      ...webhookPaths.map((w) => {
+        const next = swapPath(w.path);
+        return h('div', { class: `map-row ${next === w.path ? 'unmatched' : ''}` },
+          h('div', { class: 'map-from' }, h('div', { class: 'row-title' }, w.node), h('div', { class: 'row-detail mono' }, w.path)),
+          h('span', { class: 'arrow', 'aria-hidden': 'true' }, svg('arrow')),
+          h('div', { class: 'row-title mono' }, next));
+      }));
+  };
+  render();
+  slugForm.el.addEventListener('input', render);
+  return section('', 'Webhook do fluxo',
+    count
+      ? notice(`"${modelSlug}" aparece ${count}× no fluxo e vira o identificador do cliente (o mesmo das URLs dos webhooks do WTS).`, 'info')
+      : notice(`Não achei "${modelSlug}" no fluxo: o path do webhook vai ficar igual ao da conta modelo.`, 'warn'),
+    rows);
+}
+
+function renderN8nMapping(container, source, scan, slugForm) {
   const selects = [];
   const byKind = {};
   for (const ref of scan.references) (byKind[ref.kindLabel] ??= []).push(ref);
@@ -998,6 +1105,7 @@ function renderN8nMapping(container, source, scan) {
       replaceToken: Boolean(tokenBox?.querySelector('input').checked),
       clientToken: clientToken(),
       create: mode === 'create',
+      ...slugForm.input(),
     };
     swap(result, loading(mode === 'create' ? 'Criando o fluxo no n8n...' : 'Gerando o fluxo...'));
     let data;
@@ -1018,7 +1126,8 @@ function renderN8nMapping(container, source, scan) {
           : 'Download feito. No n8n: Importar do arquivo, ou abra o .json e cole no canvas.', 'ok'),
       ...data.warnings.map((w) => notice(w, 'warn')),
       data.created && h('div', { class: 'toolbar' }, h('a', { class: 'btn btn-primary', href: data.created.url, target: '_blank', rel: 'noopener' }, svg('arrow'), h('span', {}, 'Abrir no n8n'))),
-      h('p', { class: 'summary' }, `${data.applied.length} valor(es) trocados.`));
+      data.webhookPaths?.length && notice(`Path do webhook: ${data.webhookPaths.map((w) => w.path).join(', ')}`, 'info'),
+      h('p', { class: 'summary' }, `${data.applied.length} valor(es) trocados${data.slugReplaced ? ` · identificador da empresa trocado ${data.slugReplaced}×` : ''}.`));
   };
 
   const refsCount = scan.references.length;
@@ -1028,6 +1137,7 @@ function renderN8nMapping(container, source, scan) {
         ? notice(`Achei ${refsCount} referência(s) da conta modelo no fluxo. Confira as correspondências; as em amarelo precisam de escolha.`, 'info')
         : notice('Não achei IDs da conta modelo neste fluxo. Confira se ele foi exportado do fluxo da conta modelo.', 'warn'),
       ...lists),
+    webhookPathSection(scan, slugForm),
     (tokenBox || scan.credentials.length) && section('3', 'Credenciais',
       tokenBox,
       scan.credentials.length

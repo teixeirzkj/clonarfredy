@@ -8,7 +8,7 @@ copiando o padrão da **conta modelo**, só com a API pública do WTS.
 | Área | O que faz |
 |---|---|
 | **Configurar tudo** | Prévia única de etiquetas, equipes e webhooks padrão que faltam; cria tudo com um clique |
-| Etiquetas / Equipes / Webhooks | Mesmo fluxo, um tipo por vez (`/core/v1/tag`, `/core/v1/department`, `/core/v1/webhook/subscription`) |
+| Etiquetas / Equipes / Webhooks | Mesmo fluxo, um tipo por vez (`/core/v1/tag`, `/core/v1/department`, `/core/v1/webhook/subscription`). Nos webhooks, o nome da empresa no fim da URL é trocado pelo do cliente (`…/alteracaodepainelembarque22palmitos` → `…/alteracaodepainelcontaexemplo`) |
 | Usuários | Cria usuários a partir de um formulário (`/core/v1/agent`) |
 | **Fluxos do n8n** | Lê os fluxos padrão, acha os IDs da conta modelo (painel, etapas, campos, bot key, etiquetas, equipes...) e troca pelos do cliente, casando pelo nome. Download do `.json`, copiar para colar no n8n, ou criar direto via API do n8n |
 | **Montar prompt da IA** | Adapta o prompt padrão com as mensagens do cliente usando Claude (`claude-opus-5-5`, com fallback automático se o modelo recusar). O resultado pode ir direto para o fluxo do agente |
@@ -44,6 +44,7 @@ própria tela). Veja `templates/n8n/LEIA-ME.md`. O prompt padrão da IA fica em
 | `APP_PASSWORD` | Senha da página |
 | `SESSION_SECRET` | Segredo da sessão (mín. 32 caracteres) |
 | `ANTHROPIC_API_KEY` | Montar prompt da IA |
+| `WEBHOOK_MODEL_SLUG` | Opcional: trecho da conta modelo no fim das URLs dos webhooks (padrão `embarque22palmitos`), trocado pelo identificador do cliente |
 | `N8N_BASE_URL`, `N8N_API_KEY` | Opcional: botão "Criar no n8n" |
 
 ## Rodar localmente
