@@ -358,8 +358,17 @@ function showLogin(message = '') {
   $('password').focus();
 }
 
+// Configuração da tela (identificador da conta modelo etc.), carregada uma vez.
+async function loadConfig() {
+  if (state.config) return;
+  try {
+    state.config = await api('config');
+  } catch { /* a tela funciona sem; o servidor aplica o padrão */ }
+}
+
 function showGrid() {
   if (state.busy) return;
+  loadConfig();
   setHeader('Setup da Conta', 'Escolha o que configurar na conta do cliente', false);
   showView('grid');
   renderGrid({ animate: true });
@@ -656,37 +665,69 @@ async function runApply(container, plan, originalGroups) {
 
 // ---------- Webhooks (trocam o nome da empresa na URL) ----------
 
-function webhookSlugForm() {
+// Só o que é aceito no identificador: minúsculas, números, - e _.
+const cleanSlug = (text) => String(text || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/[^a-z0-9_-]/g, '');
+
+function webhookSlugForm({ withName = false } = {}) {
+  const modelSlug = () => modelInput.value.trim() || state.config?.modelSlug || 'embarque22palmitos';
+  const preview = h('p', { class: 'hint slug-preview' });
+  const updatePreview = () => {
+    const client = clientInput.value.trim();
+    preview.replaceChildren(client
+      ? h('span', {}, 'Nas URLs e no path do webhook, ', h('code', {}, modelSlug()), ' vira ', h('code', {}, client), '.')
+      : h('span', {}, 'Digite o nome do cliente acima ou o identificador aqui.'));
+  };
+
   const clientInput = h('input', {
     type: 'text',
     placeholder: 'ex.: contaexemplo',
     value: state.clientSlug || compactSlug(state.clientName),
     spellcheck: false,
-    oninput: (e) => { state.clientSlug = e.target.value.trim().toLowerCase(); },
+    oninput: (e) => {
+      const clean = cleanSlug(e.target.value);
+      if (clean !== e.target.value) e.target.value = clean;
+      state.clientSlug = clean;
+      updatePreview();
+    },
   });
   const modelInput = h('input', {
     type: 'text',
-    placeholder: 'automático',
-    value: state.modelSlug,
+    value: state.modelSlug || state.config?.modelSlug || '',
+    placeholder: 'embarque22palmitos',
     spellcheck: false,
-    oninput: (e) => { state.modelSlug = e.target.value.trim().toLowerCase(); },
+    oninput: (e) => { e.target.value = cleanSlug(e.target.value); state.modelSlug = e.target.value; updatePreview(); },
   });
+
+  // Nos blocos de webhook não há outro campo de nome: ele entra aqui.
+  const nameInput = withName && h('input', {
+    type: 'text',
+    placeholder: 'Ex.: Conta Exemplo',
+    value: state.clientName,
+    oninput: (e) => { state.clientName = e.target.value; form.syncFromName(e.target.value); },
+  });
+
   const el = h('div', { class: 'panel-section' },
-    h('div', { class: 'form-grid' },
+    nameInput && h('label', { class: 'field slug-name' }, 'Nome do cliente', nameInput),
+    h('label', { class: 'field' },
+      h('span', {}, 'Identificador do cliente na URL', h('span', { class: 'field-hint' }, ' · preenche sozinho pelo nome do cliente')),
+      clientInput),
+    preview,
+    h('details', { class: 'advanced' },
+      h('summary', {}, 'Avançado: identificador da conta modelo'),
       h('label', { class: 'field' },
-        h('span', {}, 'Identificador do cliente na URL', h('span', { class: 'field-hint' }, ' · sem espaço nem acento')), clientInput),
-      h('label', { class: 'field' },
-        h('span', {}, 'Trecho da conta modelo', h('span', { class: 'field-hint' }, ' · o que será trocado')), modelInput)),
-    h('p', { class: 'hint' }, 'Ex.: …/webhook/alteracaodepainelembarque22palmitos vira …/webhook/alteracaodepainelcontaexemplo.'));
+        h('span', {}, 'Identificador da conta modelo', h('span', { class: 'field-hint' }, ' · normalmente não precisa mexer')),
+        modelInput)));
+  updatePreview();
 
   let autoValue = clientInput.value;
-  return {
+  const form = {
     el,
     // Acompanha o nome do cliente enquanto o identificador não foi editado à mão.
     syncFromName: (name) => {
       if (clientInput.value !== autoValue) return;
       clientInput.value = autoValue = compactSlug(name);
       state.clientSlug = clientInput.value;
+      updatePreview();
     },
     input: () => {
       state.clientSlug = clientInput.value.trim().toLowerCase();
@@ -694,13 +735,14 @@ function webhookSlugForm() {
     },
     // Mostra o trecho que o servidor usou (env ou detectado), para conferência.
     onMeta: (meta) => {
-      if (meta?.modelSlug && !modelInput.value) modelInput.value = meta.modelSlug;
+      if (meta?.modelSlug && !modelInput.value) { modelInput.value = meta.modelSlug; updatePreview(); }
     },
   };
+  return form;
 }
 
 function renderWebhooksBlock(view, block) {
-  const form = webhookSlugForm();
+  const form = webhookSlugForm({ withName: true });
   const body = h('div');
   view.append(form.el,
     h('div', { class: 'toolbar' }, h('span', { class: 'spacer' }),
@@ -712,7 +754,7 @@ function renderWebhooksBlock(view, block) {
 // ---------- Configurar tudo ----------
 
 function renderSetupAll(view) {
-  const form = webhookSlugForm();
+  const form = webhookSlugForm({ withName: true });
   const body = h('div');
   const start = () => loadPreview(body, SETUP_ALL_BLOCKS.map((id) => (id === 'webhooks'
     ? { block: BLOCK_BY_ID[id], input: form.input(), onMeta: form.onMeta }
@@ -1061,40 +1103,117 @@ function webhookPathSection(scan, slugForm) {
     rows);
 }
 
+const normalizeName = (s) => String(s ?? '').normalize('NFC').trim().replace(/\s+/g, ' ').toLowerCase();
+
 function renderN8nMapping(container, source, scan, slugForm) {
-  const selects = [];
+  const entries = [];
   const byKind = {};
   for (const ref of scan.references) (byKind[ref.kindLabel] ??= []).push(ref);
+
+  const optionsFor = (ref) => (ref.isId ? scan.idOptions : scan.options)[ref.kind] ?? [];
+  // Painel do cliente escolhido para um painel do modelo (quando ele aparece no fluxo).
+  const panelChoice = (modelPanelId) =>
+    entries.find((e) => e.ref.kind === 'panel' && e.ref.from === modelPanelId)?.select.value || null;
+
+  // Monta as opções da linha. Etapas e campos mostram só o painel escolhido
+  // e são sugeridos de novo pelo nome quando o painel muda.
+  function fill(entry) {
+    const { ref, select } = entry;
+    const clientPanel = ref.modelPanelId ? panelChoice(ref.modelPanelId) : null;
+    const options = optionsFor(ref).filter((o) => !clientPanel || o.panelId === clientPanel);
+    const previous = select.value;
+    select.replaceChildren(
+      h('option', { value: '' }, '— escolha —'),
+      ...options.map((o) => h('option', { value: o.value }, o.group && !clientPanel ? `${o.group} › ${o.label}` : o.label)));
+    const byName = options.find((o) => normalizeName(o.name ?? o.label) === normalizeName(ref.label));
+    select.value = options.some((o) => o.value === previous) ? previous : byName?.value ?? '';
+    markRow(entry);
+  }
+
+  function markRow(entry) {
+    const missing = !entry.select.value;
+    entry.row.classList.toggle('unmatched', missing);
+    entry.flag.hidden = !missing;
+  }
 
   const lists = Object.entries(byKind).map(([kindLabel, refs]) => h('div', { class: 'list' },
     h('div', { class: 'list-title' }, kindLabel, badge('', String(refs.length))),
     refs.map((ref) => {
-      const options = (ref.isId ? scan.idOptions : scan.options)[ref.kind] ?? [];
-      const select = h('select', { 'aria-label': `Trocar ${ref.label}` },
-        h('option', { value: '' }, '— não trocar —'),
-        options.map((o) => h('option', { value: o.value }, o.group ? `${o.group} › ${o.label}` : o.label)));
+      const select = h('select', { 'aria-label': `Trocar ${ref.label}` }, h('option', { value: ref.suggestion ?? '' }));
       select.value = ref.suggestion ?? '';
-      const row = h('div', { class: `map-row ${ref.suggestion ? '' : 'unmatched'}` },
+      const flag = badge('warn', 'Sem correspondência: escolha');
+      const row = h('div', { class: 'map-row' },
         h('div', { class: 'map-from' },
           h('div', { class: 'row-title' }, ref.group ? `${ref.group} › ${ref.label}` : ref.label),
           h('div', { class: 'row-detail mono' }, `${ref.from} · ${ref.count}× no fluxo`),
-          !ref.suggestion && badge('warn', 'Sem correspondência: escolha')),
+          flag),
         h('span', { class: 'arrow', 'aria-hidden': 'true' }, svg('arrow')),
         select);
-      select.onchange = () => row.classList.toggle('unmatched', !select.value);
-      selects.push({ ref, select });
+      const entry = { ref, select, row, flag };
+      select.onchange = () => {
+        markRow(entry);
+        if (ref.kind !== 'panel') return;
+        // Painel trocado: refaz as sugestões das etapas e campos desse painel.
+        for (const dep of entries.filter((e) => e.ref.modelPanelId === ref.from)) {
+          fill(dep);
+          enter(dep.row, { y: 0, scale: 0.99, duration: 280 });
+        }
+      };
+      entries.push(entry);
       return row;
     })));
+
+  // Painéis primeiro: as etapas e campos dependem da escolha deles.
+  entries.filter((e) => e.ref.kind === 'panel').forEach(fill);
+  entries.filter((e) => e.ref.kind !== 'panel').forEach(fill);
+  const selects = entries;
 
   const tokenBox = scan.hasModelToken
     ? h('label', { class: 'check-toggle' }, h('input', { type: 'checkbox', checked: true }), 'Trocar o token da conta modelo pelo token do cliente (o token vai dentro do arquivo)')
     : null;
 
+  // Credencial do WTS: com a API do n8n, cria "Nome do cliente" (Header Auth) e
+  // liga nos nós; no download, os nós ficam com esse nome para escolher no n8n.
+  const wtsCreds = scan.credentials.filter((c) => c.wts);
+  const otherCreds = scan.credentials.filter((c) => !c.wts);
+  const wtsNodes = wtsCreds.reduce((n, c) => n + c.nodes.length, 0);
+  const credentialBox = wtsCreds.length && state.n8nConfigured
+    ? h('label', { class: 'check-toggle' }, h('input', { type: 'checkbox', checked: true }),
+      `Ao clicar em "Criar no n8n", criar a credencial do cliente (Header Auth · Authorization: Bearer + token) e ligar nos ${wtsNodes} nó(s) do WTS`)
+    : null;
+  const credentialNotes = [
+    credentialBox,
+    wtsCreds.length && notice(state.n8nConfigured
+      ? `A credencial "${wtsCreds.map((c) => c.name).join(', ')}" da conta modelo é trocada pela do cliente, com o nome do cliente. No download, os nós ficam com esse nome e você escolhe a credencial no n8n.`
+      : `A credencial "${wtsCreds.map((c) => c.name).join(', ')}" da conta modelo é trocada nos ${wtsNodes} nó(s) do WTS. Ao importar, crie no n8n a credencial com o nome do cliente (Header Auth · Name: Authorization · Value: Bearer + token) e selecione nesses nós. Para criar sozinho, configure a API do n8n.`, 'info'),
+    otherCreds.length && notice(`Outras credenciais ficam como estão: ${otherCreds.map((c) => `${c.name || c.type} (${c.nodes.join(', ')})`).join('; ')}.`, 'info'),
+  ];
+  // Reaproveita a credencial criada nesta sessão para o mesmo cliente e token.
+  const reusableCredential = () => {
+    const saved = state.n8nCredential;
+    return saved && saved.token === clientToken() && saved.clientName === state.clientName ? { id: saved.id, name: saved.name } : null;
+  };
+
   const wantsPrompt = scan.agentNodes.length || scan.hasPromptPlaceholder;
   const promptArea = wantsPrompt ? h('textarea', { placeholder: 'Cole aqui o prompt do cliente ou use o montador.', value: state.builtPrompt }) : null;
 
   const result = h('div');
-  const build = async (mode) => {
+  const build = async (mode, force = false) => {
+    // Linha sem escolha = ID da conta modelo fica no fluxo e o passo falha.
+    const missing = selects.filter((s) => !s.select.value);
+    if (missing.length && !force) {
+      const names = missing.map((s) => `${s.ref.kindLabel}: ${s.ref.group ? `${s.ref.group} › ` : ''}${s.ref.label}`);
+      swap(result,
+        notice(`${missing.length} item(ns) sem correspondência continuariam apontando para a conta modelo: ${names.join('; ')}.`, 'warn'),
+        h('div', { class: 'toolbar' },
+          button('Escolher agora', () => {
+            missing[0].row.scrollIntoView({ behavior: reducedMotion.matches ? 'auto' : 'smooth', block: 'center' });
+            missing[0].select.focus();
+            missing.forEach((s) => enter(s.row, { y: 0, scale: 0.98, duration: 320, easing: SPRING }));
+          }, { variant: 'btn-primary', icon: 'arrow' }),
+          button('Gerar mesmo assim', () => build(mode, true), { variant: 'btn-ghost' })));
+      return;
+    }
     const mapping = selects.filter((s) => s.select.value).map((s) => ({ from: s.ref.from, to: s.select.value }));
     const body = {
       action: 'build',
@@ -1105,6 +1224,8 @@ function renderN8nMapping(container, source, scan, slugForm) {
       replaceToken: Boolean(tokenBox?.querySelector('input').checked),
       clientToken: clientToken(),
       create: mode === 'create',
+      createCredential: Boolean(credentialBox?.querySelector('input').checked),
+      credential: reusableCredential(),
       ...slugForm.input(),
     };
     swap(result, loading(mode === 'create' ? 'Criando o fluxo no n8n...' : 'Gerando o fluxo...'));
@@ -1113,6 +1234,11 @@ function renderN8nMapping(container, source, scan, slugForm) {
       data = await api('n8n', body);
     } catch (err) {
       swap(result, notice(err.message));
+      return;
+    }
+    if (data.credential) state.n8nCredential = { ...data.credential, token: clientToken(), clientName: state.clientName };
+    if (data.createError) {
+      swap(result, notice(`${data.createError}. A credencial "${data.credential.name}" já foi criada e será reaproveitada ao tentar de novo.`));
       return;
     }
     const json = JSON.stringify(data.workflow, null, 2);
@@ -1125,6 +1251,7 @@ function renderN8nMapping(container, source, scan, slugForm) {
           ? 'JSON copiado. No n8n, abra um fluxo vazio e cole com Ctrl+V.'
           : 'Download feito. No n8n: Importar do arquivo, ou abra o .json e cole no canvas.', 'ok'),
       ...data.warnings.map((w) => notice(w, 'warn')),
+      data.credential && notice(`Credencial "${data.credential.name}" ligada em ${data.credentialNodes} nó(s) do WTS.`, 'ok'),
       data.created && h('div', { class: 'toolbar' }, h('a', { class: 'btn btn-primary', href: data.created.url, target: '_blank', rel: 'noopener' }, svg('arrow'), h('span', {}, 'Abrir no n8n'))),
       data.webhookPaths?.length && notice(`Path do webhook: ${data.webhookPaths.map((w) => w.path).join(', ')}`, 'info'),
       h('p', { class: 'summary' }, `${data.applied.length} valor(es) trocados${data.slugReplaced ? ` · identificador da empresa trocado ${data.slugReplaced}×` : ''}.`));
@@ -1140,9 +1267,7 @@ function renderN8nMapping(container, source, scan, slugForm) {
     webhookPathSection(scan, slugForm),
     (tokenBox || scan.credentials.length) && section('3', 'Credenciais',
       tokenBox,
-      scan.credentials.length
-        ? notice(`Depois de importar, selecione a credencial do cliente em: ${scan.credentials.map((c) => `${c.name || c.type} (${c.nodes.join(', ')})`).join('; ')}.`, 'info')
-        : null),
+      ...credentialNotes),
     wantsPrompt && section('4', 'Prompt do agente de IA',
       h('label', { class: 'field' }, h('span', {}, 'Prompt', h('span', { class: 'field-hint' }, scan.hasPromptPlaceholder ? ' · entra no lugar de {{PROMPT_CLIENTE}}' : ` · vai no nó: ${scan.agentNodes.join(', ')}`)), promptArea),
       h('div', { class: 'toolbar' }, button('Montar prompt', () => openBlock(BLOCK_BY_ID.prompt), { variant: 'btn-ghost btn-small', icon: 'sparkle' }))),

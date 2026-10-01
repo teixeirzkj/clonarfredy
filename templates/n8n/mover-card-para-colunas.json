@@ -1,0 +1,1663 @@
+{
+  "name": "[Mover o card para colunas] Embarque 22 Palmitos",
+  "nodes": [
+    {
+      "parameters": {
+        "fieldToSplitOut": "items",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.splitOut",
+      "typeVersion": 1,
+      "position": [
+        560,
+        -736
+      ],
+      "id": "0bccead4-814c-467c-90fb-041bf7fd829c",
+      "name": "Split Out2"
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [
+        784,
+        -736
+      ],
+      "id": "e9a813d2-31b0-4548-ab8c-867c4bd677f4",
+      "name": "1 por vez2"
+    },
+    {
+      "parameters": {
+        "amount": 3
+      },
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        2032,
+        -800
+      ],
+      "id": "f72a7af6-eb67-44ae-a2ac-4ce68894cce1",
+      "name": "Wait5",
+      "webhookId": "2a42f133-5a8e-4dd2-b053-d43de5c4cf26"
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "triggerAtHour": 9,
+              "triggerAtMinute": 15
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        -96,
+        -720
+      ],
+      "id": "6c270711-d19d-4da6-801a-8b6b18f246d1",
+      "name": "Schedule Trigger2"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "41f506a5-5ac7-4200-8170-9009f78cd4d3",
+              "leftValue": "={{ $json.totalItems }}",
+              "rightValue": 1,
+              "operator": {
+                "type": "number",
+                "operation": "gte"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "looseTypeValidation": true,
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        352,
+        -720
+      ],
+      "id": "b47f3ed2-2111-4702-9fdd-abaa4634009e",
+      "name": "Algum card?2"
+    },
+    {
+      "parameters": {
+        "url": "=https://api.wts.chat/core/v1/contact/{{ $node[\"1 por vez2\"].json[\"contacts\"][\"0\"][\"id\"] }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "accept",
+              "value": "application/json"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1360,
+        -800
+      ],
+      "id": "e39bb20e-3e6e-4b8e-b80b-b529774639ee",
+      "name": "Buscar contato2",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "PU7HM5LVTKkroorL",
+          "name": "Embarque 22 Palmitos"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "url": "https://api.wts.chat/crm/v1/panel/card?IncludeDetails=Contacts&IncludeDetails=CustomFields&IncludeArchived=true",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "PanelId",
+              "value": "448b8d5d-0fec-48a8-afe6-e4ca027ff9e9"
+            },
+            {
+              "name": "StepId",
+              "value": "93e2a7d7-0e5b-4836-b2c2-b5efb38e041b"
+            },
+            {
+              "name": "PageSize",
+              "value": "100"
+            }
+          ]
+        },
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "accept",
+              "value": "application/json"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        128,
+        -736
+      ],
+      "id": "ac05cab7-0b3c-45e5-9b70-bfd60e05e4c9",
+      "name": "Buscar cards em Pós - Venda",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "PU7HM5LVTKkroorL",
+          "name": "Embarque 22 Palmitos"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "fieldToSplitOut": "items",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.splitOut",
+      "typeVersion": 1,
+      "position": [
+        704,
+        -400
+      ],
+      "id": "b48a9dd7-e4e8-4363-a18c-a76f2fa4e241",
+      "name": "Split Out1"
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [
+        928,
+        -416
+      ],
+      "id": "cad73693-38c6-48d4-b9c7-de033dc07aa2",
+      "name": "1 por vez1"
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "triggerAtHour": 9,
+              "triggerAtMinute": 25
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        -16,
+        -320
+      ],
+      "id": "c126cbab-3b33-4f3f-b88c-d00f63024cec",
+      "name": "Schedule Trigger1"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "41f506a5-5ac7-4200-8170-9009f78cd4d3",
+              "leftValue": "={{ $json.totalItems }}",
+              "rightValue": 1,
+              "operator": {
+                "type": "number",
+                "operation": "gte"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "looseTypeValidation": true,
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        448,
+        -320
+      ],
+      "id": "e280f2fe-7589-4991-a867-7f5f73739f11",
+      "name": "Algum card?1"
+    },
+    {
+      "parameters": {
+        "fieldToSplitOut": "items",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.splitOut",
+      "typeVersion": 1,
+      "position": [
+        704,
+        512
+      ],
+      "id": "eaa5309b-4760-4872-913a-b3f96d6bf9f5",
+      "name": "Split Out3"
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [
+        928,
+        512
+      ],
+      "id": "808a7481-7041-4ff6-8dcb-a1739d3bdb2d",
+      "name": "1 por vez3"
+    },
+    {
+      "parameters": {
+        "amount": 2
+      },
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        1680,
+        768
+      ],
+      "id": "bf0828a5-7ac8-4121-a6e5-0d365efb40ef",
+      "name": "Wait2",
+      "webhookId": "5618d6ce-f265-4538-b91b-bfc484510ff5"
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "triggerAtHour": 9,
+              "triggerAtMinute": 30
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        -16,
+        608
+      ],
+      "id": "a0a26623-2b8a-4cab-aa41-4ab85ad6425a",
+      "name": "Schedule Trigger3"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "41f506a5-5ac7-4200-8170-9009f78cd4d3",
+              "leftValue": "={{ $json.totalItems }}",
+              "rightValue": 1,
+              "operator": {
+                "type": "number",
+                "operation": "gte"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "looseTypeValidation": true,
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        480,
+        608
+      ],
+      "id": "54c04c5f-cf3e-4701-9b15-debd03018d9b",
+      "name": "Algum card?3"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "fe95f0d9-21c1-4ffd-a62f-38cbd6abcde9",
+              "leftValue": "={{ $json.customFields['data-de-ida'][0].split('T')[0] }}",
+              "rightValue": "={{ $now.toFormat(\"yyyy/MM/dd\") }}",
+              "operator": {
+                "type": "string",
+                "operation": "equals",
+                "name": "filter.operator.equals"
+              }
+            }
+          ],
+          "combinator": "or"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        1120,
+        -384
+      ],
+      "id": "3edc1e46-ab36-4c18-8e30-907bf5f56b4d",
+      "name": "Dia da viagem"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "fe95f0d9-21c1-4ffd-a62f-38cbd6abcde9",
+              "leftValue": "={{ $json.customFields['data-de-retorno'][0].split('T')[0] }}",
+              "rightValue": "={{ $now.minus({day: 3}).toFormat(\"yyyy/MM/dd\") }}",
+              "operator": {
+                "type": "string",
+                "operation": "equals",
+                "name": "filter.operator.equals"
+              }
+            }
+          ],
+          "combinator": "or"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        1168,
+        624
+      ],
+      "id": "51d936a8-416a-4fbe-8b31-3bc4bd9ce711",
+      "name": "Dia da volta"
+    },
+    {
+      "parameters": {
+        "method": "PUT",
+        "url": "=https://api.wts.chat/crm/v1/panel/card/{{ $json.id }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "accept",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/*+json",
+        "body": " { \"fields\": [ \"StepId\",\"Archived\" ], \"stepId\": \"0c312d94-621a-4b70-8876-04e76a1a71b6\", \"archived\": false } ",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1408,
+        544
+      ],
+      "id": "9f773b58-7f74-431e-a5c8-1bb1c7b2c0fe",
+      "name": "Mover para Concluído",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "PU7HM5LVTKkroorL",
+          "name": "Embarque 22 Palmitos"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "fe95f0d9-21c1-4ffd-a62f-38cbd6abcde9",
+              "leftValue": "={{ $json.customFields['data-de-retorno'][0].split('T')[0] }}",
+              "rightValue": "={{ $now.minus({day: 2}).toFormat(\"yyyy/MM/dd\") }}",
+              "operator": {
+                "type": "string",
+                "operation": "equals",
+                "name": "filter.operator.equals"
+              }
+            }
+          ],
+          "combinator": "or"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        1088,
+        -784
+      ],
+      "id": "8566329a-53ad-445b-b752-6c77a21a6ada",
+      "name": "feedback 2 dias após a volta"
+    },
+    {
+      "parameters": {
+        "url": "https://api.wts.chat/crm/v1/panel/card?IncludeDetails=Contacts&IncludeDetails=CustomFields&IncludeArchived=true",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "PanelId",
+              "value": "448b8d5d-0fec-48a8-afe6-e4ca027ff9e9"
+            },
+            {
+              "name": "StepId",
+              "value": "171152c1-0704-4585-bd20-6851ec5906c4"
+            },
+            {
+              "name": "PageSize",
+              "value": "100"
+            }
+          ]
+        },
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "accept",
+              "value": "application/json"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        224,
+        -352
+      ],
+      "id": "93dbe42c-6c33-46cc-8496-2ecc419a1c57",
+      "name": "Buscar cards ( Lembrete checkin )",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "PU7HM5LVTKkroorL",
+          "name": "Embarque 22 Palmitos"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.wts.chat/chat/v1/chatbot/send",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "accept",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/*+json",
+        "body": "= {\n  \"botId\": \"919b0571-1d28-4dba-b0ad-183253fa6f0f\", \"to\": \"{{ $node[\"Buscar contato2\"].json[\"phoneNumberFormatted\"] }}\", \"options\": { \"skipIfBotInExecution\": false, \"skipIfInProgress\": false, \"forceStartSession\": false } } ",
+        "options": {}
+      },
+      "id": "0f2e69ce-21ce-4321-9e30-cdf0f8739608",
+      "name": "Enviar fluxo lembrete feedback",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [
+        1600,
+        -800
+      ],
+      "retryOnFail": true,
+      "waitBetweenTries": 5000,
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "PU7HM5LVTKkroorL",
+          "name": "Embarque 22 Palmitos"
+        }
+      },
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "method": "PUT",
+        "url": "=https://api.wts.chat/crm/v1/panel/card/{{ $json.id }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "accept",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/*+json",
+        "body": " { \"fields\": [ \"StepId\",\"Archived\" ], \"stepId\": \"1e0b0bf6-205a-4840-b6e4-afda8d0418e5\", \"archived\": false } ",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1360,
+        -448
+      ],
+      "id": "e108e11c-a10b-4803-8642-efa34de44f18",
+      "name": "Mover para Em Viagem",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "PU7HM5LVTKkroorL",
+          "name": "Embarque 22 Palmitos"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "url": "https://api.wts.chat/crm/v1/panel/card?IncludeDetails=Contacts&IncludeDetails=CustomFields&IncludeArchived=true",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "PanelId",
+              "value": "448b8d5d-0fec-48a8-afe6-e4ca027ff9e9"
+            },
+            {
+              "name": "StepId",
+              "value": "93e2a7d7-0e5b-4836-b2c2-b5efb38e041b"
+            },
+            {
+              "name": "PageSize",
+              "value": "100"
+            }
+          ]
+        },
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "accept",
+              "value": "application/json"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        272,
+        608
+      ],
+      "id": "6692b750-3fa7-4d00-8e52-0578c317d109",
+      "name": "Buscar cards ( Lembrete Pós viagem )",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "PU7HM5LVTKkroorL",
+          "name": "Embarque 22 Palmitos"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "amount": 2
+      },
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        1648,
+        -288
+      ],
+      "id": "872b7452-e20c-40fe-9944-f6a6398e8086",
+      "name": "Wait1",
+      "webhookId": "a29063b8-b108-40ed-93c6-998ef115af15"
+    },
+    {
+      "parameters": {
+        "fieldToSplitOut": "items",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.splitOut",
+      "typeVersion": 1,
+      "position": [
+        560,
+        -1024
+      ],
+      "id": "4d4a0e9d-b9e5-4144-8071-6f8560248664",
+      "name": "Split Out"
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "triggerAtHour": 9,
+              "triggerAtMinute": 15
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        -96,
+        -1008
+      ],
+      "id": "400a1334-3929-4dc8-84a5-390db4dcfb72",
+      "name": "Schedule Trigger"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "41f506a5-5ac7-4200-8170-9009f78cd4d3",
+              "leftValue": "={{ $json.totalItems }}",
+              "rightValue": 1,
+              "operator": {
+                "type": "number",
+                "operation": "gte"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "looseTypeValidation": true,
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        352,
+        -1008
+      ],
+      "id": "eae9ab1e-80c9-4f73-bd40-9ecb3584da8a",
+      "name": "Algum card?"
+    },
+    {
+      "parameters": {
+        "url": "https://api.wts.chat/crm/v1/panel/card?IncludeDetails=Contacts&IncludeDetails=CustomFields&IncludeArchived=true",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "PanelId",
+              "value": "448b8d5d-0fec-48a8-afe6-e4ca027ff9e9"
+            },
+            {
+              "name": "StepId",
+              "value": "171152c1-0704-4585-bd20-6851ec5906c4"
+            },
+            {
+              "name": "PageSize",
+              "value": "100"
+            }
+          ]
+        },
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "accept",
+              "value": "application/json"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        144,
+        -1008
+      ],
+      "id": "39e40fb4-05e6-4d05-b01c-b870d0abb84a",
+      "name": "Buscar cards em Pós - Venda1",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "PU7HM5LVTKkroorL",
+          "name": "Embarque 22 Palmitos"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "amount": 2
+      },
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        1840,
+        -1040
+      ],
+      "id": "eec98de0-c6d8-4de0-8972-31c7e0a1027a",
+      "name": "Wait",
+      "webhookId": "30811d5d-f3f6-46d2-9a59-fdb247daf5fc"
+    },
+    {
+      "parameters": {
+        "url": "=https://api.wts.chat/core/v1/contact/{{ $node[\"1 por vez\"].json[\"contacts\"][\"0\"][\"id\"] }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "accept",
+              "value": "application/json"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1360,
+        -1040
+      ],
+      "id": "e564635c-d98b-41af-af20-4713f745834c",
+      "name": "Buscar contato",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "PU7HM5LVTKkroorL",
+          "name": "Embarque 22 Palmitos"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "fe95f0d9-21c1-4ffd-a62f-38cbd6abcde9",
+              "leftValue": "={{ $json.customFields['data-de-ida'][0].split('T')[0] }}",
+              "rightValue": "={{ $now.plus({day: 1}).toFormat(\"yyyy/MM/dd\") }}",
+              "operator": {
+                "type": "string",
+                "operation": "equals",
+                "name": "filter.operator.equals"
+              }
+            }
+          ],
+          "combinator": "or"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        1072,
+        -1024
+      ],
+      "id": "2b6837c2-97ab-44ce-97d6-a573326864e6",
+      "name": "Checkin 1 dias antes da IDA1"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.wts.chat/chat/v1/chatbot/send",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "accept",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/*+json",
+        "body": "= {\n  \"botId\": \"e2ea057a-24a0-4c90-9bc5-68f9e4473271\", \"to\": \"{{ $node[\"Buscar contato\"].json[\"phoneNumberFormatted\"] }}\", \"options\": { \"skipIfBotInExecution\": false, \"skipIfInProgress\": false, \"forceStartSession\": false } } ",
+        "options": {}
+      },
+      "id": "3986e049-1a4a-4337-b307-7c66e3076836",
+      "name": "Enviar fluxo lembrete checkin1",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [
+        1632,
+        -1040
+      ],
+      "retryOnFail": true,
+      "waitBetweenTries": 5000,
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "PU7HM5LVTKkroorL",
+          "name": "Embarque 22 Palmitos"
+        }
+      },
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [
+        784,
+        -1024
+      ],
+      "id": "b035fb80-868d-4a8b-b960-57f3b5bb5c82",
+      "name": "1 por vez"
+    },
+    {
+      "parameters": {
+        "fieldToSplitOut": "items",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.splitOut",
+      "typeVersion": 1,
+      "position": [
+        672,
+        -48
+      ],
+      "id": "ea91d930-5284-435d-b637-c8444dad94ea",
+      "name": "Split Out4"
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [
+        880,
+        -48
+      ],
+      "id": "b1ae44f7-7cab-43f8-88d7-2b5e299bdf14",
+      "name": "1 por vez4"
+    },
+    {
+      "parameters": {
+        "amount": 2
+      },
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        1632,
+        288
+      ],
+      "id": "91058b05-b915-436c-b467-888160f3c2b0",
+      "name": "Wait3",
+      "webhookId": "b7aeaba0-66b0-44ff-bcb8-64ccf34cd7bc"
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "triggerAtHour": 9,
+              "triggerAtMinute": 30
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        -48,
+        128
+      ],
+      "id": "d26cee17-2b08-4c2d-8d0d-af1974370143",
+      "name": "Schedule Trigger4"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "41f506a5-5ac7-4200-8170-9009f78cd4d3",
+              "leftValue": "={{ $json.totalItems }}",
+              "rightValue": 1,
+              "operator": {
+                "type": "number",
+                "operation": "gte"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "looseTypeValidation": true,
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        464,
+        128
+      ],
+      "id": "49f1dae9-1c2c-4190-bf84-f99a703ba6f5",
+      "name": "Algum card?4"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "fe95f0d9-21c1-4ffd-a62f-38cbd6abcde9",
+              "leftValue": "={{ $json.customFields['data-de-retorno'][0].split('T')[0] }}",
+              "rightValue": "={{ $now.toFormat(\"yyyy/MM/dd\") }}",
+              "operator": {
+                "type": "string",
+                "operation": "equals",
+                "name": "filter.operator.equals"
+              }
+            }
+          ],
+          "combinator": "or"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        1152,
+        144
+      ],
+      "id": "cac84533-bb8e-4674-ac42-936ee6a82836",
+      "name": "Dia da volta1"
+    },
+    {
+      "parameters": {
+        "url": "https://api.wts.chat/crm/v1/panel/card?IncludeDetails=Contacts&IncludeDetails=CustomFields&IncludeArchived=true",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "PanelId",
+              "value": "448b8d5d-0fec-48a8-afe6-e4ca027ff9e9"
+            },
+            {
+              "name": "StepId",
+              "value": "1e0b0bf6-205a-4840-b6e4-afda8d0418e5"
+            },
+            {
+              "name": "PageSize",
+              "value": "100"
+            }
+          ]
+        },
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "accept",
+              "value": "application/json"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        224,
+        128
+      ],
+      "id": "2ff6bbb9-cfa7-4b93-b0e9-7400210d06c9",
+      "name": "Buscar cards ( Em viagem )",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "PU7HM5LVTKkroorL",
+          "name": "Embarque 22 Palmitos"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "PUT",
+        "url": "=https://api.wts.chat/crm/v1/panel/card/{{ $json.id }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "accept",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/*+json",
+        "body": " { \"fields\": [ \"StepId\",\"Archived\" ], \"stepId\": \"93e2a7d7-0e5b-4836-b2c2-b5efb38e041b\", \"archived\": false } ",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1392,
+        64
+      ],
+      "id": "5336ca4d-ab6c-406f-888a-5ef393efef93",
+      "name": "Mover para Lembrete pós",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "PU7HM5LVTKkroorL",
+          "name": "Embarque 22 Palmitos"
+        }
+      }
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Split Out2": {
+      "main": [
+        [
+          {
+            "node": "1 por vez2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "1 por vez2": {
+      "main": [
+        [],
+        [
+          {
+            "node": "feedback 2 dias após a volta",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wait5": {
+      "main": [
+        [
+          {
+            "node": "1 por vez2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Schedule Trigger2": {
+      "main": [
+        [
+          {
+            "node": "Buscar cards em Pós - Venda",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Algum card?2": {
+      "main": [
+        [
+          {
+            "node": "Split Out2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Buscar contato2": {
+      "main": [
+        [
+          {
+            "node": "Enviar fluxo lembrete feedback",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Buscar cards em Pós - Venda": {
+      "main": [
+        [
+          {
+            "node": "Algum card?2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Split Out1": {
+      "main": [
+        [
+          {
+            "node": "1 por vez1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "1 por vez1": {
+      "main": [
+        [],
+        [
+          {
+            "node": "Dia da viagem",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Schedule Trigger1": {
+      "main": [
+        [
+          {
+            "node": "Buscar cards ( Lembrete checkin )",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Algum card?1": {
+      "main": [
+        [
+          {
+            "node": "Split Out1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Split Out3": {
+      "main": [
+        [
+          {
+            "node": "1 por vez3",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "1 por vez3": {
+      "main": [
+        [],
+        [
+          {
+            "node": "Dia da volta",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wait2": {
+      "main": [
+        [
+          {
+            "node": "1 por vez3",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Schedule Trigger3": {
+      "main": [
+        [
+          {
+            "node": "Buscar cards ( Lembrete Pós viagem )",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Algum card?3": {
+      "main": [
+        [
+          {
+            "node": "Split Out3",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Dia da viagem": {
+      "main": [
+        [
+          {
+            "node": "Mover para Em Viagem",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Wait1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Dia da volta": {
+      "main": [
+        [
+          {
+            "node": "Mover para Concluído",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Wait2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Mover para Concluído": {
+      "main": [
+        [
+          {
+            "node": "Wait2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "feedback 2 dias após a volta": {
+      "main": [
+        [
+          {
+            "node": "Buscar contato2",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "1 por vez2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Buscar cards ( Lembrete checkin )": {
+      "main": [
+        [
+          {
+            "node": "Algum card?1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Enviar fluxo lembrete feedback": {
+      "main": [
+        [
+          {
+            "node": "Wait5",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Mover para Em Viagem": {
+      "main": [
+        [
+          {
+            "node": "Wait1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Buscar cards ( Lembrete Pós viagem )": {
+      "main": [
+        [
+          {
+            "node": "Algum card?3",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wait1": {
+      "main": [
+        [
+          {
+            "node": "1 por vez1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Schedule Trigger": {
+      "main": [
+        [
+          {
+            "node": "Buscar cards em Pós - Venda1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Algum card?": {
+      "main": [
+        [
+          {
+            "node": "Split Out",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Buscar cards em Pós - Venda1": {
+      "main": [
+        [
+          {
+            "node": "Algum card?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Buscar contato": {
+      "main": [
+        [
+          {
+            "node": "Enviar fluxo lembrete checkin1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Checkin 1 dias antes da IDA1": {
+      "main": [
+        [
+          {
+            "node": "Buscar contato",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "1 por vez",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Enviar fluxo lembrete checkin1": {
+      "main": [
+        [
+          {
+            "node": "Wait",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Split Out": {
+      "main": [
+        [
+          {
+            "node": "1 por vez",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "1 por vez": {
+      "main": [
+        [],
+        [
+          {
+            "node": "Checkin 1 dias antes da IDA1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wait": {
+      "main": [
+        [
+          {
+            "node": "1 por vez",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Split Out4": {
+      "main": [
+        [
+          {
+            "node": "1 por vez4",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "1 por vez4": {
+      "main": [
+        [],
+        [
+          {
+            "node": "Dia da volta1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wait3": {
+      "main": [
+        [
+          {
+            "node": "1 por vez4",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Schedule Trigger4": {
+      "main": [
+        [
+          {
+            "node": "Buscar cards ( Em viagem )",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Algum card?4": {
+      "main": [
+        [
+          {
+            "node": "Split Out4",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Dia da volta1": {
+      "main": [
+        [
+          {
+            "node": "Mover para Lembrete pós",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Wait3",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Buscar cards ( Em viagem )": {
+      "main": [
+        [
+          {
+            "node": "Algum card?4",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Mover para Lembrete pós": {
+      "main": [
+        [
+          {
+            "node": "Wait3",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "callerPolicy": "workflowsFromSameOwner",
+    "errorWorkflow": "IcFpm96dSVAmMsWY",
+    "timezone": "America/Manaus"
+  },
+  "versionId": "647aebbe-a997-4430-b463-31d8de841b6a",
+  "meta": {
+    "instanceId": "be9057ebeb5d2661ac1bd40c94a5344b9c9b6b399b17155702b6047982f9fe9c"
+  },
+  "id": "ODiyNWgamCrrYgKA",
+  "tags": [
+    {
+      "updatedAt": "2024-12-17T11:51:21.339Z",
+      "createdAt": "2024-12-17T11:51:21.339Z",
+      "id": "EypGWyD6jjGuDL2k",
+      "name": "Frédy"
+    }
+  ]
+}

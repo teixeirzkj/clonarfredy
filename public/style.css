@@ -624,6 +624,35 @@ table.data tbody tr:hover { background: var(--blue-50); }
 }
 .drop:hover, .drop.dragging { border-color: var(--blue-500); background: var(--blue-100); transform: scale(1.01); }
 .drop input { display: none; }
+
+/* Identificador do cliente nos webhooks */
+.slug-name { margin-bottom: 12px; }
+.slug-preview { margin: 8px 0 0; font-size: 12.5px; color: var(--muted); }
+.slug-preview code, .hint code {
+  padding: 1px 6px;
+  border-radius: 6px;
+  background: var(--blue-50);
+  color: var(--blue-700);
+  font-family: ui-monospace, "SFMono-Regular", Consolas, monospace;
+  font-size: 12px;
+}
+details.advanced { margin-top: 12px; }
+details.advanced summary {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+  color: var(--faint);
+  font-size: 12.5px;
+  font-weight: 700;
+  list-style: none;
+  transition: color 0.15s;
+}
+details.advanced summary::-webkit-details-marker { display: none; }
+details.advanced summary::before { content: "▸"; transition: transform 0.2s var(--spring); }
+details.advanced[open] summary::before { transform: rotate(90deg); }
+details.advanced summary:hover { color: var(--blue-700); }
+details.advanced .field { margin-top: 10px; max-width: 420px; }
 .drop-wrap { margin: 12px 0; }
 .toolbar .filter { width: 260px; min-height: 40px; }
 
