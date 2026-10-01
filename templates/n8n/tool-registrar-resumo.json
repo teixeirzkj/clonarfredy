@@ -1,0 +1,356 @@
+{
+  "name": "[Nome empresa exemplo] I.A Registrar resumo do cliente",
+  "nodes": [
+    {
+      "parameters": {
+        "workflowInputs": {
+          "values": [
+            {
+              "name": "telefone"
+            },
+            {
+              "name": "sessionId"
+            },
+            {
+              "name": "resumo"
+            },
+            {
+              "name": "redisKey"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.1,
+      "position": [
+        -1104,
+        -16
+      ],
+      "id": "84469724-173f-42c7-9f24-effb6358c2b0",
+      "name": "Workflow Input Trigger"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "2f132731-5348-4f43-813c-f0e7d03d15ce",
+              "name": "response",
+              "value": "sucesso",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        160,
+        192
+      ],
+      "id": "81335227-a5bb-41f3-bb0f-78d684a5f637",
+      "name": "response"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://api.wts.chat/chat/v1/session/{{ $node[\"campos básicos1\"].json[\"sessionId\"] }}/note",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "accept",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/*+json",
+        "body": "={\"text\":{{ JSON.stringify($node[\"campos básicos1\"].json[\"resumo\"]) }}}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        160,
+        -48
+      ],
+      "id": "1a6d17c6-3e03-4148-90f0-47d8e91e3793",
+      "name": "salvar nota de resumo",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "AxAuw64u57Wx1L89",
+          "name": "Bebecê Viagens [Frédy]"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "3220e38a-5b8d-4ae3-8b94-de327882f08a",
+              "leftValue": "={{ $node[\"campos básicos1\"].json[\"resumo\"] }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        -80,
+        -16
+      ],
+      "id": "ae511d86-57c8-4d3e-a55f-5baa197a292f",
+      "name": "resumo enviado?"
+    },
+    {
+      "parameters": {
+        "operation": "set",
+        "key": "={{ $node[\"Workflow Input Trigger\"].json[\"redisKey\"] }}",
+        "value": "atendimento_transferido"
+      },
+      "type": "n8n-nodes-base.redis",
+      "typeVersion": 1,
+      "position": [
+        -496,
+        -16
+      ],
+      "id": "b91d07ab-9023-4f97-8869-cff3f29442c7",
+      "name": "Set action",
+      "credentials": {
+        "redis": {
+          "id": "5RndZyOTh3c6rRHB",
+          "name": "Redis Téte à Téte DB 12"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "amount": 2
+      },
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        -928,
+        -16
+      ],
+      "id": "132bbd48-0e22-402e-96a2-075163959f8b",
+      "name": "Wait",
+      "webhookId": "0d27af13-cf09-4294-ad96-171fee24ce07"
+    },
+    {
+      "parameters": {
+        "method": "PUT",
+        "url": "=https://api.wts.chat/chat/v1/session/{{ $node[\"campos básicos1\"].json[\"sessionId\"] }}/transfer",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "accept",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/*+json",
+        "body": " { \"type\": \"DEPARTMENT\", \"newDepartmentId\": \"23d12d08-a03a-40a9-b2cc-6daec6314c3c\", \"options\": { \"stopBotInExecution\": false } } ",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -288,
+        -16
+      ],
+      "id": "e7919fa5-4956-419e-8e22-8c363d8e4b01",
+      "name": "transferirequipe",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "AxAuw64u57Wx1L89",
+          "name": "Bebecê Viagens [Frédy]"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "a78e81c0-8be8-4d12-b9f2-bdc7544dc961",
+              "name": "telefone",
+              "value": "={{ $json.telefone }}",
+              "type": "string"
+            },
+            {
+              "id": "5fe72ec4-265c-4427-b6cc-8dfc6213581d",
+              "name": "sessionId",
+              "value": "={{ $json.sessionId }}",
+              "type": "string"
+            },
+            {
+              "id": "9f35479e-061d-4b89-8e0b-94f02521c212",
+              "name": "resumo",
+              "value": "={{ $json.resumo }}",
+              "type": "string"
+            },
+            {
+              "id": "6777e017-2804-4fa4-b92c-52210295b64f",
+              "name": "redisKey",
+              "value": "={{ $json.redisKey }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -736,
+        -16
+      ],
+      "id": "18e63f38-e537-478e-bfd4-7ff530ba61ab",
+      "name": "campos básicos1"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Workflow Input Trigger": {
+      "main": [
+        [
+          {
+            "node": "Wait",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "response": {
+      "main": [
+        []
+      ]
+    },
+    "resumo enviado?": {
+      "main": [
+        [
+          {
+            "node": "salvar nota de resumo",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "salvar nota de resumo": {
+      "main": [
+        [
+          {
+            "node": "response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Set action": {
+      "main": [
+        [
+          {
+            "node": "transferirequipe",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wait": {
+      "main": [
+        [
+          {
+            "node": "campos básicos1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "campos básicos1": {
+      "main": [
+        [
+          {
+            "node": "Set action",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "transferirequipe": {
+      "main": [
+        [
+          {
+            "node": "resumo enviado?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "callerPolicy": "workflowsFromSameOwner",
+    "errorWorkflow": "IcFpm96dSVAmMsWY"
+  },
+  "versionId": "abd04eef-55d1-41ef-ad3d-70b9150da4f6",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "be9057ebeb5d2661ac1bd40c94a5344b9c9b6b399b17155702b6047982f9fe9c"
+  },
+  "id": "vxcnICWlhPJpP4jU",
+  "tags": [
+    {
+      "updatedAt": "2025-03-27T03:06:21.374Z",
+      "createdAt": "2025-03-27T03:06:21.374Z",
+      "id": "3d61DcpieVmC1EO7",
+      "name": "I.A"
+    },
+    {
+      "updatedAt": "2025-05-02T02:56:43.005Z",
+      "createdAt": "2025-05-02T02:56:43.005Z",
+      "id": "ElrcpnmSf3Z8YwBd",
+      "name": "tool"
+    }
+  ]
+}

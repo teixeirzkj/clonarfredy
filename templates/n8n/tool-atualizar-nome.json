@@ -1,0 +1,188 @@
+{
+  "name": "[Nome empresa exemplo] I.A Atualizar nome",
+  "nodes": [
+    {
+      "parameters": {
+        "workflowInputs": {
+          "values": [
+            {
+              "name": "telefone"
+            },
+            {
+              "name": "nome"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.1,
+      "position": [
+        -288,
+        0
+      ],
+      "id": "dd0bba16-3acd-4681-851a-87c68c49bccb",
+      "name": "Workflow Input Trigger"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "a78e81c0-8be8-4d12-b9f2-bdc7544dc961",
+              "name": "telefone",
+              "value": "={{ $json.telefone }}",
+              "type": "string"
+            },
+            {
+              "id": "88dc6e09-69bb-44d8-9bc8-a8e2a83a7834",
+              "name": "nome",
+              "value": "={{ $json.nome }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -64,
+        0
+      ],
+      "id": "e33e4d71-d397-4595-ac08-f5366ea1ff63",
+      "name": "campos básicos"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "2f132731-5348-4f43-813c-f0e7d03d15ce",
+              "name": "response",
+              "value": "sucesso",
+              "type": "string"
+            },
+            {
+              "id": "938c4457-bbc5-4765-9ed3-6474f1ea60ec",
+              "name": "mensagem",
+              "value": "nome atualizado, continue o atendimento",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        480,
+        0
+      ],
+      "id": "3d63f49a-60ab-4130-8dcf-64aded40a9d1",
+      "name": "response"
+    },
+    {
+      "parameters": {
+        "method": "PUT",
+        "url": "=https://api.wts.chat/core/v1/contact/phonenumber/{{ $json[\"telefone\"] }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "accept",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/*+json",
+        "body": "= { \"fields\": [ \"Name\" ], \"name\": \"{{ $json[\"nome\"] }}\" } ",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        160,
+        0
+      ],
+      "id": "de2b2c9d-63ed-462c-8465-b4f1500a4afa",
+      "name": "Atualizar nome",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "KPXuOsvkOWTuUWsP",
+          "name": "Faster Viagens"
+        }
+      }
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Workflow Input Trigger": {
+      "main": [
+        [
+          {
+            "node": "campos básicos",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "campos básicos": {
+      "main": [
+        [
+          {
+            "node": "Atualizar nome",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "response": {
+      "main": [
+        []
+      ]
+    },
+    "Atualizar nome": {
+      "main": [
+        [
+          {
+            "node": "response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "callerPolicy": "workflowsFromSameOwner",
+    "errorWorkflow": "IcFpm96dSVAmMsWY"
+  },
+  "versionId": "9d14dbfb-5def-4fda-a7a8-a21b5fda11d4",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "be9057ebeb5d2661ac1bd40c94a5344b9c9b6b399b17155702b6047982f9fe9c"
+  },
+  "id": "oNQHFpYKxhacDer2",
+  "tags": [
+    {
+      "updatedAt": "2025-03-27T03:06:21.374Z",
+      "createdAt": "2025-03-27T03:06:21.374Z",
+      "id": "3d61DcpieVmC1EO7",
+      "name": "I.A"
+    },
+    {
+      "updatedAt": "2025-05-02T02:56:43.005Z",
+      "createdAt": "2025-05-02T02:56:43.005Z",
+      "id": "ElrcpnmSf3Z8YwBd",
+      "name": "tool"
+    }
+  ]
+}

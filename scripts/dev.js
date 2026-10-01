@@ -24,7 +24,7 @@ const pageHeaders = vercel.headers[0].headers;
 createServer(async (req, res) => {
   const { pathname } = new URL(req.url, 'http://localhost');
 
-  const apiMatch = pathname.match(/^\/api\/([a-z-]+)$/);
+  const apiMatch = pathname.match(/^\/api\/([a-z0-9-]+)$/);
   if (apiMatch) {
     const file = join(root, 'api', `${apiMatch[1]}.js`);
     if (!existsSync(file)) return res.writeHead(404).end();

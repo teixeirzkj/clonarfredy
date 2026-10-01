@@ -1,0 +1,134 @@
+{
+  "name": "[Nome empresa exemplo] atualizarEtiquetas",
+  "nodes": [
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "3a7874c3-769b-4a64-bc62-e0a30b5e1f6f",
+              "name": "telefone",
+              "value": "={{ $json.telefone }}",
+              "type": "string"
+            },
+            {
+              "id": "3ec1e3af-22ee-4f91-bea1-29427937b579",
+              "name": "etiqueta",
+              "value": "={{ $json.etiqueta }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        224,
+        0
+      ],
+      "id": "b4b3e3da-a699-4b91-9bab-5d533fd0bc94",
+      "name": "Edit Fields"
+    },
+    {
+      "parameters": {
+        "method": "PUT",
+        "url": "=https://api.wts.chat/core/v1/contact/phonenumber/{{ $json.telefone }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "accept",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/*+json",
+        "body": "={\n  \"fields\": [\n    \"Tags\"\n  ],\n  \"tagNames\": [\n    \"{{ $json[\"etiqueta\"] }}\"\n  ],\n  \"options\": {\n    \"tagsOperation\": \"InsertIfNotExists\"\n  }\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        448,
+        0
+      ],
+      "id": "8ab8e92b-7037-45f5-8437-ac7b70ed6235",
+      "name": "Adicionar Tag",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "AxAuw64u57Wx1L89",
+          "name": "Bebecê Viagens [Frédy]"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "workflowInputs": {
+          "values": [
+            {
+              "name": "telefone"
+            },
+            {
+              "name": "etiqueta"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.1,
+      "position": [
+        0,
+        0
+      ],
+      "id": "809e59ea-f256-4f7e-95cb-45d160fbebbb",
+      "name": "Workflow Input Trigger"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Edit Fields": {
+      "main": [
+        [
+          {
+            "node": "Adicionar Tag",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Workflow Input Trigger": {
+      "main": [
+        [
+          {
+            "node": "Edit Fields",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "a7192c08-2909-4901-bbe4-93ef9a089dd8",
+  "meta": {
+    "instanceId": "be9057ebeb5d2661ac1bd40c94a5344b9c9b6b399b17155702b6047982f9fe9c"
+  },
+  "id": "JnpIDKZplxFQb2fE",
+  "tags": [
+    {
+      "updatedAt": "2025-05-02T02:56:43.005Z",
+      "createdAt": "2025-05-02T02:56:43.005Z",
+      "id": "ElrcpnmSf3Z8YwBd",
+      "name": "tool"
+    }
+  ]
+}

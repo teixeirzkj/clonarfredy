@@ -625,6 +625,10 @@ table.data tbody tr:hover { background: var(--blue-50); }
 .drop:hover, .drop.dragging { border-color: var(--blue-500); background: var(--blue-100); transform: scale(1.01); }
 .drop input { display: none; }
 
+.row-actions { display: flex; gap: 6px; flex-wrap: wrap; justify-content: flex-end; }
+.phone-pick { display: grid; grid-template-columns: minmax(0, 1fr) 160px; gap: 8px; }
+@media (max-width: 767px) { .phone-pick { grid-template-columns: 1fr; } .row-actions { justify-content: flex-start; } }
+
 /* Escolha de autenticação */
 .choices { display: grid; gap: 8px; margin-bottom: 12px; }
 .choice {

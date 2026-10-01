@@ -233,6 +233,15 @@ async function copyText(text) {
   }
 }
 
+// Copia e deixa o botão verde por um instante. O botão é passado já resolvido:
+// depois de um await, event.currentTarget vira null.
+async function flashOnCopy(btn, text) {
+  if (!(await copyText(text))) return;
+  btn.classList.add('is-done');
+  pop(btn);
+  setTimeout(() => btn.classList.remove('is-done'), 1200);
+}
+
 function copyButton(value) {
   const btn = h('button', { type: 'button', class: 'copy', title: 'Copiar' }, h('span', {}, value), svg('copy'));
   btn.onclick = async () => {
@@ -1002,15 +1011,34 @@ async function loadN8nTemplates(step1, step2) {
   }
   state.n8nConfigured = data.n8nConfigured;
 
+  // Subfluxos (tools) não aparecem sozinhos: vêm junto com o fluxo que os usa.
+  const mains = data.templates.filter((t) => !t.isSubflow && !t.invalid);
+  const toolsLabel = (t) => (t.subflows?.length ? ` · + ${t.subflows.length} tool${t.subflows.length > 1 ? 's' : ''}` : '');
   const select = h('select', { 'aria-label': 'Fluxo padrão' });
+  const templateInfo = h('div');
   const fillSelect = () => {
     select.replaceChildren(
-      ...data.templates.map((t) => h('option', { value: t.id }, `${t.name} (${t.nodes} nós)`)),
+      ...mains.map((t) => h('option', { value: t.id }, `${t.name}${toolsLabel(t)}`)),
       state.uploadedTemplate && h('option', { value: '__upload' }, `Arquivo enviado: ${state.uploadedTemplate.name}`),
     );
     if (state.uploadedTemplate) select.value = '__upload';
+    else if (state.preferAgent) {
+      // Vindo do montador de prompt: já abre no fluxo do agente.
+      const agent = mains.find((t) => /\bI\.?A\b|agente/i.test(t.name));
+      if (agent) select.value = agent.id;
+    }
+    state.preferAgent = false;
     select.disabled = !select.options.length;
+    showInfo();
   };
+  const showInfo = () => {
+    const t = mains.find((x) => x.id === select.value);
+    templateInfo.replaceChildren(...[
+      t?.subflows?.length ? notice(`Gera junto as tools: ${t.subflows.join(', ')}. O fluxo principal já sai ligado a elas.`, 'info') : null,
+      t?.missingTools?.length ? notice(`Tool que não está nos fluxos padrão: ${t.missingTools.join(', ')}. Exporte do n8n e coloque em templates/n8n para incluir no pacote.`, 'warn') : null,
+    ].filter(Boolean));
+  };
+  select.onchange = showInfo;
   fillSelect();
 
   const fileInput = h('input', { type: 'file', accept: '.json,application/json' });
@@ -1044,12 +1072,13 @@ async function loadN8nTemplates(step1, step2) {
   const source = () => (select.value === '__upload' ? { template: state.uploadedTemplate.workflow } : { templateId: select.value });
 
   swap(step1, section('1', 'Fluxo padrão e cliente',
-    !data.templates.length && !state.uploadedTemplate
+    !mains.length && !state.uploadedTemplate
       ? notice('Ainda não há fluxos padrão no servidor (pasta templates/n8n). Envie o .json abaixo ou peça para incluírem no repositório.', 'info')
       : null,
     h('div', { class: 'form-grid' },
       h('label', { class: 'field' }, 'Fluxo padrão', select),
       h('label', { class: 'field' }, 'Nome do cliente', nameInput)),
+    templateInfo,
     slugForm.el,
     h('div', { class: 'drop-wrap' }, drop),
     fileError,
@@ -1063,7 +1092,7 @@ async function loadN8nTemplates(step1, step2) {
 
 async function scanN8n(container, source, slugForm) {
   if (!requireToken(container)) return;
-  swap(container, loading('Lendo painéis, etapas, campos e chatbots das duas contas...'));
+  swap(container, loading('Lendo painéis, etapas, campos, chatbots e canais das duas contas...'));
   let scan;
   try {
     scan = await api('n8n', { action: 'scan', clientToken: clientToken(), ...source, modelSlug: slugForm.input().modelSlug });
@@ -1076,31 +1105,77 @@ async function scanN8n(container, source, slugForm) {
   renderN8nMapping(container, source, scan, slugForm);
 }
 
-// Path antigo → novo dos nós Webhook (atualiza ao editar o identificador).
+const escapeRegExp = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+// Path de cada nó Webhook: já sugerido pelo identificador do cliente, editável.
 function webhookPathSection(scan, slugForm) {
-  const { modelSlug, count, webhookPaths } = scan.slug ?? {};
-  if (!count && !webhookPaths?.length) return null;
-  const rows = h('div', { class: 'list' });
-  const render = () => {
-    const { clientSlug } = slugForm.input();
-    const swapPath = (p) => (clientSlug ? p.replace(new RegExp(modelSlug.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi'), clientSlug) : p);
-    rows.replaceChildren(
-      h('div', { class: 'list-title' }, 'Path do webhook', badge('', String(webhookPaths.length))),
-      ...webhookPaths.map((w) => {
-        const next = swapPath(w.path);
-        return h('div', { class: `map-row ${next === w.path ? 'unmatched' : ''}` },
-          h('div', { class: 'map-from' }, h('div', { class: 'row-title' }, w.node), h('div', { class: 'row-detail mono' }, w.path)),
-          h('span', { class: 'arrow', 'aria-hidden': 'true' }, svg('arrow')),
-          h('div', { class: 'row-title mono' }, next));
-      }));
-  };
-  render();
-  slugForm.el.addEventListener('input', render);
-  return section('', 'Webhook do fluxo',
+  const { modelSlug, count, webhookPaths = [] } = scan.slug ?? {};
+  if (!webhookPaths.length) return { el: null, values: () => ({}), missing: () => [] };
+  const rows = webhookPaths.map((w) => {
+    const input = h('input', { type: 'text', spellcheck: false, 'aria-label': `Novo path de ${w.node}` });
+    const row = h('div', { class: 'map-row' },
+      h('div', { class: 'map-from' }, h('div', { class: 'row-title' }, `${w.workflow} › ${w.node}`), h('div', { class: 'row-detail mono' }, w.path)),
+      h('span', { class: 'arrow', 'aria-hidden': 'true' }, svg('arrow')),
+      input);
+    let edited = false;
+    const mark = () => row.classList.toggle('unmatched', !input.value.trim() || input.value.trim() === w.path);
+    input.oninput = () => { edited = true; input.value = input.value.replace(/[^\w/-]/g, ''); mark(); };
+    const suggest = () => {
+      if (edited) return;
+      const { clientSlug } = slugForm.input();
+      input.value = clientSlug && count ? w.path.replace(new RegExp(escapeRegExp(modelSlug), 'gi'), clientSlug) : w.path;
+      mark();
+    };
+    suggest();
+    slugForm.el.addEventListener('input', suggest);
+    return { w, input, row };
+  });
+  const el = section('', 'Webhook do fluxo',
     count
-      ? notice(`"${modelSlug}" aparece ${count}× no fluxo e vira o identificador do cliente (o mesmo das URLs dos webhooks do WTS).`, 'info')
-      : notice(`Não achei "${modelSlug}" no fluxo: o path do webhook vai ficar igual ao da conta modelo.`, 'warn'),
-    rows);
+      ? notice(`"${modelSlug}" aparece no fluxo e vira o identificador do cliente (o mesmo das URLs dos webhooks do WTS).`, 'info')
+      : notice('O path não tem o identificador da conta modelo: escreva o path novo do cliente (em amarelo).', 'warn'),
+    h('div', { class: 'list' }, h('div', { class: 'list-title' }, 'Path do webhook', badge('', String(rows.length))), ...rows.map((r) => r.row)));
+  return {
+    el,
+    values: () => Object.fromEntries(rows.map((r) => [r.w.node, r.input.value.trim()])),
+    missing: () => rows.filter((r) => !r.input.value.trim() || r.input.value.trim() === r.w.path)
+      .map((r) => ({ label: `Path do webhook: ${r.w.node}`, row: r.row, focus: r.input })),
+  };
+}
+
+// Número do WhatsApp que envia as mensagens ("from"): vira o do canal do cliente.
+function phoneSection(scan) {
+  if (!scan.phones?.length) return { el: null, values: () => [], missing: () => [] };
+  const channels = scan.channels ?? [];
+  const toTemplateFormat = (digits, from) => (digits.length > from.length && digits.startsWith('55') ? digits.slice(2) : digits);
+  const rows = scan.phones.map((p) => {
+    const input = h('input', { type: 'text', inputMode: 'numeric', placeholder: 'Só números, ex.: 49999998888', 'aria-label': `Número que substitui ${p.from}` });
+    const select = h('select', { 'aria-label': 'Canal do cliente' },
+      h('option', { value: '' }, channels.length ? '— canal do cliente —' : 'Nenhum canal na conta'),
+      ...channels.map((c) => h('option', { value: c.id }, `${c.name || c.type || 'Canal'} · ${c.numberFormatted || c.number}`)));
+    const row = h('div', { class: 'map-row' },
+      h('div', { class: 'map-from' }, h('div', { class: 'row-title mono' }, p.from), h('div', { class: 'row-detail' }, `${p.count}× · ${p.nodes.join(', ')}`)),
+      h('span', { class: 'arrow', 'aria-hidden': 'true' }, svg('arrow')),
+      h('div', { class: 'phone-pick' }, select, input));
+    const mark = () => row.classList.toggle('unmatched', !input.value || input.value === p.from);
+    select.onchange = () => {
+      const channel = channels.find((c) => c.id === select.value);
+      if (channel?.number) input.value = toTemplateFormat(channel.number, p.from);
+      mark();
+    };
+    input.oninput = () => { input.value = input.value.replace(/\D/g, ''); mark(); };
+    if (channels.length === 1) { select.value = channels[0].id; select.onchange(); }
+    mark();
+    return { p, input, row };
+  });
+  const el = section('', 'Número do WhatsApp',
+    notice('O fluxo envia mensagens a partir deste número. Escolha o canal do cliente: o número entra no mesmo formato do fluxo (confira).', 'info'),
+    h('div', { class: 'list' }, h('div', { class: 'list-title' }, 'Número de origem (from)', badge('', String(rows.length))), ...rows.map((r) => r.row)));
+  return {
+    el,
+    values: () => rows.filter((r) => r.input.value && r.input.value !== r.p.from).map((r) => ({ from: r.p.from, to: r.input.value })),
+    missing: () => rows.filter((r) => !r.input.value || r.input.value === r.p.from).map((r) => ({ label: `Número do WhatsApp ${r.p.from}`, row: r.row, focus: r.input })),
+  };
 }
 
 const normalizeName = (s) => String(s ?? '').normalize('NFC').trim().replace(/\s+/g, ' ').toLowerCase();
@@ -1125,7 +1200,7 @@ function renderN8nMapping(container, source, scan, slugForm) {
     select.replaceChildren(
       h('option', { value: '' }, '— escolha —'),
       ...options.map((o) => h('option', { value: o.value }, o.group && !clientPanel ? `${o.group} › ${o.label}` : o.label)));
-    const byName = options.find((o) => normalizeName(o.name ?? o.label) === normalizeName(ref.label));
+    const byName = ref.external ? null : options.find((o) => normalizeName(o.name ?? o.label) === normalizeName(ref.label));
     select.value = options.some((o) => o.value === previous) ? previous : byName?.value ?? '';
     markRow(entry);
   }
@@ -1166,18 +1241,18 @@ function renderN8nMapping(container, source, scan, slugForm) {
   // Painéis primeiro: as etapas e campos dependem da escolha deles.
   entries.filter((e) => e.ref.kind === 'panel').forEach(fill);
   entries.filter((e) => e.ref.kind !== 'panel').forEach(fill);
-  const selects = entries;
+
+  const webhooks = webhookPathSection(scan, slugForm);
+  const phones = phoneSection(scan);
 
   const tokenBox = scan.hasModelToken
     ? h('label', { class: 'check-toggle' }, h('input', { type: 'checkbox', checked: true }), 'Trocar o token da conta modelo pelo token do cliente (o token vai dentro do arquivo)')
     : null;
 
-  // Credencial do WTS: com a API do n8n, cria "Nome do cliente" (Header Auth) e
-  // liga nos nós; no download, os nós ficam com esse nome para escolher no n8n.
+  // Credencial do WTS: token direto no header (padrão) ou credencial do n8n.
   const wtsCreds = scan.credentials.filter((c) => c.wts);
   const otherCreds = scan.credentials.filter((c) => !c.wts);
   const wtsNodes = wtsCreds.reduce((n, c) => n + c.nodes.length, 0);
-  // Como autenticar os nós do WTS: token direto no header (padrão) ou credencial do n8n.
   const authGroup = `auth-${Date.now()}`;
   const authOption = (value, title, desc, checked) => h('label', { class: 'choice' },
     h('input', { type: 'radio', name: authGroup, value, checked }),
@@ -1192,9 +1267,9 @@ function renderN8nMapping(container, source, scan, slugForm) {
   const selectedAuth = () => authChoice?.querySelector('input:checked')?.value ?? 'credential';
 
   const credentialNotes = [
-    wtsCreds.length ? notice(`A credencial "${wtsCreds.map((c) => c.name).join(', ')}" da conta modelo sai de todos os nós do WTS.`, 'info') : null,
+    wtsCreds.length ? notice(`A credencial do WTS "${wtsCreds.map((c) => c.name).join(', ')}" sai de todos os nós.`, 'info') : null,
     authChoice,
-    otherCreds.length ? notice(`Outras credenciais ficam como estão: ${otherCreds.map((c) => `${c.name || c.type} (${c.nodes.join(', ')})`).join('; ')}.`, 'info') : null,
+    otherCreds.length ? notice(`Ficam como estão (ajuste no n8n se precisar): ${otherCreds.map((c) => `${c.name || c.type} (${c.nodes.length} nó${c.nodes.length > 1 ? 's' : ''})`).join('; ')}.`, 'info') : null,
   ];
   // Reaproveita a credencial criada nesta sessão para o mesmo cliente e token.
   const reusableCredential = () => {
@@ -1203,30 +1278,39 @@ function renderN8nMapping(container, source, scan, slugForm) {
   };
 
   const wantsPrompt = scan.agentNodes.length || scan.hasPromptPlaceholder;
-  const promptArea = wantsPrompt ? h('textarea', { placeholder: 'Cole aqui o prompt do cliente ou use o montador.', value: state.builtPrompt }) : null;
+  const promptArea = wantsPrompt ? h('textarea', { placeholder: 'Cole aqui o prompt do cliente ou use o montador. Vazio = mantém o prompt do fluxo padrão.', value: state.builtPrompt }) : null;
+
+  const toolsNotes = [
+    scan.subflows?.length ? notice(`Tools geradas junto: ${scan.subflows.map((s) => s.name).join(', ')}. Elas recebem as mesmas trocas (IDs, credencial, número).`, 'info') : null,
+    scan.missingTools?.length ? notice(`Tool fora do pacote: ${scan.missingTools.map((m) => m.name).join(', ')}. O nó fica para você escolher o subfluxo no n8n.`, 'warn') : null,
+  ];
 
   const result = h('div');
   const build = async (mode, force = false) => {
-    // Linha sem escolha = ID da conta modelo fica no fluxo e o passo falha.
-    const missing = selects.filter((s) => !s.select.value);
+    // Pendências: ID da conta de origem, número ou path iguais ao de origem.
+    const missing = [
+      ...entries.filter((s) => !s.select.value).map((s) => ({ label: `${s.ref.kindLabel}: ${s.ref.group ? `${s.ref.group} › ` : ''}${s.ref.label}`, row: s.row, focus: s.select })),
+      ...phones.missing(),
+      ...webhooks.missing(),
+    ];
     if (missing.length && !force) {
-      const names = missing.map((s) => `${s.ref.kindLabel}: ${s.ref.group ? `${s.ref.group} › ` : ''}${s.ref.label}`);
       swap(result,
-        notice(`${missing.length} item(ns) sem correspondência continuariam apontando para a conta modelo: ${names.join('; ')}.`, 'warn'),
+        notice(`${missing.length} item(ns) ainda apontam para a conta de origem: ${missing.map((m) => m.label).join('; ')}.`, 'warn'),
         h('div', { class: 'toolbar' },
           button('Escolher agora', () => {
             missing[0].row.scrollIntoView({ behavior: reducedMotion.matches ? 'auto' : 'smooth', block: 'center' });
-            missing[0].select.focus();
-            missing.forEach((s) => enter(s.row, { y: 0, scale: 0.98, duration: 320, easing: SPRING }));
+            missing[0].focus.focus();
+            missing.forEach((m) => enter(m.row, { y: 0, scale: 0.98, duration: 320, easing: SPRING }));
           }, { variant: 'btn-primary', icon: 'arrow' }),
           button('Gerar mesmo assim', () => build(mode, true), { variant: 'btn-ghost' })));
       return;
     }
-    const mapping = selects.filter((s) => s.select.value).map((s) => ({ from: s.ref.from, to: s.select.value }));
     const body = {
       action: 'build',
       ...source,
-      mapping,
+      mapping: entries.filter((s) => s.select.value).map((s) => ({ from: s.ref.from, to: s.select.value })),
+      phoneMapping: phones.values(),
+      webhookPaths: webhooks.values(),
       clientName: state.clientName,
       prompt: promptArea?.value ?? '',
       replaceToken: Boolean(tokenBox?.querySelector('input').checked),
@@ -1237,7 +1321,7 @@ function renderN8nMapping(container, source, scan, slugForm) {
       credential: reusableCredential(),
       ...slugForm.input(),
     };
-    swap(result, loading(mode === 'create' ? 'Criando o fluxo no n8n...' : 'Gerando o fluxo...'));
+    swap(result, loading(mode === 'create' ? 'Criando no n8n...' : 'Gerando os fluxos...'));
     let data;
     try {
       data = await api('n8n', body);
@@ -1250,44 +1334,75 @@ function renderN8nMapping(container, source, scan, slugForm) {
       swap(result, notice(`${data.createError}. A credencial "${data.credential.name}" já foi criada e será reaproveitada ao tentar de novo.`));
       return;
     }
-    const json = JSON.stringify(data.workflow, null, 2);
-    if (mode === 'download') download(`${slug(data.workflow.name)}.json`, json, 'application/json');
-    if (mode === 'copy') await copyText(json);
-    swap(result,
-      notice(mode === 'create'
-        ? 'Fluxo criado no n8n (inativo). Confira as credenciais e ative.'
-        : mode === 'copy'
-          ? 'JSON copiado. No n8n, abra um fluxo vazio e cole com Ctrl+V.'
-          : 'Download feito. No n8n: Importar do arquivo, ou abra o .json e cole no canvas.', 'ok'),
-      ...data.warnings.map((w) => notice(w, 'warn')),
-      data.credential && notice(`Credencial "${data.credential.name}" ligada em ${data.credentialNodes} nó(s) do WTS.`, 'ok'),
-      data.headerNodes ? notice(`Token do cliente colocado no header Authorization de ${data.headerNodes} nó(s) do WTS.`, 'ok') : null,
-      data.created && h('div', { class: 'toolbar' }, h('a', { class: 'btn btn-primary', href: data.created.url, target: '_blank', rel: 'noopener' }, svg('arrow'), h('span', {}, 'Abrir no n8n'))),
-      data.webhookPaths?.length && notice(`Path do webhook: ${data.webhookPaths.map((w) => w.path).join(', ')}`, 'info'),
-      h('p', { class: 'summary' }, `${data.applied.length} valor(es) trocados${data.slugReplaced ? ` · identificador da empresa trocado ${data.slugReplaced}×` : ''}.`));
+    renderN8nResult(result, data, mode);
   };
 
   const refsCount = scan.references.length;
   swap(container,
     section('2', 'O que será trocado',
       refsCount
-        ? notice(`Achei ${refsCount} referência(s) da conta modelo no fluxo. Confira as correspondências; as em amarelo precisam de escolha.`, 'info')
-        : notice('Não achei IDs da conta modelo neste fluxo. Confira se ele foi exportado do fluxo da conta modelo.', 'warn'),
+        ? notice(`Achei ${refsCount} referência(s) da conta de origem. Confira as correspondências; as em amarelo precisam de escolha.`, 'info')
+        : notice('Não achei IDs de painel, etapa, chatbot ou equipe neste fluxo.', 'info'),
+      ...toolsNotes,
       ...lists),
-    webhookPathSection(scan, slugForm),
+    phones.el,
+    webhooks.el,
     (tokenBox || scan.credentials.length) && section('3', 'Credenciais',
       tokenBox,
       ...credentialNotes),
     wantsPrompt && section('4', 'Prompt do agente de IA',
-      h('label', { class: 'field' }, h('span', {}, 'Prompt', h('span', { class: 'field-hint' }, scan.hasPromptPlaceholder ? ' · entra no lugar de {{PROMPT_CLIENTE}}' : ` · vai no nó: ${scan.agentNodes.join(', ')}`)), promptArea),
+      h('label', { class: 'field' }, h('span', {}, 'Prompt', h('span', { class: 'field-hint' }, scan.hasPromptPlaceholder ? ' · entra no lugar de {{PROMPT_CLIENTE}}' : ` · vai no System Message de: ${scan.agentNodes.join(', ')} (o bloco "Informações do contato" do topo é mantido)`)), promptArea),
       h('div', { class: 'toolbar' }, button('Montar prompt', () => openBlock(BLOCK_BY_ID.prompt), { variant: 'btn-ghost btn-small', icon: 'sparkle' }))),
     h('div', { class: 'toolbar' },
       h('span', { class: 'spacer' }),
       button('Copiar JSON', () => build('copy'), { icon: 'copy' }),
       state.n8nConfigured && button('Criar no n8n', () => build('create'), { icon: 'cloud' }),
-      button('Baixar fluxo', () => build('download'), { variant: 'btn-primary', icon: 'download' })),
+      button(scan.subflows?.length ? 'Baixar fluxos' : 'Baixar fluxo', () => build('download'), { variant: 'btn-primary', icon: 'download' })),
     result);
   stagger(container.querySelectorAll('.map-row'), { step: 16, y: 6 });
+}
+
+// Resultado: um item por fluxo gerado (tools primeiro, depois o principal).
+function renderN8nResult(container, data, mode) {
+  const workflows = [...data.workflows].sort((a, b) => (a.role === b.role ? 0 : a.role === 'sub' ? -1 : 1));
+  const asJson = (w) => JSON.stringify(w.workflow, null, 2);
+  const many = workflows.length > 1;
+
+  if (mode === 'download') {
+    workflows.forEach((w, i) => setTimeout(() => download(`${slug(w.name)}.json`, asJson(w), 'application/json'), i * 400));
+  }
+  if (mode === 'copy') copyText(asJson(workflows.find((w) => w.role === 'main')));
+
+  const created = mode === 'create';
+  const headline = created
+    ? (many ? 'Criados no n8n (inativos): as tools e o fluxo principal, já ligados. Confira e ative.' : 'Fluxo criado no n8n (inativo). Confira e ative.')
+    : mode === 'copy'
+      ? `JSON do fluxo principal copiado. No n8n, abra um fluxo vazio e cole com Ctrl+V.${many ? ' Copie as tools pelos botões abaixo.' : ''}`
+      : many
+        ? 'Download feito. No n8n, importe primeiro as tools e depois o fluxo principal.'
+        : 'Download feito. No n8n: Importar do arquivo, ou abra o .json e cole no canvas.';
+
+  const list = h('div', { class: 'list' },
+    h('div', { class: 'list-title' }, 'Fluxos gerados', badge('', String(workflows.length))),
+    ...workflows.map((w) => {
+      const link = w.role === 'main' ? data.created : w.created;
+      return h('div', { class: 'row' },
+        h('span', { class: 'row-dot ok' }, svg('check')),
+        h('div', {}, h('div', { class: 'row-title' }, w.name), h('div', { class: 'row-detail' }, w.role === 'main' ? 'Fluxo principal' : 'Tool (subfluxo)')),
+        h('div', { class: 'row-actions' },
+          link?.url ? h('a', { class: 'btn btn-small', href: link.url, target: '_blank', rel: 'noopener' }, svg('arrow'), h('span', {}, 'Abrir')) : null,
+          button('Copiar', (e) => flashOnCopy(e.currentTarget, asJson(w)), { variant: 'btn-small', icon: 'copy' }),
+          button('Baixar', () => download(`${slug(w.name)}.json`, asJson(w), 'application/json'), { variant: 'btn-small', icon: 'download' })));
+    }));
+
+  swap(container,
+    notice(headline, 'ok'),
+    ...data.warnings.map((w) => notice(w, 'warn')),
+    data.credential ? notice(`Credencial "${data.credential.name}" ligada em ${data.credentialNodes} nó(s) do WTS.`, 'ok') : null,
+    data.headerNodes ? notice(`Token do cliente colocado no header Authorization de ${data.headerNodes} nó(s) do WTS.`, 'ok') : null,
+    data.webhookPaths?.length ? notice(`Path do webhook: ${data.webhookPaths.map((w) => w.path).join(', ')}`, 'info') : null,
+    list,
+    h('p', { class: 'summary' }, `${data.applied.length} valor(es) trocados${data.slugReplaced ? ` · identificador da empresa trocado ${data.slugReplaced}×` : ''}.`));
 }
 
 // ---------- Montar prompt da IA ----------
@@ -1316,11 +1431,13 @@ async function renderPrompt(view) {
   const stopBtn = button('Parar', null, { icon: 'stop', hidden: true });
   const afterActions = h('div', { class: 'toolbar', hidden: true },
     h('span', { class: 'spacer' }),
-    button('Copiar', async (e) => {
-      if (await copyText(output.textContent)) { const b = e.currentTarget; b.classList.add('is-done'); setTimeout(() => b.classList.remove('is-done'), 1200); }
-    }, { icon: 'copy' }),
+    button('Copiar', (e) => flashOnCopy(e.currentTarget, output.textContent), { icon: 'copy' }),
     button('Baixar .txt', () => download(`prompt-${slug(state.clientName)}.txt`, output.textContent, 'text/plain;charset=utf-8'), { icon: 'download' }),
-    button('Usar no fluxo do n8n', () => { state.builtPrompt = output.textContent; openBlock(BLOCK_BY_ID.n8n); }, { variant: 'btn-primary', icon: 'arrow' }));
+    button('Usar no fluxo do n8n', () => {
+      state.builtPrompt = output.textContent;
+      state.preferAgent = true; // abre já no fluxo do agente de IA
+      openBlock(BLOCK_BY_ID.n8n);
+    }, { variant: 'btn-primary', icon: 'arrow' }));
 
   view.append(
     section('1', 'Cliente', h('label', { class: 'field' }, 'Nome do cliente', nameInput)),

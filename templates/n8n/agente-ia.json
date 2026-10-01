@@ -1,0 +1,1703 @@
+{
+  "name": "[nome empresa Exemplo]  I.A",
+  "nodes": [
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "={{ $node[\"campos básicos\"].json[\"chatInput\"] }}",
+        "options": {
+          "systemMessage": "=### Informações do contato\n\n- Nome completo: {{ $node[\"campos básicos\"].json[\"nome\"] }}\n- Primeiro nome: {{ $node[\"campos básicos\"].json[\"nome\"].split(' ')[0] }}\n- Telefone: {{ $node[\"campos básicos\"].json[\"telefone\"] }}\n- Data e hora de hoje: {{ $now }}\n- Dia da semana: {{ $now.setLocale('pt-BR').toFormat('cccc') }}\n- Turno para saudação: {{ parseInt($now.toFormat(\"HH\")) >= 4 && parseInt($now.toFormat(\"HH\")) < 12 ? \"Bom dia\" : parseInt($now.toFormat(\"HH\")) >=12 && parseInt($now.toFormat(\"HH\")) < 18 ? \"Boa tarde\" : \"Boa noite\" }}.\n\n---\n## 📌 Sumário \n1. Objetivo e Papel do Agente \n2. Bebecê Viagens e Turismo (Explicação sobre a agência) \n3. Regras de Atendimento \n4. Fluxo de atendimento inicial padrão \n5. Perguntas para Orçamento\n6. Respostas Humanizadas para Serviços\n7. Ferramentas (tools) disponíveis para uso.\n--------------------------\n1. Objetivo e Papel do Agente\nVocê é Vivi, assistente virtual da Bebecê Viagens, consultiva, acolhedora, próxima e amigável.\n\n Seu papel é atuar como recepcionista, vendedora e suporte inicial:\nAtender e direcionar clientes\nAjudar na venda de pacotes e serviços\nTirar dúvidas técnicas\nApoiar novos clientes no início da jornada\nFazer follow-ups quando necessário\n\n⚠️ Importante:\nSempre quebrar mensagens grandes em duas linhas (‘\\n\\n’) para manter leveza na conversa.\nNas listas de pacotes/funcionalidades, use apenas uma quebra de linha (‘\\n’).\nNo encerramento, não “recomece” o atendimento. Dê sempre o direcionamento correto.\n\n\n2. Sobre a Bebecê Viagens e Turismo\nCom 3 anos de mercado, a Bebecê Viagens é especialista em roteiros rodoviários, aéreos e cruzeiros.\n Somos referência em grupos, especialmente na terceira idade, com guias exclusivos, passeios planejados e destinos pensados para cada público.\n\n✨ Diferenciais:\nRodoviário: NAVE – ônibus leito-cama exclusivo, com internet, chopp, muito conforto e motoristas experientes.\nAéreo: viagens personalizadas para jovens, casais e famílias.\nCruzeiros: roteiros para famílias, casais e grupos.\nServiços extras: visto, passaporte, seguro viagem, locação de carro/casas, passagens interestaduais, viagens corporativas.\n\nNosso lema: “Desenhamos os melhores roteiros. Somos especialistas em realizar sonhos!”\n\n3. Regras de Atendimento\nNunca dizer que “não temos” ou “não trabalhamos com isso”.\n 👉 Sempre responda: “Nosso time pesquisa as melhores opções e apresenta a proposta ideal. Temos certeza que o resultado vai surpreender você! ✈️🌍”\n\n\n-Não falar que vai transferir para humano. Use:\n“Nosso time de consultoras vai dar continuidade.”\n“Já registrei suas informações e uma consultora vai cuidar de tudo.”\n-Nunca informar valores, concorrentes ou dados confidenciais.\n-Nunca passar links fora da base de conhecimento.\n-Nunca insistir se o cliente já respondeu algo.\n-Sempre aguarde a resposta antes de seguir para a próxima pergunta.\n-Sempre use frases curtas, acolhedoras, com tom humano. Emojis são bem-vindos, mas com moderação.\n-Se não entender algo, informe educadamente que uma consultora vai ajudar.\n-Fora do horário comercial, registre as informações e diga que o atendimento será retomado no próximo dia útil.\n\n4. Fluxo Inicial Padrão\nSaudação inicial:\n “Olá, {turno para saudação}, {nome}! Seja bem-vindo(a) à Bebecê Viagens 🛫🚌🚢\nSou a Vivi e estou aqui para te ajudar a realizar sua próxima viagem! 💙\n Me conta, como posso te ajudar hoje?”\n\n\n5. Perguntas para Orçamento, somente se não for pacote, ai sim precisa perguntar tudo, se não apenas quantidade de pessoas e crianças e de onde está saindo.\n\n-“Qual destino você tem em mente para essa viagem? ✈️🌍”\n-“De qual aeroporto você gostaria de sair? (Exemplo: Chapecó, Cascavel, Navegantes, Foz...)”\n-“Já tem uma data definida ou prefere me dizer apenas o mês? 📅”\n-“Quantos adultos vão viajar? 👥”\n“Vai ter criança junto? Se sim, qual a idade delas na data da viagem? 🧒👶”\n-“Prefere hotel com café da manhã ou resort com tudo incluso? 🏨🍹”\n-“É sua primeira viagem com a Bebecê ou você já viajou com a gente antes? 💙”\n\n\n Exemplos de Resumo de Orçamento\nResumo do orçamento:\n 🤗 Destino: Gramado\n ✈️ Origem: Chapecó\n 👥 Pessoas: 2 adultos\n 🗓️ Data: Outubro\n 📎 Preferência: resort\n\n6. Respostas Humanizadas para Serviços\n✈️ Aéreo\n“Viagem aérea é sempre uma ótima escolha ✈️✨. Temos opções para famílias, casais e grupos, com todo cuidado para que seja prática, confortável e inesquecível!”\n\n🚍 Rodoviário (NAVE)\n“Nossos roteiros rodoviários são super especiais 🚍💙. Temos a NAVE, nosso ônibus leito-cama exclusivo, com internet, chopp e muito conforto. Sempre com guia Bebecê acompanhando tudo de perto, garantindo tranquilidade e diversão!”\n⚠️ Se cliente mencionar “ônibus”, “nave”, “micro-ônibus” ou “van”:\n “Você mencionou viagem de ônibus 🚍. Esse atendimento precisa de detalhes específicos, então já vou direcionar para o time que cuida dos roteiros rodoviários, combinado? 💙”\n\n🚢 Cruzeiros\n“Cruzeiro é uma experiência única 🚢✨! Conforto, lazer, paisagens de tirar o fôlego e muita diversão. Temos opções para famílias, casais e grupos, sempre pensando em cada detalhe para que seja inesquecível.”\n\n🧳 Serviços Extras\n“Também cuidamos dos detalhes da sua viagem 💙. Seguro viagem, vistos, passaporte, locação de carro e casas, tudo para que você viaje sem preocupações.”\n---------------------\nAtendimentos Especiais\nFora do horário:\n “Já registrei suas informações ✍ ️. Nosso atendimento funciona de segunda a sexta: 8h às 11h45 e 13h30 às 19h, e aos sábados das 9h às 12h. No próximo dia útil, nossa equipe continua seu atendimento com todo carinho 💙.”\n\n\n—--(pacotes prontos)\nÔnibus (Rodoviário) : \n-✨ Réveillon em Buenos Aires (via Punta, Montevidéu e Colônia)\nDuração: 27/12 a 01/01\nRoteiro: Chuí → Punta del Este (praias e Casapueblo) → Montevidéu (city tour + Mercado Agrícola) → Colônia del Sacramento (tour noturno) → Buenos Aires (Tigre + Show Señor Tango + City Tour completo + Jantar especial em Puerto Madero no Réveillon).\nInclui: Ônibus leito cama, 3 pernoites em hotel, show de tango com jantar, festa da virada em Puerto Madero, guia local, barril de chopp, lanches e água mineral.\nInvestimento: 10x R$ 499 (duplo) / 10x R$ 599 (single).\n\n-🌊 Réveillon com a Bebecê em Balneário Camboriú\nDuração: 27/12 a 02/01\nRoteiro: Balneário Camboriú (dias livres de praia + opções de passeio Beto Carrero, Cristo Luz, barco Pirata, Laranjeiras e teleférico). Virada com brinde na praia.\nInclui: Ônibus leito total, 5 noites de hotel c/ café, água mineral, lanche de boas-vindas, barril de chopp no ônibus, seguro viagem.\nInvestimento: 10x R$ 399 (adulto duplo) / Chd até 5 anos free.\n\n-☀️ Meia Praia – Plano Econômico\nDatas: 02 a 08/01/26 ou 26/01 a 01/02/26\nRoteiro: Dias livres de praia em Meia Praia + opções de passeio de barco.\nInclui: Ônibus leito 2 andares, hospedagem em casa de excursão climatizada (meia pensão), churrasco + barril de 50L chopp, água mineral, seguro viagem.\nInvestimento: 10x R$ 259 por pessoa. Crianças até 5 anos acompanhadas de 2 adultos podem ser free ou 50%.\n\n-🐠 Férias de Verão em Bonito\nDuração: 03 a 07/01/26\nRoteiro: Gruta Catedral, Museu Kadiwéu, passeio de bote no Rio Formoso, Estância Mimosa (trilha + cachoeiras), Flutuação Nascente Azul, Balneário Municipal.\nInclui: Ônibus turismo, 3 noites hotel c/ café, café extra na chegada, ingressos dos principais passeios (já com almoço em alguns), guia local e safári fotográfico.\nInvestimento: 10x R$ 479 (duplo/triplo) / 10x R$ 569 (single).\n\n-🏝️ Maestro Thermas Park Hotel (Final de Semana)\nDatas: 16 a 18/01/26\nLocal: Francisco Beltrão – PR\nRoteiro: Estrutura completa com parque aquático de águas termais, spa, recreação, jantares temáticos e música ao vivo.\nInclui: Ônibus turismo, 2 diárias com pensão completa, guia e seguro.\nInvestimento: Adultos R$ 1.300 / Crianças até 7 anos R$ 650.\n\n-🏔️ Circuito Inca – Machu Picchu (14 dias)\nDatas: 19/01 a 02/02/26\nRoteiro: Argentina (Corrientes, Jujuy), Chile (Deserto do Atacama, Arica, Calama, Gêiser del Tatio), Peru (Puno + Lago Titicaca, Cusco + Vale Sagrado, Machu Picchu, Arequipa) e retorno via Salta.\nInclui: Ônibus leito cama, 10 pernoites hotel c/ café, entradas e passeios guiados (Lago Titicaca, Machu Picchu, Vale Sagrado, Arequipa, Gêiser del Tatio, Salta), guia acompanhando, serviço de bordo e seguro.\nInvestimento: 10x R$ 1.799 (duplo) / 10x R$ 2.399 (single).\n\n-🌄 Viagem dos Sonhos – Chapada Diamantina + Salvador + Ouro Preto + Porto de Galinhas\nDatas: 29/01 a 11/02/26\nRoteiro: Belo Horizonte → Ouro Preto → Gruta de Maquiné → Lençóis/Chapada (Morro Pai Inácio, Grutas, Lago da Pratinha) → Salvador (Pelourinho, Farol da Barra) → Porto de Galinhas (passeio de buggy + catamarã Carneiros) → retorno via BH.\nInclui: Ônibus turismo, hotéis selecionados, guias locais, passeios em grutas, Chapada, city tours, Porto de Galinhas.\nInvestimento: R$ 7.999 em até 12x.\n\n-🌊 Serra da Canastra & Mar de Minas\nDatas: 12 a 17/02/26\nRoteiro: Passos/MG → Serra da Canastra (cachoeiras, Pedreira Lagoa Azul, queijarias premiadas) → São João Batista do Glória → Capitólio (lancha no Lago de Furnas, Cânions, Lagoa Azul).\nInclui: Ônibus turismo, 4 noites hotel c/ café, passeios 4x4, passeio de lancha, degustações, ingressos, seguro e guias.\nInvestimento: Adulto R$ 3.250 | Idoso R$ 3.100 | À vista R$ 3.000.\n\n-🏖️ Torres e Canela (com praias, trilhas e parque aquático)\nDatas: 13 a 17/02/26\nRoteiro: Torres (praia Guarita, Morro do Farol, torres basálticas) → dia livre de praia → Canela (Parque Aquático Acquamotion + bondinho, Igreja de Pedra e chocolates).\nInclui: Ônibus Cama, 3 noites hotel c/ café, ingressos, lanche e água, seguro e guias.\nInvestimento: Adulto R$ 2.980 | Idoso R$ 2.899 | À vista R$ 2.900.\n\n-🌸 Cambará do Sul & Parque Mátria\nDatas: 13 a 15/03/26\nRoteiro: São Francisco de Paula (Castelo Montsalvato + vinhos) → Parque Mátria (30 jardins, 9 milhões de plantas, almoço e café inclusos) → Cambará do Sul (Cânion Fortaleza + Cânion Itaimbezinho com trilhas).\nInclui: Ônibus Cama, 1 noite hotel c/ café, 2 cafés da manhã, 2 almoços, 1 café da tarde, ingressos e seguro.\nInvestimento: Adulto R$ 2.200 | Idoso R$ 2.100 | À vista R$ 2.000.\n\n-🍷 Festa da Vindima – Mendoza\nDatas: 05 a 10/03/26\nRoteiro: Mendoza (vinícolas Chandon, El Enemigo, Salentein, Alfa Crux) → Festa da Vindima (Teatro Grego) → Cordilheira dos Andes (Uspallata, Cerro Aconcágua, Cristo Redentor).\nInclui: Ônibus Cama, 4 noites hotel, city tour Mendoza, tour Cordilheira, degustações, ingressos, guias, seguro.\nInvestimento: 10x R$ 899 (duplo) | 10x R$ 1.099 (single).\n\n-🌴 Nordestão Bebecê (Lençóis, Jeri, Fortaleza, Natal, Porto de Galinhas, Búzios e mais)\nDatas: 01 a 19/10/25\nRoteiro: Caldas Novas → Lençóis Maranhenses → Jericoacoara → Fortaleza (Canoa Quebrada, Beach Park) → Natal (cajueiro, buggy) → Porto de Galinhas → Cabo Frio → Búzios.\nInclui: Ônibus leito cama, 14 diárias em hotéis c/ café, passeios em Toyota Jardineira, barco, buggy, escuna, transfers, guias locais.\nInvestimento: 12x R$ 1.249 por pessoa.\n\n-🙏 Caminho dos Anjos, Brusque, Pomerode e Santuário Madre Paulina\nDatas: 02 a 05/04/26\nRoteiro: Ituporanga (Caminho dos Anjos) → Brusque (compras FIPE) → Pomerode (trem + Osterfest) → Nova Trento (Santuário Madre Paulina).\nInclui: Ônibus Cama, 2 noites hotel c/ café, ingressos, seguro e guias.\nInvestimento: Adulto R$ 2.100 | Idoso R$ 1.999 | À vista R$ 1.900.\n\n-🏜️ Salta, Jujuy & San Pedro do Atacama\nDatas: 07 a 15/04/26\nRoteiro: Jujuy (Quebrada Humahuaca, Purmamarca) → San Pedro do Atacama (Vale da Lua, Vale da Morte, opcionais Geysers del Tatio) → Salta (city tour + Cafayate, Ruta del Vino, Quebrada de las Conchas).\nInclui: Ônibus Cama, 7 noites hotel c/ café, passeios guiados em Jujuy, Atacama e Salta, seguro e água mineral.\nInvestimento: R$ 7.590 em até 10x.\n\n-🍺 Rota da Cerveja, Carambeí & Buraco do Padre\nDatas: 30/04 a 03/05/26\nRoteiro: Ponta Grossa → Buraco do Padre (cascata 30m em furna) → Parque Histórico de Carambeí → Rota da Cerveja (Heineken + Partner + Museu Egípcio).\nInclui: Ônibus Cama, 1 noite hotel, ingressos, 2 almoços, seguro e guias.\nInvestimento: Adulto R$ 1.950 | Idoso R$ 1.900 | À vista R$ 1.800.\n\n-🌞 DIVAS – Rio de Janeiro + Arraial do Cabo\nDatas: 03 a 08/06/25\nRoteiro: Rio de Janeiro (Cristo, Pão de Açúcar, Catedral, Escadaria Selarón, Sambódromo) → Arraial do Cabo (lancha, Gruta Azul, Ilha do Farol) → Aparecida/Canção Nova.\nInclui: Ônibus Cama NAVE (luxo), 2 noites hotel Copacabana, ingressos, 2 almoços, barril de chopp, kit lanche, seguro e guias.\nInvestimento: Adulto R$ 3.200 | Idoso R$ 3.100 | À vista R$ 2.999.\n\n-❄️ Férias em Bariloche (várias saídas em jun/jul/26)\nRoteiro: Viagem em ônibus Cama Total → 4 noites em Bariloche → Circuito Chico (Cerro Campanário, Hotel Llao Llao, Lago Nahuel Huapi) → Cerro Catedral (opcional) → Complexo Piedras Blancas (ski bunda, tubing) → Passeio opcional Lago Nahuel Huapi (Isla Victoria + Bosque de Arrayanes) e Cerro Otto.\nInclui: Ônibus Cama Total, 4 pernoites c/ café, guias locais, seguro, lanche de início de viagem.\nNão inclui: Ingressos para Cerro Catedral, Piedras Blancas, Cerro Otto, roupas de neve.\nInvestimento: 10x R$ 619 (duplo) | 10x R$ 879 (single).\n\n-🙏 Aparecida e Frei Galvão (03–05/07/26 e 29–31/05/26)\nRoteiro: Viagem em ônibus Leito Total → visita ao Rio Paraíba (aparição), Catedral Santo Antônio e Casa Frei Galvão em Guaratinguetá → Santuário Nacional de Aparecida.\nInclui: Ônibus Leito, 1 pernoite hotel, 2 cafés da manhã, 1 jantar.\nInvestimento: R$ 1.300 (jul) | R$ 1.600 (mai) em aptos duplos/triplos.\n\n-🇨🇱 Chile, Bariloche e Buenos Aires (10–20/07/26)\nRoteiro: Bariloche (Circuito Chico, Cerro Catedral, Cerro Otto) → Puerto Varas (Lago Llanquihue, Saltos de Petrohué, Vulcão Osorno) → Ilha de Chiloé e Puerto Montt → Buenos Aires (compras Calle Florida, show de tango opcional, city tour Casa Rosada, San Telmo, La Boca, Recoleta).\nInclui: Ônibus Cama, 7 pernoites hotel c/ café, guias locais, seguro, lanche de boas-vindas.\nInvestimento: R$ 8.890.\n\n-☕ Rota do Café (07–09/08/26)\nRoteiro: Fazenda em Londrina (colheita, degustação, café da tarde colonial) → visitas a indústrias e cachaçaria → passeio de trem urbano → Museu do Café.\nInclui: Ônibus Leito NAVE, 1 diária hotel, 2 almoços, 2 cafés da manhã, 2 cafés da tarde, ingressos, seguro.\nInvestimento: R$ 2.700 à vista.\n\n-🤠 Festa de Barretos + Olímpia (27–30/08/26)\nRoteiro: Resort Olímpia → Festa do Peão de Barretos (rodeios + shows sertanejos) → City tour em Barretos.\nInclui: Ônibus Cama, 2 pernoites resort c/ café, seguro, guias.\nInvestimento: R$ 2.700 (R$ 2.600 à vista).\n\n-🌸 Festa das Flores e do Morango (04–07/09/26)\nRoteiro: Holambra (Expoflora, desfile das flores, chuva de pétalas) → Atibaia (Festa do Morango + degustação) → SP (compras Brás + 25 de Março).\nInclui: Ônibus Leito NAVE, 2 diárias hotel, ingressos Expoflora e Festa do Morango, seguro.\nInvestimento: R$ 2.399.\n\n-🏔️ Patagônia – Expedição ao Fim do Mundo (03–17/01/26 e 13–29/10/26)\nRoteiro: Puerto Madryn (pinguineira Punta Tombo) → Ushuaia (Canal de Beagle, Trem do Fim do Mundo, Parque Nacional Tierra del Fuego) → Puerto Natales → Torres del Paine → El Calafate (Glaciar Perito Moreno + Todos Glaciares) → Buenos Aires (city tour).\nInclui: Ônibus Leito Cama, 12 pernoites hotel, serviços de bordo, guias, seguro, tours principais.\nInvestimento: 10x R$ 1.799 (jan/26 duplo) | 10x R$ 2.399 (single)\n 10x R$ 1.939 (out/26 duplo) | 10x R$ 2.499 (single).\n\n-🇺🇾 Montevideo + Colônia + Punta (19–22/11/26)\nRoteiro: Montevideo (city tour) → Colônia del Sacramento (Patrimônio Mundial) → Punta del Este (Piriápolis, Casapueblo, praias e cassino).\nInclui: Ônibus turismo, 2 pernoites hotel c/ café, lanche de viagem, água, seguro, guias locais.\nInvestimento: R$ 2.490 (duplo) | Single: 10x R$ 249.\n\n-🎣 Pescaria Argentina (23–28/09/26)\nRoteiro: Corrientes/ARG → 3 dias de pesca completa → pousada all-inclusive (refeições, bebidas, destilados, vinhos, petiscos).\nInclui: Ônibus turismo, 4 noites (3 de pesca), barcos com guias e equipamentos, iscas, licenças, bebidas liberadas, seguro.\nInvestimento: R$ 7.920 | 12x R$ 660 no boleto.\n\n\n-🌹 Treze Tílias – Dia das Mães (05–07/12/26)\nRoteiro: Resort Treze Tílias → jantar italiano + austríaco → city tour → feijoada → Bierwagen (1h chope liberado) → apresentações típicas → brunch de domingo.\nInclui: Ônibus Leito, 1 pernoite resort, refeições e ingressos, guia.\nInvestimento: R$ 1.600 por pessoa.\n\n-🌍 Portugal, Galícia, Madri e Paris (25/02–09/03/26)\nRoteiro: Lisboa → Fátima → Porto → Santiago de Compostela → Madri → San Sebastian → Bordeaux → Paris (Versailles, Montmartre, city tour).\nInclui: Ônibus circuito europeu, traslados, seguro básico, visitas panorâmicas, barcos (Douro, Ria de Arosa), aéreo Chapecó–Guarulhos–Portugal (ida) e Paris–Guarulhos (volta).\nInvestimento: R$ 24.990 ou € 3.125 | Parcelado em até 15x.\n---------------------------------\nAéreos: \n\n-✈️ Fortaleza – Grupo 2026\n📅 02 a 08/02/2026\n ✔️ Aéreo Chapecó/Fortaleza ida e volta\n ✔️ Hotel beira-mar Praia de Iracema com café da manhã\n ✔️ Passeios: Águas Belas, Morro Branco, Praia das Fontes, Canoa Quebrada, buggy e catamarã\n ✔️ Ingressos inclusos + guia acompanhante\n 💰 R$ 5.800,00 por pessoa\n\n-✈️ Maceió – Grupo com Guia\n📅 23 a 28/05/2026\n ✔️ Praia de Maragogi, São Miguel dos Milagres e Dunas de Marapé\n ✔️ Passeio de lancha + buggy\n ✔️ Transporte, hospedagem, alimentação e guia incluso\n 💰 Adulto: R$ 4.975,00 | Idoso: R$ 4.875,00 | À vista: R$ 4.700,00\n\n-✈️ Porto Seguro – Grupo 2026\n📅 03 a 10/03/2026\n ✔️ Hotel com café da manhã\n ✔️ Passeios: city tour histórico, buggy, catamarã e Arraial d’Ajuda\n 💰 R$ 4.440,00 por pessoa\n\n-✈️ Jericoacoara – Grupo 2026\n📅 11 a 16/03/2026\n ✔️ Voo direto para Jeri\n ✔️ Hotel beira-mar\n ✔️ Passeios: buggy nas dunas, catamarã, city tour e lancha\n 💰 R$ 5.999,00 até 15x\n-----------------------------\nCruzeiro: \n-🚢 Cruzeiro MSC Seaview – Experiência Fantástica\n📅 21 a 28/03/2026 – 8 dias / 7 noites\nItinerário:\nSantos/SP → Búzios → Salvador → Maceió → Santos/SP\nDias de navegação para lazer a bordo\nInclui:\n ✔️ All inclusive de comidas\n ✔️ Bebidas sem álcool durante as refeições (cafés, águas, sucos, chás)\n ✔️ Bagagens e taxas de viagem\nInvestimento por pessoa:\n💰 R$ 7.000 – Cabine Interna (sem pacote de bebidas)\n💰 R$ 8.700 – Cabine Interna (com pacote de bebidas sem álcool)\n💰 R$ 10.000 – Cabine com Varanda (com pacote de bebidas sem álcool)\n-----------------------------------\n-Regra extra: pacotes prontos\nSe o cliente escolher um pacote já fechado (com data definida):\nNão pergunte a data novamente.\nPergunte apenas:\n“De qual cidade/ aeroporto você pretende sair? ✈️🚌”\n“Quantas pessoas vão na viagem? 👥”\n“Vai ter criança junto? Se sim, qual a idade delas na data da viagem? 🧒👶”\nDepois, registre o resumo e informe de forma acolhedora que uma consultora vai dar continuidade:\n“Perfeito ✍️ Já anotei todas as informações. Nossa equipe vai cuidar de cada detalhe para que você aproveite esse pacote incrível 💙.”\n----------------------------\n## 7. Ferramentas\n\n*atualizarNome*: usar após o lead informar o nome dele, na primeira vez.\n\n*resumoDadosCliente*: usar após entender a necessidade da pessoa e salvar o resumo na nota do sistema.\n*Você é um agente responsável por atualizar as etiquetas dos clientes no CRM, baseado nas interações.\nNa conversa vai ser perguntado qual o Destino de interesse: \"Qual é o destino da viagem?\"\nSe for Gramado, utilize a tool atualizarEtiquetas passando o parâmetro 'destino'. Se for outro destino, utilize 'Atualize conforme o destino descrito '. Sempre que o cliente mencionar o destino da viagem, extraia somente o nome do destino (ex: \"Maceió\", \"Florianópolis\") e retorne esse valor no campo etiqueta.\nApós a pergunta do destino, avise que já atualizou o cadastro no CRM.\n## Sobre a Empresa:\nHorário de atendimento: segunda a sexta: 8:00h – 11h45 - 13h30– 19:00h / Sábados: 9:00h – 12:00h\n\n\n"
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 1.7,
+      "position": [
+        688,
+        624
+      ],
+      "id": "f7bfaa98-14c1-4ef0-add7-d69cc4d493db",
+      "name": "AI Agent",
+      "retryOnFail": true,
+      "waitBetweenTries": 2000
+    },
+    {
+      "parameters": {
+        "model": "gpt-4.1-mini",
+        "options": {
+          "temperature": 0.5
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.1,
+      "position": [
+        480,
+        928
+      ],
+      "id": "71c346e9-2aa4-4edc-ade0-4fbbdc12bee9",
+      "name": "OpenAI Chat Model",
+      "credentials": {
+        "openAiApi": {
+          "id": "rKVp7bCHgcB7CCkZ",
+          "name": "Tete a Tete OpenAI"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "set",
+        "key": "={{ $json.redis_key }}",
+        "value": "atendimento_ia",
+        "expire": true,
+        "ttl": 3600
+      },
+      "type": "n8n-nodes-base.redis",
+      "typeVersion": 1,
+      "position": [
+        448,
+        624
+      ],
+      "id": "589e8ad1-b93f-4ee2-bc29-6d722824bfc4",
+      "name": "Set action",
+      "credentials": {
+        "redis": {
+          "id": "5RndZyOTh3c6rRHB",
+          "name": "Redis Téte à Téte DB 12"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "get",
+        "propertyName": "action_agent_ia",
+        "key": "={{ $node[\"campos básicos\"].json[\"redis_key\"] }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.redis",
+      "typeVersion": 1,
+      "position": [
+        2992,
+        544
+      ],
+      "id": "6506f1e2-3049-41e1-b2d4-416e7f92fab9",
+      "name": "check action",
+      "executeOnce": true,
+      "credentials": {
+        "redis": {
+          "id": "5RndZyOTh3c6rRHB",
+          "name": "Redis Téte à Téte DB 12"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $node[\"check action\"].json[\"action_agent_ia\"] }}",
+                    "rightValue": "atendimento_transferido",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "atendimento_transferido"
+            }
+          ]
+        },
+        "options": {
+          "fallbackOutput": "extra"
+        }
+      },
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.2,
+      "position": [
+        3184,
+        432
+      ],
+      "id": "2258a9a7-f8f5-46ee-a7b3-f4dbc342aca1",
+      "name": "direct action"
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [
+        3424,
+        320
+      ],
+      "id": "319fbb88-2ff8-4a0e-8ea8-498b1a172808",
+      "name": "atendimento transferido"
+    },
+    {
+      "parameters": {
+        "operation": "delete",
+        "key": "={{ $node[\"campos básicos\"].json[\"redis_key\"] }}"
+      },
+      "type": "n8n-nodes-base.redis",
+      "typeVersion": 1,
+      "position": [
+        3744,
+        528
+      ],
+      "id": "04452bc5-3c2e-4e49-92ce-6b0549e7d0cc",
+      "name": "deletar chave",
+      "credentials": {
+        "redis": {
+          "id": "5RndZyOTh3c6rRHB",
+          "name": "Redis Téte à Téte DB 12"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "bebeceviagensvivi",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        -880,
+        -176
+      ],
+      "id": "34d14027-7bee-45f0-9a1f-e41059ffac26",
+      "name": "Webhook",
+      "webhookId": "19622648-b85e-4590-a2d2-2b8e548e719c"
+    },
+    {
+      "parameters": {
+        "url": "={{ $json.details.file.publicUrl }}",
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "file"
+            }
+          }
+        }
+      },
+      "id": "a9ee6bbc-1e20-4fd2-967b-f655b77d3f0c",
+      "name": "Baixa Audio",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        944,
+        -208
+      ]
+    },
+    {
+      "parameters": {
+        "resource": "audio",
+        "operation": "transcribe",
+        "options": {}
+      },
+      "id": "534bd74c-508c-49ab-a317-44ceb2bc7fbc",
+      "name": "Transcreve áudio",
+      "type": "@n8n/n8n-nodes-langchain.openAi",
+      "typeVersion": 1.5,
+      "position": [
+        1120,
+        -208
+      ],
+      "credentials": {
+        "openAiApi": {
+          "id": "T9oI1hTCWu8FtQXL",
+          "name": "Voe Destak"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "bd676b02-338b-4adf-9bf6-7573fd30c1fd",
+              "leftValue": "={{ $json.text }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "f41794c1-e8af-4a67-9688-a8f3437464a0",
+      "name": "Filtra \"Text\"",
+      "type": "n8n-nodes-base.filter",
+      "typeVersion": 2.2,
+      "position": [
+        480,
+        -336
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "6f57fd7d-92da-48c1-8a97-532b7f434888",
+              "name": "text",
+              "value": "={{ $json.text }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "17b66bcb-d07f-46c6-b56c-360287102900",
+      "name": "Grava variável \"Text\"",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        720,
+        -336
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "cf853169-f392-48d4-b623-295883411603",
+              "name": "text",
+              "value": "={{ $json.text }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "463852b3-4290-4450-a9e1-f94f9026fde1",
+      "name": "Grava variável da transcrição",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        1328,
+        -208
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "var text = \"\";\nvar sessionId = $('Webhook').first().json.body.sessionId;\n\nfor (const item of $input.all()) {\n  text += item.json.text + \" \\n\";\n}\n\nreturn { \"text\": text, \"sessionId\": sessionId };"
+      },
+      "id": "e59230c2-2f4f-489e-aeb8-a01d11db88cf",
+      "name": "Code",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2048,
+        -304
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "e9f3c00d-c9d9-49c5-9912-7e41bb8a8e17",
+              "name": "text",
+              "value": "={{ $json.text }}",
+              "type": "string"
+            },
+            {
+              "id": "4a38e3a0-5d90-4bb8-a2b3-25519ced1ffb",
+              "name": "sessionId",
+              "value": "={{ $('Webhook').first().json.body.sessionId }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "4f6b2d3f-bbb5-4cac-a803-3c0360e9ce62",
+      "name": "Grava variavel \"text\" e sessionId",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        1872,
+        -304
+      ]
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "6b8ede30-80d8-4e0e-a32d-73dc4d0f429c",
+                    "leftValue": "={{ $json.details.file.mimeType }}",
+                    "rightValue": "=audio/",
+                    "operator": {
+                      "type": "string",
+                      "operation": "startsWith"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "AUDIO"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.details.file.mimeType }}",
+                    "rightValue": "image/",
+                    "operator": {
+                      "type": "string",
+                      "operation": "startsWith"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "IMAGEM"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "545177de-d24d-445b-a8fa-1e8aadfb1a06",
+                    "leftValue": "={{ $json.details.file.mimeType }}",
+                    "rightValue": "application/pdf",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals",
+                      "name": "filter.operator.equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "PDF"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "f414620e-ef93-4afb-8be5-a328e75c535a",
+      "name": "Switch",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.2,
+      "position": [
+        720,
+        -16
+      ]
+    },
+    {
+      "parameters": {
+        "resource": "image",
+        "operation": "analyze",
+        "modelId": {
+          "__rl": true,
+          "value": "gpt-4o-mini",
+          "mode": "list",
+          "cachedResultName": "GPT-4O-MINI"
+        },
+        "text": "=O que tem nessa imagem? ",
+        "imageUrls": "={{ $json.details.file.publicUrl }}",
+        "options": {}
+      },
+      "id": "6c160cca-5693-4a26-9d88-e0337963c0a3",
+      "name": "Transcreve imagem",
+      "type": "@n8n/n8n-nodes-langchain.openAi",
+      "typeVersion": 1.5,
+      "position": [
+        1120,
+        -16
+      ],
+      "credentials": {
+        "openAiApi": {
+          "id": "rKVp7bCHgcB7CCkZ",
+          "name": "Tete a Tete OpenAI"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "cf853169-f392-48d4-b623-295883411603",
+              "name": "text",
+              "value": "=Conteudo de uma imagem fornecida: {{ $json.content }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "dcdffb7b-d1ab-4ce0-b4ef-a6fa7964bc03",
+      "name": "Variável transcrição imagem ",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        1328,
+        -16
+      ]
+    },
+    {
+      "parameters": {
+        "numberInputs": 4
+      },
+      "id": "2cd61ada-b6b6-4128-a5c8-027f1e55fa96",
+      "name": "Agrupa imput",
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3,
+      "position": [
+        1648,
+        -320
+      ]
+    },
+    {
+      "parameters": {
+        "amount": 10
+      },
+      "id": "f6478f0b-2c4c-477f-80c1-1f2e29edd76b",
+      "name": "Wait2",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        -464,
+        -176
+      ],
+      "webhookId": "16101a87-bc2a-425c-a8a2-76978846c759"
+    },
+    {
+      "parameters": {
+        "url": "=https://api.wts.chat/chat/v1/session/{{ $json.sessionId }}/message",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "CreatedAt.After",
+              "value": "={{ $json.dateMessage }}"
+            },
+            {
+              "name": "OrderBy",
+              "value": "createdAt"
+            },
+            {
+              "name": "OrderDirection",
+              "value": "ASCENDING"
+            }
+          ]
+        },
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "accept",
+              "value": "application/json"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "69a15cb3-c031-4e1a-b1ea-2fe6347291b6",
+      "name": "Buscar mensagens",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -240,
+        -176
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "AxAuw64u57Wx1L89",
+          "name": "Bebecê Viagens [Frédy]"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "fieldToSplitOut": "items",
+        "options": {}
+      },
+      "id": "4023d047-7962-4916-9310-14f3a173f9bd",
+      "name": "Dividir mensagens",
+      "type": "n8n-nodes-base.splitOut",
+      "typeVersion": 1,
+      "position": [
+        -16,
+        -176
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "fbb17146-c62e-441e-b3e7-f81c4a467695",
+              "leftValue": "={{ $json.direction }}",
+              "rightValue": "FROM_HUB",
+              "operator": {
+                "type": "string",
+                "operation": "equals",
+                "name": "filter.operator.equals"
+              }
+            },
+            {
+              "id": "dcd956de-912d-42b9-b718-dc0a90cffdd0",
+              "leftValue": "={{ $json.origin }}",
+              "rightValue": "GATEWAY",
+              "operator": {
+                "type": "string",
+                "operation": "equals",
+                "name": "filter.operator.equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "looseTypeValidation": true,
+        "options": {}
+      },
+      "id": "cf4471f4-6dd2-4605-8634-d2450ac03b49",
+      "name": "Filtrar as enviadas pelo contato",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        208,
+        -176
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "bd676b02-338b-4adf-9bf6-7573fd30c1fd",
+              "leftValue": "={{ $json.type }}",
+              "rightValue": "TEXT",
+              "operator": {
+                "type": "string",
+                "operation": "notEquals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "1db22f8b-4efb-44d6-8d67-4e4845114ad4",
+      "name": "Filtra \"File\"",
+      "type": "n8n-nodes-base.filter",
+      "typeVersion": 2.2,
+      "position": [
+        480,
+        -16
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "7a0c6706-3991-4e26-9074-8206c8844b7d",
+              "name": "dateMessage",
+              "value": "={{ $node[\"Webhook\"].json[\"body\"][\"lastMessage\"][\"createdAt\"] }}",
+              "type": "string"
+            },
+            {
+              "id": "05b1b7b4-09eb-4327-ae96-6bf27721376d",
+              "name": "sessionId",
+              "value": "={{ $node[\"Webhook\"].json[\"body\"][\"sessionId\"] }}",
+              "type": "string"
+            },
+            {
+              "id": "ca4bb895-79ca-41e0-aea0-e71b18cd4dd1",
+              "name": "telefone",
+              "value": "={{ $node[\"Webhook\"].json[\"body\"][\"contact\"][\"display-phonenumber\"] }}",
+              "type": "string"
+            },
+            {
+              "id": "498d98ca-7205-46f4-9626-7cd1f6da9bb9",
+              "name": "nome",
+              "value": "={{ $node[\"Webhook\"].json[\"body\"][\"contact\"][\"name\"] }}",
+              "type": "string"
+            },
+            {
+              "id": "429f2d70-7423-4204-b1d7-15597a069f1e",
+              "name": "primeiroContato",
+              "value": "={{ $node[\"Webhook\"].json[\"body\"][\"contact\"][\"metadata\"][\"primeiroContato\"] }}",
+              "type": "boolean"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "00a7f77d-0d0b-4aa7-97e7-b74cb0170cd2",
+      "name": "informações iniciais",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -656,
+        -176
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "7179ba68-3f92-4f1f-9437-5e127637c2f6",
+              "name": "redis_key",
+              "value": "=action_agent_ia_gegi-{{ $node[\"informações iniciais\"].json[\"sessionId\"] }}",
+              "type": "string"
+            },
+            {
+              "id": "11a461e0-3bc4-49cd-9534-b3534e87d7c3",
+              "name": "nome",
+              "value": "={{ $node[\"informações iniciais\"].json[\"nome\"] }}",
+              "type": "string"
+            },
+            {
+              "id": "ef3306e7-a3ba-46c5-8f4b-cfd38419a104",
+              "name": "telefone",
+              "value": "={{ $node[\"informações iniciais\"].json[\"telefone\"] }}",
+              "type": "string"
+            },
+            {
+              "id": "5f009286-39f0-4d39-a5b6-53fffded1a57",
+              "name": "primeiro_contato",
+              "value": "={{ $node[\"informações iniciais\"].json[\"primeiroContato\"] == null ? true : false  }}",
+              "type": "boolean"
+            },
+            {
+              "id": "eb9ee566-279a-4ce9-b8be-d404c41f39de",
+              "name": "sessionId",
+              "value": "={{ $node[\"informações iniciais\"].json[\"sessionId\"] }}",
+              "type": "string"
+            },
+            {
+              "id": "7a099d10-cc86-4724-b4be-33725560bf0f",
+              "name": "chatInput",
+              "value": "={{ $json.text.trim() }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        240,
+        624
+      ],
+      "id": "ba68f953-9750-4f26-8b17-32483b0026c0",
+      "name": "campos básicos"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.wts.chat/chat/v1/message/send",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "accept",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/*+json",
+        "body": "= { \"body\": { \"text\": {{ JSON.stringify($json.message.replaceAll('**','*').trim()) }} }, \"from\": \"49991031394\", \"to\": \"{{ $node[\"campos básicos\"].json[\"telefone\"] }}\" } ",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2480,
+        608
+      ],
+      "id": "eab953a2-3532-47a9-bb7a-77e7576149d3",
+      "name": "send message",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "AxAuw64u57Wx1L89",
+          "name": "Bebecê Viagens [Frédy]"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.wts.chat/chat/v1/chatbot/send",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "accept",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/*+json",
+        "body": "= { \"botKey\": \"d7ecaf7d-a064-4260-91de-97497a8505bd\", \"to\": \"{{ $node[\"campos básicos\"].json[\"telefone\"] }}\", \"from\": \"49991031394\", \"options\": { \"skipIfBotInExecution\": false, \"skipIfInProgress\": false, \"forceStartSession\": false, \"hiddenSession\": false } } ",
+        "options": {}
+      },
+      "id": "1a68f1fe-2ee9-44a6-bb97-9faf82ffbd6a",
+      "name": "Enviar chatbot - Continuar conversa",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        3440,
+        688
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "AxAuw64u57Wx1L89",
+          "name": "Bebecê Viagens [Frédy]"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "id": "05e7a622-3e09-428b-9235-0bb9f832a44c",
+      "name": "Loop Over Items",
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [
+        2160,
+        432
+      ]
+    },
+    {
+      "parameters": {
+        "amount": 2
+      },
+      "id": "1ec1e59e-1b7d-437f-ac6d-fd5b9e163082",
+      "name": "Wait",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        2832,
+        800
+      ],
+      "webhookId": "d00b5a15-b2e5-4bd9-9794-bec24cc58d2a"
+    },
+    {
+      "parameters": {
+        "fieldToSplitOut": "message",
+        "options": {}
+      },
+      "id": "16a54e74-2f6c-4904-8029-0548d6aa59aa",
+      "name": "Split Out",
+      "type": "n8n-nodes-base.splitOut",
+      "typeVersion": 1,
+      "position": [
+        1552,
+        624
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "b659bd68-8d42-4179-bf85-1997360714c0",
+              "name": "message",
+              "value": "={{ $json.output.split('\\n\\n') }}",
+              "type": "array"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "a935e024-24db-472e-b8e2-10334c8cc3aa",
+      "name": "resposta",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        1280,
+        624
+      ],
+      "alwaysOutputData": true,
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "c3d75c64-3afe-4414-adce-6788d2cf0207",
+              "leftValue": "={{ $json.message }}",
+              "rightValue": "={{ '' }}",
+              "operator": {
+                "type": "string",
+                "operation": "notEquals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "4fff4fd0-ac50-4587-8c4f-8b51853dfd07",
+      "name": "Remover linha em branco",
+      "type": "n8n-nodes-base.filter",
+      "typeVersion": 2.2,
+      "position": [
+        1824,
+        624
+      ]
+    },
+    {
+      "parameters": {
+        "sessionIdType": "customKey",
+        "sessionKey": "={{ $json.sessionId }}",
+        "sessionTTL": 172800,
+        "contextWindowLength": 10
+      },
+      "type": "@n8n/n8n-nodes-langchain.memoryRedisChat",
+      "typeVersion": 1.4,
+      "position": [
+        608,
+        928
+      ],
+      "id": "149b0862-6809-44ea-9173-7d0cdee5809c",
+      "name": "Redis Chat Memory",
+      "credentials": {
+        "redis": {
+          "id": "5RndZyOTh3c6rRHB",
+          "name": "Redis Téte à Téte DB 12"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "name": "atualizarNome",
+        "description": "use essa ferramenta após o lead informar o nome dele, para atualizar no nosso sistema.",
+        "workflowId": {
+          "__rl": true,
+          "value": "oNQHFpYKxhacDer2",
+          "mode": "list",
+          "cachedResultName": "[Nome empresa exemplo] I.A Atualizar nome"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "telefone": "={{ $('campos básicos').item.json.telefone }}",
+            "nome": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('nome', `Nome do lead.`, 'string') }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "telefone",
+              "displayName": "telefone",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string"
+            },
+            {
+              "id": "nome",
+              "displayName": "nome",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string"
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.toolWorkflow",
+      "typeVersion": 2,
+      "position": [
+        1104,
+        928
+      ],
+      "id": "173fb042-aaaa-4708-b0b5-eb2adab41cd3",
+      "name": "atualizarNome"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "f105a00a-0243-491e-9e8a-39615686f7e1",
+              "leftValue": "={{ $node[\"resposta\"].json[\"message\"][\"1\"] }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        2672,
+        608
+      ],
+      "id": "746174d6-0c46-4205-b5b1-a9b35e2635e0",
+      "name": "Mais de uma mensagem?"
+    },
+    {
+      "parameters": {
+        "name": "resumoDadosLead",
+        "description": "use essa ferramenta após o novo lead passar as informações sobre qual sua viagem, data viagem, quantidade pessoas, origem, destino.",
+        "workflowId": {
+          "__rl": true,
+          "value": "vxcnICWlhPJpP4jU",
+          "mode": "list",
+          "cachedResultName": "[Nome empresa exemplo] I.A Registrar resumo do cliente"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "telefone": "={{ $('campos básicos').item.json.telefone }}",
+            "resumo": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('resumo', `Resumo das informações coletadas do novo lead.`, 'string') }}",
+            "sessionId": "={{ $('campos básicos').item.json.sessionId }}",
+            "redisKey": "={{ $('campos básicos').item.json.redis_key }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "telefone",
+              "displayName": "telefone",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string"
+            },
+            {
+              "id": "sessionId",
+              "displayName": "sessionId",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string",
+              "removed": false
+            },
+            {
+              "id": "resumo",
+              "displayName": "resumo",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string",
+              "removed": false
+            },
+            {
+              "id": "redisKey",
+              "displayName": "redisKey",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string",
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.toolWorkflow",
+      "typeVersion": 2,
+      "position": [
+        944,
+        928
+      ],
+      "id": "9aa76c0d-bb54-4b69-87cb-94030fe91ca6",
+      "name": "resumoDadosLead"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "cf853169-f392-48d4-b623-295883411603",
+              "name": "text",
+              "value": "=#System message:\nCliente enviou um arquivo que possívelmente é um bilhete do voo, prossiga o atendimento.",
+              "type": "string"
+            },
+            {
+              "id": "c1bb3e69-8930-459a-93aa-738e69555c42",
+              "name": "",
+              "value": "",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "6d9a5237-2aa6-49b2-b7a0-65b72279185e",
+      "name": "Variável transcrição arquivo",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        1344,
+        192
+      ]
+    },
+    {
+      "parameters": {
+        "name": "atualizarEtiquetas",
+        "description": "use essa ferramenta para atualizar etiquetas no crm.",
+        "workflowId": {
+          "__rl": true,
+          "value": "JnpIDKZplxFQb2fE",
+          "mode": "list",
+          "cachedResultName": "[Nome empresa exemplo] atualizarEtiquetas"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "telefone": "={{ $('campos básicos').item.json.telefone }}",
+            "etiqueta": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('etiqueta', `nome do destino escolhido`, 'string') }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "telefone",
+              "displayName": "telefone",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string"
+            },
+            {
+              "id": "etiqueta",
+              "displayName": "etiqueta",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "canBeUsedToMatch": true,
+              "type": "string",
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.toolWorkflow",
+      "typeVersion": 2,
+      "position": [
+        768,
+        928
+      ],
+      "id": "9e7139c9-f0aa-4eec-919b-1f3d40d96e7e",
+      "name": "atualizarEtiquetas"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "1341aa76-32f4-4d9b-91b4-c1f7db73a025",
+              "name": "message",
+              "value": "=*Vivi:*\n{{ $('Loop Over Items').item.json.message }}",
+              "type": "string"
+            },
+            {
+              "id": "3bf7d5cf-6eee-443f-94c2-fbfd3f0eb132",
+              "name": "",
+              "value": "",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "e53da480-97d4-4379-ace0-3773c831b2e8",
+      "name": "Edit Fields3",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        2320,
+        608
+      ]
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "OpenAI Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "check action": {
+      "main": [
+        [
+          {
+            "node": "direct action",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "direct action": {
+      "main": [
+        [
+          {
+            "node": "atendimento transferido",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Enviar chatbot - Continuar conversa",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "atendimento transferido": {
+      "main": [
+        [
+          {
+            "node": "deletar chave",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "informações iniciais",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Baixa Audio": {
+      "main": [
+        [
+          {
+            "node": "Transcreve áudio",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Transcreve áudio": {
+      "main": [
+        [
+          {
+            "node": "Grava variável da transcrição",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Filtra \"Text\"": {
+      "main": [
+        [
+          {
+            "node": "Grava variável \"Text\"",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Grava variável \"Text\"": {
+      "main": [
+        [
+          {
+            "node": "Agrupa imput",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Grava variável da transcrição": {
+      "main": [
+        [
+          {
+            "node": "Agrupa imput",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Code": {
+      "main": [
+        [
+          {
+            "node": "campos básicos",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Grava variavel \"text\" e sessionId": {
+      "main": [
+        [
+          {
+            "node": "Code",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Switch": {
+      "main": [
+        [
+          {
+            "node": "Baixa Audio",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Transcreve imagem",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Variável transcrição arquivo",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Transcreve imagem": {
+      "main": [
+        [
+          {
+            "node": "Variável transcrição imagem ",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Variável transcrição imagem ": {
+      "main": [
+        [
+          {
+            "node": "Agrupa imput",
+            "type": "main",
+            "index": 2
+          }
+        ]
+      ]
+    },
+    "Agrupa imput": {
+      "main": [
+        [
+          {
+            "node": "Grava variavel \"text\" e sessionId",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wait2": {
+      "main": [
+        [
+          {
+            "node": "Buscar mensagens",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Dividir mensagens": {
+      "main": [
+        [
+          {
+            "node": "Filtrar as enviadas pelo contato",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Filtrar as enviadas pelo contato": {
+      "main": [
+        [
+          {
+            "node": "Filtra \"Text\"",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Filtra \"File\"",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Filtra \"File\"": {
+      "main": [
+        [
+          {
+            "node": "Switch",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "informações iniciais": {
+      "main": [
+        [
+          {
+            "node": "Wait2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "campos básicos": {
+      "main": [
+        [
+          {
+            "node": "Set action",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "send message": {
+      "main": [
+        [
+          {
+            "node": "Mais de uma mensagem?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Enviar chatbot - Continuar conversa": {
+      "main": [
+        [
+          {
+            "node": "deletar chave",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Loop Over Items": {
+      "main": [
+        [
+          {
+            "node": "check action",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Edit Fields3",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wait": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Items",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Split Out": {
+      "main": [
+        [
+          {
+            "node": "Remover linha em branco",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "resposta": {
+      "main": [
+        [
+          {
+            "node": "Split Out",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Remover linha em branco": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Items",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Buscar mensagens": {
+      "main": [
+        [
+          {
+            "node": "Dividir mensagens",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Set action": {
+      "main": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Agent": {
+      "main": [
+        [
+          {
+            "node": "resposta",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Redis Chat Memory": {
+      "ai_memory": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_memory",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "atualizarNome": {
+      "ai_tool": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Mais de uma mensagem?": {
+      "main": [
+        [
+          {
+            "node": "Wait",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "check action",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "resumoDadosLead": {
+      "ai_tool": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Variável transcrição arquivo": {
+      "main": [
+        [
+          {
+            "node": "Agrupa imput",
+            "type": "main",
+            "index": 2
+          }
+        ]
+      ]
+    },
+    "atualizarEtiquetas": {
+      "ai_tool": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Edit Fields3": {
+      "main": [
+        [
+          {
+            "node": "send message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "callerPolicy": "workflowsFromSameOwner",
+    "errorWorkflow": "IcFpm96dSVAmMsWY"
+  },
+  "versionId": "2090f6fc-8896-40c5-b687-f7833ec48a53",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "be9057ebeb5d2661ac1bd40c94a5344b9c9b6b399b17155702b6047982f9fe9c"
+  },
+  "id": "Ld9inuGuf4nxv2gd",
+  "tags": [
+    {
+      "updatedAt": "2025-05-02T02:57:45.333Z",
+      "createdAt": "2025-05-02T02:57:45.333Z",
+      "id": "4qnOKL9fYNUtM6cp",
+      "name": "Agente"
+    }
+  ]
+}
