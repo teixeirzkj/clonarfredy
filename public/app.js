@@ -105,6 +105,7 @@ const state = {
   modelSlug: '', // trecho da conta modelo nas URLs (vazio = servidor decide)
   builtPrompt: '',
   uploadedTemplate: null, // { name, workflow }
+  n8nCache: null, // tela de Fluxos do n8n já montada (escolhas preservadas ao voltar)
   lastPanelId: '',
 };
 
@@ -387,6 +388,12 @@ function openBlock(block) {
   setHeader(block.title, block.desc, true);
   showView('block');
   const view = $('view-block');
+  // Fluxos do n8n: volta para a mesma tela (com o que já foi escolhido) enquanto o token for o mesmo.
+  if (block.kind === 'n8n' && state.n8nCache && state.n8nCache.token === clientToken()) {
+    view.replaceChildren(...state.n8nCache.nodes);
+    state.n8nCache.onReturn();
+    return;
+  }
   view.replaceChildren();
   const renderers = {
     sync: renderSyncBlock,
@@ -994,9 +1001,31 @@ async function loadLookup(container, lookup, params) {
 function renderN8n(view) {
   const step1 = h('div');
   const step2 = h('div');
-  view.append(
-    h('p', { class: 'panel-desc' }, 'Crie no WTS o painel, as etapas e o campo personalizado do cliente. Depois escolha o fluxo padrão: o sistema acha os IDs da conta modelo dentro dele e troca pelos da conta do cliente.'),
-    step1, step2);
+  const desc = h('p', { class: 'panel-desc' }, 'Crie no WTS o painel, as etapas e o campo personalizado do cliente. Depois escolha o fluxo padrão: o sistema acha os IDs da conta modelo dentro dele e troca pelos da conta do cliente.');
+  view.append(desc, step1, step2);
+
+  // Guarda a tela para voltar sem refazer a análise (ex.: ida e volta ao montador de prompt).
+  const cache = {
+    token: clientToken(),
+    nodes: [desc, step1, step2],
+    promptArea: null, // preenchido depois da análise de um fluxo com agente de IA
+    showPrompt: null,
+    analyze: null,
+    selectAgent: null,
+    onReturn() {
+      const fromPrompt = Boolean(state.preferAgent);
+      state.preferAgent = false;
+      if (!fromPrompt) return;
+      if (cache.promptArea) {
+        // Já analisado: só troca o prompt e leva até ele e ao download.
+        cache.promptArea.value = state.builtPrompt;
+        cache.showPrompt?.();
+      } else if (cache.selectAgent?.() && clientToken()) {
+        cache.analyze?.({ fromPrompt: true });
+      }
+    },
+  };
+  state.n8nCache = cache;
   loadN8nTemplates(step1, step2);
 }
 
@@ -1098,8 +1127,23 @@ async function loadN8nTemplates(step1, step2) {
     fileError,
     h('div', { class: 'toolbar' }, h('span', { class: 'spacer' }), analyzeBtn)));
 
-  // Vindo do montador: chama a atenção para o próximo passo.
-  if (fromPrompt) {
+  if (state.n8nCache) {
+    state.n8nCache.analyze = (options) => {
+      if (!select.value) return;
+      scanN8n(step2, source(), slugForm, options);
+    };
+    state.n8nCache.selectAgent = () => {
+      const agent = mains.find((t) => /\bI\.?A\b|agente/i.test(t.name));
+      if (!agent) return false;
+      if (select.value !== agent.id) { select.value = agent.id; showInfo(); }
+      return true;
+    };
+  }
+
+  // Vindo do montador: com o token preenchido, já analisa; senão chama a atenção para o botão.
+  if (fromPrompt && clientToken() && select.value) {
+    scanN8n(step2, source(), slugForm, { fromPrompt: true });
+  } else if (fromPrompt) {
     setTimeout(() => {
       analyzeBtn.scrollIntoView({ behavior: reducedMotion.matches ? 'auto' : 'smooth', block: 'center' });
       if (!reducedMotion.matches) analyzeBtn.animate([{ transform: 'scale(1)' }, { transform: 'scale(1.06)' }, { transform: 'scale(1)' }], { duration: 700, iterations: 2, easing: SPRING });
@@ -1108,19 +1152,28 @@ async function loadN8nTemplates(step1, step2) {
   }
 }
 
-async function scanN8n(container, source, slugForm) {
+// Leva até o elemento e dá um destaque rápido.
+function spotlight(el) {
+  if (!el) return;
+  setTimeout(() => {
+    el.scrollIntoView({ behavior: reducedMotion.matches ? 'auto' : 'smooth', block: 'center' });
+    if (!reducedMotion.matches) el.animate([{ transform: 'scale(1)' }, { transform: 'scale(1.03)' }, { transform: 'scale(1)' }], { duration: 650, iterations: 2, easing: SPRING });
+  }, 300);
+}
+
+async function scanN8n(container, source, slugForm, options = {}) {
   if (!requireToken(container)) return;
   swap(container, loading('Lendo painéis, etapas, campos, chatbots e canais das duas contas...'));
   let scan;
   try {
     scan = await api('n8n', { action: 'scan', clientToken: clientToken(), ...source, modelSlug: slugForm.input().modelSlug });
   } catch (err) {
-    retry(container, err, () => scanN8n(container, source, slugForm));
+    retry(container, err, () => scanN8n(container, source, slugForm, options));
     return;
   }
   setTokenStatus('ok');
   slugForm.onMeta({ modelSlug: scan.slug?.modelSlug });
-  renderN8nMapping(container, source, scan, slugForm);
+  renderN8nMapping(container, source, scan, slugForm, options);
 }
 
 const escapeRegExp = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -1198,7 +1251,7 @@ function phoneSection(scan) {
 
 const normalizeName = (s) => String(s ?? '').normalize('NFC').trim().replace(/\s+/g, ' ').toLowerCase();
 
-function renderN8nMapping(container, source, scan, slugForm) {
+function renderN8nMapping(container, source, scan, slugForm, options = {}) {
   const entries = [];
   const byKind = {};
   for (const ref of scan.references) (byKind[ref.kindLabel] ??= []).push(ref);
@@ -1355,6 +1408,12 @@ function renderN8nMapping(container, source, scan, slugForm) {
     renderN8nResult(result, data, mode);
   };
 
+  const downloadBar = h('div', { class: 'toolbar' },
+    h('span', { class: 'spacer' }),
+    button('Copiar JSON', () => build('copy'), { icon: 'copy' }),
+    state.n8nConfigured && button('Criar no n8n', () => build('create'), { icon: 'cloud' }),
+    button(scan.subflows?.length ? 'Baixar fluxos' : 'Baixar fluxo', () => build('download'), { variant: 'btn-primary', icon: 'download' }));
+
   const refsCount = scan.references.length;
   swap(container,
     section('2', 'O que será trocado',
@@ -1371,13 +1430,22 @@ function renderN8nMapping(container, source, scan, slugForm) {
     wantsPrompt && section('4', 'Prompt do agente de IA',
       h('label', { class: 'field' }, h('span', {}, 'Prompt', h('span', { class: 'field-hint' }, scan.hasPromptPlaceholder ? ' · entra no lugar de {{PROMPT_CLIENTE}}' : ` · vai no System Message de: ${scan.agentNodes.join(', ')} (o bloco "Informações do contato" do topo é mantido)`)), promptArea),
       h('div', { class: 'toolbar' }, button('Montar prompt', () => openBlock(BLOCK_BY_ID.prompt), { variant: 'btn-ghost btn-small', icon: 'sparkle' }))),
-    h('div', { class: 'toolbar' },
-      h('span', { class: 'spacer' }),
-      button('Copiar JSON', () => build('copy'), { icon: 'copy' }),
-      state.n8nConfigured && button('Criar no n8n', () => build('create'), { icon: 'cloud' }),
-      button(scan.subflows?.length ? 'Baixar fluxos' : 'Baixar fluxo', () => build('download'), { variant: 'btn-primary', icon: 'download' })),
+    downloadBar,
     result);
   stagger(container.querySelectorAll('.map-row'), { step: 16, y: 6 });
+
+  // Volta do montador de prompt: prompt atualizado e foco no que falta ou no download.
+  const cache = state.n8nCache;
+  const showPrompt = () => {
+    const pending = container.querySelector('.map-row.unmatched');
+    if (promptArea) enter(promptArea, { y: 0, scale: 0.99, duration: 320, easing: SPRING });
+    spotlight(pending ?? downloadBar);
+  };
+  if (cache && cache.nodes.includes(container)) {
+    cache.promptArea = promptArea;
+    cache.showPrompt = showPrompt;
+  }
+  if (options.fromPrompt) showPrompt();
 }
 
 // Resultado: um item por fluxo gerado (tools primeiro, depois o principal).
@@ -1455,11 +1523,11 @@ async function renderPrompt(view) {
     h('span', { class: 'spacer' }),
     button('Copiar', (e) => flashOnCopy(e.currentTarget, output.textContent), { icon: 'copy' }),
     button('Baixar .txt', () => download(`prompt-${slug(state.clientName)}.txt`, output.textContent, 'text/plain;charset=utf-8'), { icon: 'download' }),
-    button('Usar no fluxo do n8n', () => {
+    button('Gerar fluxo do n8n com este prompt', () => {
       state.builtPrompt = output.textContent;
-      state.preferAgent = true; // abre já no fluxo do agente de IA
+      state.preferAgent = true; // abre no fluxo do agente, analisa e leva ao download
       openBlock(BLOCK_BY_ID.n8n);
-    }, { variant: 'btn-primary', icon: 'arrow' }));
+    }, { variant: 'btn-primary', icon: 'download' }));
 
   view.append(
     section('1', 'Cliente', h('label', { class: 'field' }, 'Nome do cliente', nameInput)),
@@ -1518,6 +1586,8 @@ async function renderPrompt(view) {
       if (!cleaned) return answer.focus();
       showResult(cleaned);
     }, { variant: 'btn-primary', icon: 'check' });
+    // Colou a resposta: já mostra o prompt pronto, sem precisar clicar.
+    answer.addEventListener('paste', () => setTimeout(() => answer.value.trim() && useAnswer.click(), 0));
     swap(claudeBox, section('', 'Montar pelo Claude.ai',
       notice('Copiado! Abra o Claude.ai, cole com Ctrl+V e envie. Quando ele responder, copie a resposta e cole abaixo.', 'ok'),
       h('div', { class: 'toolbar' },
@@ -1658,6 +1728,7 @@ function init() {
   $('client-token').addEventListener('input', () => {
     state.status = {};
     state.lastPanelId = '';
+    state.n8nCache = null; // as escolhas do n8n eram da outra conta
     setTokenStatus(clientToken() ? 'pending' : 'empty');
     if (state.view === 'grid') renderGrid();
   });
