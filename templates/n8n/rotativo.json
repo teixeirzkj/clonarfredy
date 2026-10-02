@@ -3,77 +3,6 @@
   "nodes": [
     {
       "parameters": {
-        "url": "=https://api.wts.chat/core/v1/contact/{{ $json.body.contact.id }}",
-        "authentication": "genericCredentialType",
-        "genericAuthType": "httpHeaderAuth",
-        "sendQuery": true,
-        "queryParameters": {
-          "parameters": [
-            {}
-          ]
-        },
-        "sendHeaders": true,
-        "headerParameters": {
-          "parameters": [
-            {
-              "name": "accept",
-              "value": "application/json"
-            }
-          ]
-        },
-        "options": {}
-      },
-      "id": "6be29af0-e48c-4452-a645-c4fa2c725d66",
-      "name": "Buscar contato",
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4,
-      "position": [
-        592,
-        384
-      ],
-      "credentials": {
-        "httpHeaderAuth": {
-          "id": "Pxzl7FuolMWq4HSb",
-          "name": "Belini Viagens Realeza [Frédy]"
-        }
-      }
-    },
-    {
-      "parameters": {
-        "method": "PUT",
-        "url": "=https://api.wts.chat/core/v1/contact/{{ $node[\"Webhook1\"].json[\"body\"][\"contact\"][\"id\"] }}",
-        "sendHeaders": true,
-        "headerParameters": {
-          "parameters": [
-            {
-              "name": "Authorization",
-              "value": "__TOKEN_WTS_CLIENTE__"
-            },
-            {
-              "name": "accept",
-              "value": "application/json"
-            }
-          ]
-        },
-        "sendBody": true,
-        "contentType": "raw",
-        "rawContentType": "application/*+json",
-        "body": "= { \"fields\": [ \"CustomFields\" ], \"customFields\": { \"nomeatendente\": \"{{ $json[\"ATENDENTE\"] }}\" } } ",
-        "options": {}
-      },
-      "id": "4a3a41be-1aec-45f3-9fe6-3f1c082a5f71",
-      "name": "Atualizar campo personalizado",
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4,
-      "position": [
-        1072,
-        384
-      ],
-      "retryOnFail": true,
-      "waitBetweenTries": 5000
-    },
-    {
-      "parameters": {
         "httpMethod": "POST",
         "path": "d206cd9f-65ba-417c-902a-a5ba02fdfbfc",
         "responseMode": "responseNode",
@@ -91,136 +20,173 @@
     },
     {
       "parameters": {
+        "url": "=https://api.wts.chat/core/v1/department/__EQUIPE_ROTATIVO__?includeDetails=Agents",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "accept",
+              "value": "application/json"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [
+        592,
+        384
+      ],
+      "id": "a1b2c3d4-0001-4000-8000-000000000001",
+      "name": "Buscar equipe Rotativo",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "credModeloWts01",
+          "name": "Embarque 22 Palmitos [Frédy]"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "url": "=https://api.wts.chat/core/v1/agent",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "accept",
+              "value": "application/json"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [
+        816,
+        384
+      ],
+      "id": "a1b2c3d4-0002-4000-8000-000000000002",
+      "name": "Buscar usuários",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "credModeloWts01",
+          "name": "Embarque 22 Palmitos [Frédy]"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Rotativo pelo sistema: quem está ligado = usuários da equipe \"Rotativo\" no WTS\n// (liga/desliga na tela Rotativo do Setup da Conta). A ordem veio da página.\nconst ORDEM = [\"__ORDEM_ROTATIVO__\"];\n\nconst equipe = $('Buscar equipe Rotativo').first().json;\nconst ligados = new Set((equipe.agents || []).map((a) => a.userId));\nconst nomes = Object.fromEntries($('Buscar usuários').all().map((i) => [i.json.userId, i.json.name]));\n\n// Na ordem escolhida; quem foi ligado depois entra no fim, em ordem alfabética.\nconst fila = [\n  ...ORDEM.filter((id) => ligados.has(id)),\n  ...[...ligados].filter((id) => !ORDEM.includes(id)).sort((a, b) => String(nomes[a]).localeCompare(String(nomes[b]))),\n].filter((id) => nomes[id]);\nif (!fila.length) throw new Error('Ninguém ligado no rotativo: ligue alguém na tela Rotativo do Setup da Conta.');\n\n// A vez fica guardada no próprio fluxo (só com o fluxo ativo; no teste manual começa do primeiro).\nconst memoria = $getWorkflowStaticData('global');\nconst proximo = fila[(fila.indexOf(memoria.ultimo) + 1) % fila.length];\nmemoria.ultimo = proximo;\n\nreturn [{ json: { userId: proximo, nome: nomes[proximo], posicao: fila.indexOf(proximo) + 1, total: fila.length } }];\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1056,
+        384
+      ],
+      "id": "a1b2c3d4-0003-4000-8000-000000000003",
+      "name": "Escolher atendente da vez"
+    },
+    {
+      "parameters": {
+        "method": "PUT",
+        "url": "=https://api.wts.chat/core/v1/contact/{{ $node[\"Webhook1\"].json[\"body\"][\"contact\"][\"id\"] }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "accept",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/*+json",
+        "body": "= { \"fields\": [ \"CustomFields\" ], \"customFields\": { \"nomeatendente\": \"{{ $('Escolher atendente da vez').first().json.nome }}\" } } ",
+        "options": {}
+      },
+      "id": "4a3a41be-1aec-45f3-9fe6-3f1c082a5f71",
+      "name": "Atualizar campo personalizado",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [
+        1296,
+        384
+      ],
+      "retryOnFail": true,
+      "waitBetweenTries": 5000,
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "credModeloWts01",
+          "name": "Embarque 22 Palmitos [Frédy]"
+        }
+      }
+    },
+    {
+      "parameters": {
         "respondWith": "json",
-        "responseBody": "={\n    \"response\": \"SUCESSO\",\n    \"contact\": {\n        \"nomeatendente\": \"{{ $node[\"Buscar atendente da vez1\"].json[\"ATENDENTE\"] }}\"\n    },\n    \"metadata\": {\n            \"nomeatendente\": \"{{ $node[\"Buscar atendente da vez1\"].json[\"ATENDENTE\"] }}\",\n\"qtdRotativo\": \"{{ parseInt($node[\"Webhook1\"].json[\"body\"][\"metadata\"][\"qtdRotativo\"]) +1 }}\"\n        }\n}",
+        "responseBody": "={\n    \"response\": \"SUCESSO\",\n    \"contact\": {\n        \"nomeatendente\": \"{{ $('Escolher atendente da vez').first().json.nome }}\"\n    },\n    \"metadata\": {\n            \"nomeatendente\": \"{{ $('Escolher atendente da vez').first().json.nome }}\",\n\"qtdRotativo\": \"{{ parseInt($node[\"Webhook1\"].json[\"body\"][\"metadata\"][\"qtdRotativo\"]) +1 }}\"\n        }\n}",
         "options": {}
       },
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.1,
       "position": [
-        1312,
+        1520,
         384
       ],
       "id": "ce64e5ce-0635-4649-9f23-42bcd495dedf",
       "name": "Respond to Webhook1"
-    },
-    {
-      "parameters": {
-        "documentId": {
-          "__rl": true,
-          "value": "https://docs.google.com/spreadsheets/d/16hokiGdfLKcSfxSXW2J2m4CRtMD38uETD4uVfhrKWYo/edit?usp=sharing",
-          "mode": "url"
-        },
-        "sheetName": {
-          "__rl": true,
-          "value": "Atendente da vez",
-          "mode": "name"
-        },
-        "combineFilters": "OR",
-        "options": {}
-      },
-      "type": "n8n-nodes-base.googleSheets",
-      "typeVersion": 4.5,
-      "position": [
-        848,
-        384
-      ],
-      "id": "0693824c-321f-454c-be6b-43eee2cab99d",
-      "name": "Buscar atendente da vez1",
-      "alwaysOutputData": true,
-      "retryOnFail": true,
-      "waitBetweenTries": 3000,
-      "credentials": {
-        "googleSheetsOAuth2Api": {
-          "id": "56fwDLQKXJvL7apT",
-          "name": "leadsteteatete@gmail.com - Sheets"
-        }
-      }
-    },
-    {
-      "parameters": {
-        "operation": "update",
-        "documentId": {
-          "__rl": true,
-          "value": "https://docs.google.com/spreadsheets/d/16hokiGdfLKcSfxSXW2J2m4CRtMD38uETD4uVfhrKWYo/edit?usp=sharing",
-          "mode": "url"
-        },
-        "sheetName": {
-          "__rl": true,
-          "value": "Randomizar",
-          "mode": "name"
-        },
-        "columns": {
-          "mappingMode": "defineBelow",
-          "value": {
-            "ID": "DH10",
-            "ATENDENTE DA VEZ": "={{ parseInt($node[\"Buscar atendente da vez1\"].json[\"ATENDENTE DA VEZ\"]) == parseInt($node[\"Buscar atendente da vez1\"].json[\"QTD USUÁRIOS\"]) ? 1 : parseInt($node[\"Buscar atendente da vez1\"].json[\"ATENDENTE DA VEZ\"])+1 }}"
-          },
-          "matchingColumns": [
-            "ID"
-          ],
-          "schema": [
-            {
-              "id": "ID",
-              "displayName": "ID",
-              "required": false,
-              "defaultMatch": false,
-              "display": true,
-              "type": "string",
-              "canBeUsedToMatch": true,
-              "removed": false
-            },
-            {
-              "id": "ATENDENTE DA VEZ",
-              "displayName": "ATENDENTE DA VEZ",
-              "required": false,
-              "defaultMatch": false,
-              "display": true,
-              "type": "string",
-              "canBeUsedToMatch": true
-            },
-            {
-              "id": "row_number",
-              "displayName": "row_number",
-              "required": false,
-              "defaultMatch": false,
-              "display": true,
-              "type": "string",
-              "canBeUsedToMatch": true,
-              "readOnly": true,
-              "removed": true
-            }
-          ],
-          "attemptToConvertTypes": false,
-          "convertFieldsToString": false
-        },
-        "options": {
-          "cellFormat": "USER_ENTERED"
-        }
-      },
-      "type": "n8n-nodes-base.googleSheets",
-      "typeVersion": 4.5,
-      "position": [
-        1520,
-        384
-      ],
-      "id": "06f952b2-0f84-403c-9593-d765dc2ad18d",
-      "name": "Atualizar linha1",
-      "credentials": {
-        "googleSheetsOAuth2Api": {
-          "id": "56fwDLQKXJvL7apT",
-          "name": "leadsteteatete@gmail.com - Sheets"
-        }
-      }
     }
   ],
   "pinData": {},
   "connections": {
-    "Buscar contato": {
+    "Webhook1": {
       "main": [
         [
           {
-            "node": "Buscar atendente da vez1",
+            "node": "Buscar equipe Rotativo",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Buscar equipe Rotativo": {
+      "main": [
+        [
+          {
+            "node": "Buscar usuários",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Buscar usuários": {
+      "main": [
+        [
+          {
+            "node": "Escolher atendente da vez",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Escolher atendente da vez": {
+      "main": [
+        [
+          {
+            "node": "Atualizar campo personalizado",
             "type": "main",
             "index": 0
           }
@@ -236,44 +202,6 @@
             "index": 0
           }
         ]
-      ]
-    },
-    "Webhook1": {
-      "main": [
-        [
-          {
-            "node": "Buscar contato",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Respond to Webhook1": {
-      "main": [
-        [
-          {
-            "node": "Atualizar linha1",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Buscar atendente da vez1": {
-      "main": [
-        [
-          {
-            "node": "Atualizar campo personalizado",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Atualizar linha1": {
-      "main": [
-        []
       ]
     }
   },

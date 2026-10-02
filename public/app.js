@@ -48,6 +48,7 @@ const SECTIONS = [
       { id: 'departments', kind: 'sync', icon: 'team', title: 'Equipes padrão', desc: 'Cria as equipes do modelo com as mesmas regras de distribuição.' },
       { id: 'agents', kind: 'agents', icon: 'userPlus', title: 'Usuários', desc: 'Cadastra usuários na conta a partir de um formulário.' },
       { id: 'webhooks', kind: 'webhooks', icon: 'webhook', title: 'Webhooks padrão', desc: 'Copia os webhooks do modelo trocando o nome da empresa na URL.' },
+      { id: 'rotativo', kind: 'rotativo', icon: 'repeat', title: 'Rotativo', desc: 'Liga e desliga quem recebe atendimentos no rodízio.' },
     ],
   },
   {
@@ -420,6 +421,7 @@ function openBlock(block) {
     lookup: renderLookup,
     n8n: renderN8n,
     prompt: renderPrompt,
+    rotativo: renderRotativoBlock,
   };
   renderers[block.kind]?.(view, block);
 }
@@ -1524,24 +1526,9 @@ function phoneSection(scan) {
   };
 }
 
-// Baixa a planilha do rotativo (.xlsx) gerada no servidor.
-async function downloadRotativoSheet(attendants) {
-  const res = await fetch('/api/sheet', { method: 'POST', headers: authHeaders(), body: JSON.stringify({ attendants, clientName: state.clientName }) });
-  if (res.status === 401) throw expireSession();
-  if (!res.ok) throw new ApiError((await res.json().catch(() => ({}))).error || `Erro ${res.status}`);
-  const url = URL.createObjectURL(await res.blob());
-  const link = h('a', { href: url, download: `Rotativo_${slug(state.clientName)}.xlsx` });
-  document.body.append(link);
-  link.click();
-  link.remove();
-  setTimeout(() => URL.revokeObjectURL(url), 1000);
-}
-
-// Planilhas do Google usadas pelo fluxo: link da planilha do cliente (obrigatório)
-// e, no rotativo, gerador da planilha com os atendentes do cliente.
+// Planilhas do Google usadas pelo fluxo: link da planilha do cliente (obrigatório).
 function sheetSection(scan) {
   if (!scan.sheets?.length) return { el: null, values: () => [], missing: () => [] };
-  const googleCred = scan.credentials.find((c) => /googleSheets/i.test(c.type))?.name;
 
   const rows = scan.sheets.map((s) => {
     const input = h('input', { type: 'url', placeholder: 'https://docs.google.com/spreadsheets/d/...', 'aria-label': 'Link da planilha do cliente' });
@@ -1557,52 +1544,112 @@ function sheetSection(scan) {
     return { s, input, row };
   });
 
-  let generator = null;
-  if (scan.rotativo) {
-    // Atendentes do cliente, na ordem do rodízio (todos marcados de início).
-    const list = h('div', { class: 'list' });
-    const order = (scan.clientAgents ?? []).filter((a) => a.name).map((a) => ({ ...a, on: true }));
-    const render = () => {
-      list.replaceChildren(
-        h('div', { class: 'list-title' }, 'Ordem do rodízio', badge('', `${order.filter((a) => a.on).length} atendente(s)`)),
-        ...order.map((a, i) => h('div', { class: 'row' },
-          h('input', { type: 'checkbox', checked: a.on, 'aria-label': `Incluir ${a.name}`, onchange: (e) => { a.on = e.target.checked; render(); } }),
-          h('div', {}, h('div', { class: 'row-title' }, `${a.on ? `${order.filter((x, j) => x.on && j <= i).length}. ` : ''}${a.name}`)),
-          h('div', { class: 'row-actions' },
-            button('↑', () => { if (i > 0) { [order[i - 1], order[i]] = [order[i], order[i - 1]]; render(); } }, { variant: 'btn-small', disabled: i === 0, 'aria-label': 'Subir' }),
-            button('↓', () => { if (i < order.length - 1) { [order[i + 1], order[i]] = [order[i], order[i + 1]]; render(); } }, { variant: 'btn-small', disabled: i === order.length - 1, 'aria-label': 'Descer' })))));
-    };
-    render();
-    const status = h('div');
-    generator = h('div', { class: 'panel-section' },
-      h('p', { class: 'hint' }, 'Marque e ordene os atendentes do rodízio e baixe a planilha pronta.'),
-      list,
-      h('div', { class: 'toolbar' }, h('span', { class: 'spacer' }),
-        button('Baixar planilha (.xlsx)', async () => {
-          status.replaceChildren();
-          const attendants = order.filter((a) => a.on).map(({ name, userId }) => ({ name, userId }));
-          try {
-            await downloadRotativoSheet(attendants);
-            status.replaceChildren(notice('Planilha baixada. Agora suba no Google Drive e cole o link abaixo.', 'ok'));
-          } catch (err) {
-            status.replaceChildren(notice(err.message));
-          }
-        }, { variant: 'btn-primary', icon: 'download' })),
-      status,
-      howTo('Como colocar a planilha no Google',
-        `Abra o Google Drive ${googleCred ? `da credencial "${googleCred}"` : 'usado no n8n'} e envie o arquivo .xlsx.`,
-        'Abra o arquivo e use Arquivo → Salvar como Planilhas Google.',
-        'Copie o link da planilha nova e cole no campo abaixo.'));
-  }
-
   const el = section('', 'Planilha do Google',
-    generator,
     h('div', { class: 'list' }, ...rows.map((r) => r.row)));
   return {
     el,
     values: () => rows.filter((r) => r.input.value.trim()).map((r) => ({ from: r.s.documentId, to: r.input.value.trim() })),
     missing: () => rows.filter((r) => r.row.classList.contains('unmatched')).map((r) => ({ label: 'Link da planilha do Google', row: r.row, focus: r.input })),
   };
+}
+
+// Rotativo: usuários do cliente, quem entra no rodízio e em que ordem.
+// Quem está ligado vira a equipe "Rotativo" no WTS ao gerar o fluxo.
+function rotativoSection(scan) {
+  if (!scan.rotativo) return { el: null, values: () => null, missing: () => [] };
+  const people = (scan.rotativoUsers ?? []).map((u) => ({ ...u }));
+  // Primeira vez (ninguém na equipe ainda): todos começam ligados.
+  if (!people.some((p) => p.on)) people.forEach((p) => { p.on = true; });
+
+  const list = h('div', { class: 'list' });
+  const empty = h('div', { class: 'map-row unmatched', hidden: true },
+    h('div', { class: 'map-from' }, h('div', { class: 'row-title' }, 'Ligue pelo menos uma pessoa no rodízio.')));
+  const render = () => {
+    const on = people.filter((p) => p.on);
+    empty.hidden = on.length > 0;
+    empty.classList.toggle('unmatched', !on.length);
+    list.replaceChildren(
+      h('div', { class: 'list-title' }, 'Ordem do rodízio', badge('', `${on.length} ligada(s)`)),
+      ...people.map((p, i) => h('div', { class: `row rot-row${p.on ? '' : ' is-off'}` },
+        h('input', { type: 'checkbox', checked: p.on, 'aria-label': `Incluir ${p.name}`, onchange: (e) => { p.on = e.target.checked; render(); } }),
+        h('div', {}, h('div', { class: 'row-title' }, p.on ? `${on.indexOf(p) + 1}. ${p.name}` : p.name)),
+        h('div', { class: 'row-actions' },
+          button('↑', () => { [people[i - 1], people[i]] = [people[i], people[i - 1]]; render(); }, { variant: 'btn-small', disabled: i === 0, 'aria-label': `Subir ${p.name}` }),
+          button('↓', () => { [people[i + 1], people[i]] = [people[i], people[i + 1]]; render(); }, { variant: 'btn-small', disabled: i === people.length - 1, 'aria-label': `Descer ${p.name}` })))));
+  };
+  render();
+
+  const el = section('', 'Quem entra no rodízio',
+    h('p', { class: 'hint' }, 'Marque quem recebe atendimentos e use as setas para a ordem. Depois dá para ligar e desligar pela tela Rotativo.'),
+    people.length ? list : notice('Nenhum usuário na conta do cliente.', 'warn'),
+    empty);
+  return {
+    el,
+    values: () => ({ order: people.map((p) => p.userId), on: people.filter((p) => p.on).map((p) => p.userId) }),
+    missing: () => (people.some((p) => p.on) ? [] : [{ label: 'Pessoas do rodízio', row: empty, focus: list.querySelector('input') ?? empty }]),
+  };
+}
+
+// Tela Rotativo: liga e desliga quem recebe atendimentos (equipe "Rotativo" no WTS).
+async function renderRotativoBlock(view) {
+  const body = h('div');
+  view.append(h('p', { class: 'panel-desc' }, 'Ligue ou desligue quem recebe atendimentos no rodízio. Vale na hora, sem mexer no n8n.'), body);
+  if (!requireToken(body)) return;
+  swap(body, loading('Lendo os usuários da conta...'));
+  let data;
+  try {
+    data = await api('rotativo', { action: 'get', clientToken: clientToken() });
+  } catch (err) {
+    retry(body, err, () => { view.replaceChildren(); renderRotativoBlock(view); });
+    return;
+  }
+  const status = h('div');
+  const count = badge('', '');
+  const updateCount = () => { count.textContent = `${data.users.filter((u) => u.on).length} ligada(s)`; };
+  const row = (u) => {
+    const sw = h('button', { type: 'button', class: 'switch', role: 'switch', 'aria-checked': String(u.on), 'aria-label': `Rotativo: ${u.name}` }, h('span', { class: 'switch-knob' }));
+    const label = h('span', { class: 'switch-label' });
+    const el = h('div', { class: 'row rot-row' },
+      h('span', { class: 'row-dot ok' }, svg('user')),
+      h('div', {}, h('div', { class: 'row-title' }, u.name)),
+      h('div', { class: 'row-actions' }, label, sw));
+    const paint = () => {
+      sw.setAttribute('aria-checked', String(u.on));
+      label.textContent = u.on ? 'Ligado' : 'Desligado';
+      el.classList.toggle('is-off', !u.on);
+      updateCount();
+    };
+    sw.onclick = async () => {
+      if (u.on && data.users.filter((x) => x.on).length === 1) {
+        status.replaceChildren(notice('Deixe pelo menos uma pessoa ligada no rotativo.', 'warn'));
+        return;
+      }
+      u.on = !u.on;
+      paint();
+      pop(sw.firstChild);
+      sw.disabled = true;
+      status.replaceChildren();
+      try {
+        await api('rotativo', { action: 'toggle', clientToken: clientToken(), userId: u.userId, on: u.on });
+        data.teamId ??= true;
+      } catch (err) {
+        u.on = !u.on; // volta como estava
+        paint();
+        status.replaceChildren(notice(err.message));
+      } finally {
+        sw.disabled = false;
+      }
+    };
+    paint();
+    return el;
+  };
+  swap(body,
+    data.teamId ? null : notice('Ainda não há rotativo nesta conta. Ao ligar alguém, a equipe "Rotativo" é criada no WTS. Depois gere o fluxo Rotativo em Fluxos do n8n.', 'info'),
+    data.users.length
+      ? h('div', { class: 'list' }, h('div', { class: 'list-title' }, 'Usuários', count), ...data.users.map(row))
+      : notice('Nenhum usuário na conta.', 'info'),
+    status);
+  stagger(body.querySelectorAll('.rot-row'), { step: 25, y: 6 });
 }
 
 const normalizeName = (s) => String(s ?? '').normalize('NFC').trim().replace(/\s+/g, ' ').toLowerCase();
@@ -1671,6 +1718,7 @@ function renderN8nMapping(container, source, scan, slugForm, options = {}) {
   const webhooks = webhookPathSection(scan, slugForm);
   const phones = phoneSection(scan);
   const sheets = sheetSection(scan);
+  const rotativo = rotativoSection(scan);
 
   // Token do WTS escrito direto em nós: é trocado pelo do cliente automaticamente.
   const tokenBox = scan.hardcodedTokens
@@ -1718,6 +1766,7 @@ function renderN8nMapping(container, source, scan, slugForm, options = {}) {
       ...entries.filter((s) => !s.select.value).map((s) => ({ label: `${s.ref.kindLabel}: ${s.ref.group ? `${s.ref.group} › ` : ''}${s.ref.label}`, row: s.row, focus: s.select })),
       ...phones.missing(),
       ...sheets.missing(),
+      ...rotativo.missing(),
       ...webhooks.missing(),
     ];
     if (missing.length && !force) {
@@ -1738,6 +1787,7 @@ function renderN8nMapping(container, source, scan, slugForm, options = {}) {
       mapping: entries.filter((s) => s.select.value).map((s) => ({ from: s.ref.from, to: s.select.value })),
       phoneMapping: phones.values(),
       sheetMapping: sheets.values(),
+      rotativo: rotativo.values(),
       webhookPaths: webhooks.values(),
       clientName: state.clientName,
       prompt: promptArea?.value ?? '',
@@ -1781,6 +1831,7 @@ function renderN8nMapping(container, source, scan, slugForm, options = {}) {
       ...toolsNotes,
       ...lists) : null,
     phones.el,
+    rotativo.el,
     sheets.el,
     webhooks.el,
     wantsPrompt && section('', 'Prompt do agente de IA',
@@ -1849,6 +1900,7 @@ function renderN8nResult(container, data, mode) {
     notice(headline, 'ok'),
     ...data.warnings.map((w) => notice(w, 'warn')),
     data.credential ? notice(`Credencial "${data.credential.name}" ligada em ${data.credentialNodes} nó(s) do WTS.`, 'ok') : null,
+    data.rotativo ? notice(`Equipe "Rotativo" ${data.rotativo.created ? 'criada' : 'atualizada'} no WTS com ${data.rotativo.people} pessoa(s).`, 'ok') : null,
     data.headerNodes ? notice(`Token do cliente colocado no header Authorization de ${data.headerNodes} nó(s) do WTS.`, 'ok') : null,
     data.webhookPaths?.length ? h('div', { class: 'list' },
       h('div', { class: 'list-title' }, 'URL do webhook (configure no WTS: chatbot ou assinatura)'),

@@ -8,7 +8,7 @@ copiando o padrão da **conta modelo**, só com a API pública do WTS.
 | Área | O que faz |
 |---|---|
 | **Configurar tudo** | Implantação em etapas numa tela: cliente → etiquetas/equipes/webhooks → prompt da IA → fluxos do n8n marcados (agente, mover card, rotativo) → baixar ou criar todos |
-| **Rotativo** | Fluxo de rodízio de atendentes: gera a planilha (.xlsx, 5 abas com fórmulas) com os atendentes do cliente; o link da planilha nova entra no fluxo |
+| **Rotativo** | Rodízio de atendentes sem planilha. Quem está ligado = equipe "Rotativo" no WTS (`/core/v1/department/{id}/agents`), ligada/desligada na tela Rotativo. A ordem escolhida vai no fluxo do n8n, que guarda a vez na memória do próprio fluxo (`$getWorkflowStaticData`) e preenche o campo `nomeatendente` |
 | Etiquetas / Equipes / Webhooks | Mesmo fluxo, um tipo por vez (`/core/v1/tag`, `/core/v1/department`, `/core/v1/webhook/subscription`). Nos webhooks, o nome da empresa no fim da URL é trocado pelo do cliente (`…/alteracaodepainelembarque22palmitos` → `…/alteracaodepainelcontaexemplo`) |
 | Usuários | Cria usuários a partir de um formulário (`/core/v1/agent`) |
 | **Fluxos do n8n** | Lê os fluxos padrão, acha os IDs da conta modelo (painel, etapas, campos, bot key, etiquetas, equipes...) e troca pelos do cliente, casando pelo nome. Download do `.json`, copiar para colar no n8n, ou criar direto via API do n8n |
