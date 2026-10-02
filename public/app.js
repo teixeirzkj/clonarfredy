@@ -35,6 +35,7 @@ const ICONS = {
   sparkle: '<path d="M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8z"/><path d="M19 17l.7 2 2 .7-2 .7-.7 2-.7-2-2-.7 2-.7z"/>',
   stop: '<rect x="6" y="6" width="12" height="12" rx="2"/>',
   cloud: '<path d="M7 18a5 5 0 1 1 .9-9.9A6 6 0 0 1 19 10a4 4 0 0 1 0 8z"/>',
+  back: '<path d="M19 12H5M11 6l-6 6 6 6"/>',
 };
 
 const SETUP_ALL_BLOCKS = ['tags', 'departments', 'webhooks'];
@@ -211,6 +212,21 @@ function swap(container, ...children) {
   // Ignora condicionais falsas (null, false, 0) usadas na montagem.
   container.replaceChildren(...children.flat().filter((c) => c instanceof Node || (typeof c === 'string' && c)));
   enter(container, { y: 6, duration: 260 });
+}
+
+// Campo padrão: título curto, o controle e um exemplo logo abaixo.
+function field(label, control, example, { className = '' } = {}) {
+  return h('label', { class: `field field-ex ${className}` },
+    label && h('span', { class: 'field-label' }, label),
+    control,
+    example && h('span', { class: 'field-example' }, example));
+}
+
+// Explicação longa escondida: só abre se a pessoa precisar.
+function howTo(summary, ...steps) {
+  return h('details', { class: 'howto' },
+    h('summary', {}, svg('info'), summary),
+    h('ol', { class: 'steps' }, ...steps.map((s) => h('li', {}, s))));
 }
 
 function section(number, title, ...children) {
@@ -696,7 +712,7 @@ function webhookSlugForm({ withName = false } = {}) {
 
   const clientInput = h('input', {
     type: 'text',
-    placeholder: 'ex.: contaexemplo',
+    placeholder: 'clinicasorriso',
     value: state.clientSlug || compactSlug(state.clientName),
     spellcheck: false,
     oninput: (e) => {
@@ -717,22 +733,17 @@ function webhookSlugForm({ withName = false } = {}) {
   // Nos blocos de webhook não há outro campo de nome: ele entra aqui.
   const nameInput = withName && h('input', {
     type: 'text',
-    placeholder: 'Ex.: Conta Exemplo',
+    placeholder: 'Clínica Sorriso',
     value: state.clientName,
     oninput: (e) => { state.clientName = e.target.value; form.syncFromName(e.target.value); },
   });
 
-  const el = h('div', { class: 'panel-section' },
-    nameInput && h('label', { class: 'field slug-name' }, 'Nome do cliente', nameInput),
-    h('label', { class: 'field' },
-      h('span', {}, 'Identificador do cliente na URL', h('span', { class: 'field-hint' }, ' · preenche sozinho pelo nome do cliente')),
-      clientInput),
-    preview,
+  const el = h('div', { class: 'form-stack' },
+    nameInput && field('Nome do cliente', nameInput, 'Ex.: Clínica Sorriso'),
+    field('Identificador do cliente', clientInput, 'Preenche sozinho pelo nome, sem espaço nem acento. Ex.: clinicasorriso'),
     h('details', { class: 'advanced' },
-      h('summary', {}, 'Avançado: identificador da conta modelo'),
-      h('label', { class: 'field' },
-        h('span', {}, 'Identificador da conta modelo', h('span', { class: 'field-hint' }, ' · normalmente não precisa mexer')),
-        modelInput)));
+      h('summary', {}, 'Opções avançadas'),
+      field('Identificador da conta modelo', modelInput, 'Normalmente não precisa mexer. Ex.: embarque22palmitos')));
   updatePreview();
 
   let autoValue = clientInput.value;
@@ -749,6 +760,8 @@ function webhookSlugForm({ withName = false } = {}) {
       state.clientSlug = clientInput.value.trim().toLowerCase();
       return { clientSlug: state.clientSlug, modelSlug: modelInput.value.trim().toLowerCase() };
     },
+    // Nome e identificador preenchidos (para liberar o próximo passo).
+    ready: () => Boolean(clientInput.value.trim() && (!nameInput || nameInput.value.trim())),
     // Mostra o trecho que o servidor usou (env ou detectado), para conferência.
     onMeta: (meta) => {
       if (meta?.modelSlug && !modelInput.value) { modelInput.value = meta.modelSlug; updatePreview(); }
@@ -769,123 +782,265 @@ function renderWebhooksBlock(view, block) {
 
 // ---------- Configurar tudo ----------
 
-// Implantação completa numa tela só, em etapas:
-// 1 cliente · 2 etiquetas/equipes/webhooks · 3 prompt da IA · 4 fluxos do n8n · 5 baixar/criar tudo.
-function wizardStep(number, title, desc, ...children) {
-  return h('section', { class: 'wizard-step' },
-    h('header', { class: 'wizard-head' },
-      h('span', { class: 'step-num' }, number),
-      h('div', {}, h('h3', {}, title), desc && h('p', { class: 'panel-desc' }, desc))),
-    ...children);
+// Nome curto do fluxo: "[Rotativo] Embarque 22 Palmitos" → "Rotativo";
+// "[Nome empresa exemplo] I.A Atendimento" → "I.A Atendimento".
+function flowLabel(name) {
+  const m = String(name ?? '').match(/^\[([^\]]*)\]\s*(.*)$/);
+  if (!m) return String(name ?? '');
+  return /empresa|nome/i.test(m[1]) ? m[2] || m[1] : m[1];
 }
 
+// Implantação completa em passos, um de cada vez. "Próximo" só libera quando
+// o passo está completo; os passos opcionais têm "Pular".
 function renderSetupAll(view) {
   const form = webhookSlugForm({ withName: true });
+  const flows = { tabs: [], analyzed: false, select: () => {} };
 
   const setupBody = h('div');
-  const startSetup = () => loadPreview(setupBody, SETUP_ALL_BLOCKS.map((id) => (id === 'webhooks'
-    ? { block: BLOCK_BY_ID[id], input: form.input(), onMeta: form.onMeta }
-    : { block: BLOCK_BY_ID[id] })));
+  let setupSlug = null;
+  const startSetup = () => {
+    setupSlug = form.input().clientSlug;
+    loadPreview(setupBody, SETUP_ALL_BLOCKS.map((id) => (id === 'webhooks'
+      ? { block: BLOCK_BY_ID[id], input: form.input(), onMeta: form.onMeta }
+      : { block: BLOCK_BY_ID[id] })));
+  };
 
   const promptBox = h('div');
   const flowsBox = h('div');
   const finalBox = h('div');
-  const flowCards = [];
 
-  view.append(
-    h('p', { class: 'panel-desc' }, 'Implantação completa do cliente, de cima para baixo. Usuários continuam no bloco próprio, porque precisam de formulário.'),
-    wizardStep('1', 'Cliente', 'Nome e identificador do cliente. O token da conta fica no topo da tela.', form.el),
-    wizardStep('2', 'Etiquetas, equipes e webhooks', 'Copia da conta modelo o que falta no cliente, com prévia antes.',
-      h('div', { class: 'toolbar' }, h('span', { class: 'spacer' }), button('Gerar prévia', startSetup, { variant: 'btn-primary', icon: 'play' })),
-      setupBody),
-    wizardStep('3', 'Prompt da IA', 'Monta o prompt do agente; ele entra sozinho no fluxo do agente (etapa 4).', promptBox),
-    wizardStep('4', 'Fluxos do n8n', 'Marque os fluxos e analise: cada um mostra o que trocar para este cliente.', flowsBox),
-    wizardStep('5', 'Baixar ou criar tudo', 'Gera todos os fluxos analisados de uma vez.', finalBox));
+  const steps = [
+    {
+      title: 'Cliente',
+      desc: 'Nome do cliente. O token da conta vai no topo da tela.',
+      body: [form.el],
+      ready: () => form.ready() && Boolean(clientToken()),
+      why: () => (clientToken() ? 'Preencha o nome do cliente.' : 'Cole o token da conta do cliente no topo da tela.'),
+    },
+    {
+      title: 'Etiquetas, equipes e webhooks',
+      desc: 'Copia da conta modelo o que falta no cliente.',
+      body: [setupBody],
+      ready: () => true,
+      // Gera a prévia ao entrar (e de novo se o identificador mudou).
+      onEnter: () => { if (setupSlug !== form.input().clientSlug) startSetup(); },
+    },
+    {
+      title: 'Prompt da IA',
+      desc: 'Cole as informações do cliente e monte o prompt do agente.',
+      body: [promptBox],
+      optional: true,
+      ready: () => Boolean(state.builtPrompt.trim()),
+      why: () => 'Monte o prompt ou clique em Pular.',
+    },
+    {
+      title: 'Fluxos do n8n',
+      desc: 'Marque os fluxos e confira cada um.',
+      body: [flowsBox],
+      ready: () => flows.analyzed && flows.tabs.length > 0,
+      why: () => 'Clique em "Analisar fluxos".',
+    },
+    {
+      title: 'Concluir',
+      desc: 'Baixe ou crie todos os fluxos de uma vez.',
+      body: [finalBox],
+      ready: () => true,
+      onEnter: () => renderWizardFinal(finalBox, flows.tabs, (i) => { go(3); flows.select(i); }),
+    },
+  ];
+
+  let current = 0;
+  const canReach = (i) => steps.slice(0, i).every((s) => s.optional || s.ready());
+  const progress = h('ol', { class: 'stepper' }, steps.map((s, i) => {
+    s.dot = h('li', { class: 'stepper-item' },
+      h('button', { type: 'button', class: 'stepper-dot', onclick: () => canReach(i) && go(i) },
+        h('span', { class: 'stepper-num' }, String(i + 1)),
+        h('span', { class: 'stepper-label' }, s.title)));
+    return s.dot;
+  }));
+  for (const [i, s] of steps.entries()) {
+    s.el = h('section', { class: 'wizard-step', hidden: i !== 0 },
+      h('header', { class: 'wizard-head' },
+        h('span', { class: 'step-num' }, String(i + 1)),
+        h('div', {}, h('h3', {}, s.title), h('p', { class: 'panel-desc' }, s.desc))),
+      ...s.body);
+  }
+
+  const backBtn = button('Voltar', () => go(current - 1), { variant: 'btn-ghost', icon: 'back' });
+  const skipBtn = button('Pular', () => go(current + 1), { variant: 'btn-ghost' });
+  const nextBtn = button('Próximo', () => steps[current].ready() && go(current + 1), { variant: 'btn-primary', icon: 'arrow' });
+  const why = h('span', { class: 'stepper-why', 'aria-live': 'polite' });
+
+  function refresh() {
+    const s = steps[current];
+    const ok = s.ready();
+    const last = current === steps.length - 1;
+    nextBtn.disabled = !ok;
+    nextBtn.hidden = last;
+    skipBtn.hidden = !s.optional || ok || last;
+    backBtn.hidden = current === 0;
+    why.textContent = ok || last ? '' : s.why?.() ?? '';
+    steps.forEach((x, i) => {
+      x.dot.classList.toggle('is-current', i === current);
+      x.dot.classList.toggle('is-done', i !== current && x.ready() && canReach(i));
+      x.dot.classList.toggle('is-locked', !canReach(i));
+    });
+  }
+
+  function go(i) {
+    if (i < 0 || i >= steps.length || !canReach(i)) return;
+    steps[current].el.hidden = true;
+    current = i;
+    steps[i].el.hidden = false;
+    steps[i].onEnter?.();
+    enter(steps[i].el, { y: 8 });
+    refresh();
+    const scroller = $('modal-scroll');
+    if (scroller) scroller.scrollTop = 0;
+  }
+
+  view.append(progress, ...steps.map((s) => s.el), h('div', { class: 'stepper-nav' }, backBtn, why, h('span', { class: 'spacer' }), skipBtn, nextBtn));
+
+  // Reavalia o passo a cada digitação/escolha (inclusive o token do topo).
+  view.addEventListener('input', refresh);
+  view.addEventListener('change', refresh);
+  const tokenInput = $('client-token');
+  const onToken = () => (view.isConnected ? refresh() : tokenInput.removeEventListener('input', onToken));
+  tokenInput?.addEventListener('input', onToken);
 
   // O prompt pronto vai direto para os fluxos que têm agente de IA.
   renderPrompt(promptBox, null, {
     embedded: true,
-    onReady: (text) => flowCards.forEach((c) => c.container.n8nFlow?.setPrompt(text)),
+    onReady: (text) => {
+      flows.tabs.forEach((c) => c.container.n8nFlow?.setPrompt(text));
+      refresh();
+    },
   });
-  loadWizardFlows(flowsBox, flowCards, form, finalBox);
+  loadWizardFlows(flowsBox, flows, form, refresh);
+  refresh();
 }
 
-async function loadWizardFlows(box, cards, form, finalBox) {
+async function loadWizardFlows(box, flows, form, onChange) {
   swap(box, loading('Carregando fluxos padrão...'));
   let data;
   try {
     data = await api('n8n', { action: 'templates' });
   } catch (err) {
-    retry(box, err, () => loadWizardFlows(box, cards, form, finalBox));
+    retry(box, err, () => loadWizardFlows(box, flows, form, onChange));
     return;
   }
   state.n8nConfigured = data.n8nConfigured;
   const mains = data.templates.filter((t) => !t.isSubflow && !t.invalid);
   const checks = mains.map((t) => ({ t, input: h('input', { type: 'checkbox', checked: true }) }));
-  const cardsBox = h('div');
+  const tabsBar = h('div', { class: 'tabs', role: 'tablist' });
+  const panels = h('div');
+  const status = h('div');
 
-  const analyze = async () => {
+  // Aba ativa e contagem do que falta escolher em cada fluxo.
+  const pendingOf = (c) => c.container.querySelectorAll('.map-row.unmatched').length;
+  const updateTab = (c) => {
+    if (!c.container.n8nFlow) return;
+    const n = pendingOf(c);
+    c.tab.classList.toggle('is-pending', n > 0);
+    c.tab.classList.toggle('is-ok', n === 0);
+    c.count.textContent = n ? String(n) : '';
+    c.count.hidden = !n;
+  };
+  flows.select = (i) => {
+    flows.tabs.forEach((c, j) => {
+      c.tab.setAttribute('aria-selected', String(i === j));
+      c.tab.classList.toggle('is-active', i === j);
+      c.container.hidden = i !== j;
+    });
+    enter(flows.tabs[i]?.container, { y: 6, duration: 260 });
+  };
+
+  const analyze = async (btn) => {
     const chosen = checks.filter((c) => c.input.checked).map((c) => c.t);
-    if (!chosen.length) return swap(cardsBox, notice('Marque pelo menos um fluxo.', 'info'));
-    if (!clientToken()) return swap(cardsBox, notice('Informe o token da conta do cliente no topo da tela.', 'info'));
-    cards.length = 0;
-    cardsBox.replaceChildren();
+    if (!chosen.length) return swap(status, notice('Marque pelo menos um fluxo.', 'info'));
+    if (!clientToken()) return swap(status, notice('Cole o token da conta do cliente no topo da tela.', 'info'));
+    status.replaceChildren();
+    btn.disabled = true;
+    flows.analyzed = false;
+    flows.tabs.length = 0;
+    tabsBar.replaceChildren();
+    panels.replaceChildren();
+    onChange();
     // Um fluxo por vez: cada análise lê as duas contas e respeita o limite da API.
     for (const t of chosen) {
-      const container = h('div');
-      const card = h('details', { class: 'flow-card', open: true },
-        h('summary', {}, svg('flow'), h('span', {}, t.name), t.subflows?.length ? badge('info', `+ ${t.subflows.length} tools`) : null),
-        container);
-      cardsBox.append(card);
-      cards.push({ t, container, card });
-      await scanN8n(container, { templateId: t.id }, form);
+      const i = flows.tabs.length;
+      const container = h('div', { class: 'tab-panel', role: 'tabpanel', hidden: true });
+      const count = h('span', { class: 'tab-count', hidden: true });
+      const tab = h('button', { type: 'button', class: 'tab', role: 'tab', onclick: () => flows.select(i) },
+        h('span', { class: 'tab-dot', 'aria-hidden': 'true' }), h('span', {}, flowLabel(t.name)), count);
+      const c = { t, container, tab, count };
+      flows.tabs.push(c);
+      tabsBar.append(tab);
+      panels.append(container);
+      enter(tab, { y: 4, scale: 0.96 });
+      if (i === 0) flows.select(0);
+      container.addEventListener('input', () => updateTab(c));
+      container.addEventListener('change', () => updateTab(c));
+      await scanN8n(container, { templateId: t.id }, form, { inWizard: true });
+      if (state.builtPrompt.trim()) container.n8nFlow?.setPrompt(state.builtPrompt);
+      updateTab(c);
     }
-    renderWizardFinal(finalBox, cards);
-    spotlight(finalBox);
+    btn.disabled = false;
+    flows.analyzed = true;
+    // Abre no primeiro fluxo que ainda tem o que escolher.
+    const firstPending = flows.tabs.findIndex((c) => pendingOf(c) > 0);
+    flows.select(Math.max(firstPending, 0));
+    onChange();
   };
 
+  const analyzeBtn = button('Analisar fluxos', () => analyze(analyzeBtn), { variant: 'btn-primary', icon: 'refresh' });
   swap(box,
-    h('div', { class: 'list' },
-      h('div', { class: 'list-title' }, 'Fluxos para este cliente', badge('', String(mains.length))),
-      ...checks.map(({ t, input }) => h('label', { class: 'row' }, input,
-        h('div', {}, h('div', { class: 'row-title' }, t.name), h('div', { class: 'row-detail' }, t.subflows?.length ? `Com as tools: ${t.subflows.join(', ')}` : `${t.nodes} nós`)),
-        h('span')))),
-    h('div', { class: 'toolbar' }, h('span', { class: 'spacer' }), button('Puxar painéis e analisar fluxos marcados', analyze, { variant: 'btn-primary', icon: 'refresh' })),
-    cardsBox);
-  swap(finalBox, notice('Analise os fluxos na etapa 4 para liberar esta etapa.', 'info'));
+    h('div', { class: 'choices' },
+      ...checks.map(({ t, input }) => h('label', { class: 'choice' }, input,
+        h('span', {},
+          h('span', { class: 'choice-title' }, flowLabel(t.name)),
+          h('span', { class: 'choice-desc' }, t.subflows?.length ? `Com ${t.subflows.length} tool${t.subflows.length > 1 ? 's' : ''} junto` : 'Fluxo único'))))),
+    h('div', { class: 'toolbar' }, h('span', { class: 'spacer' }), analyzeBtn),
+    status,
+    tabsBar,
+    panels);
 }
 
-function renderWizardFinal(box, cards) {
-  const summary = h('div');
+function renderWizardFinal(box, tabs, openFlow) {
+  if (!tabs.length) return swap(box, notice('Nenhum fluxo analisado.', 'info'));
+  const label = { ok: ['ok', 'Pronto'], done: ['ok', 'Gerado'], created: ['ok', 'Criado'], pending: ['warn', 'Falta escolher'], error: ['err', 'Erro'] };
+  const list = h('div', { class: 'list' });
+  const draw = (results) => list.replaceChildren(
+    h('div', { class: 'list-title' }, 'Fluxos', badge('', String(tabs.length))),
+    ...tabs.map((c, i) => {
+      const pending = c.container.querySelectorAll('.map-row.unmatched').length;
+      const r = results?.[i] ?? { status: pending ? 'pending' : 'ok', missing: pending };
+      const [tone, text] = label[r.status] ?? label.error;
+      return h('div', { class: 'row' },
+        h('span', { class: `row-dot ${tone}` }, svg(tone === 'ok' ? 'check' : tone === 'warn' ? 'minus' : 'x')),
+        h('div', {}, h('div', { class: 'row-title' }, flowLabel(c.t.name)),
+          r.status === 'pending' ? h('div', { class: 'row-detail' }, `${r.missing} item(ns) para escolher`) : null,
+          r.status === 'error' ? h('div', { class: 'row-msg' }, r.message) : null),
+        h('div', { class: 'row-actions' },
+          badge(tone, text),
+          button(r.status === 'pending' ? 'Escolher' : 'Ver', () => openFlow(i), { variant: 'btn-small' })));
+    }));
   const runAll = async (mode) => {
     const results = [];
-    // Um por vez: cada fluxo mostra o próprio resultado (ou o que falta) no cartão dele.
-    for (const c of cards) {
-      const r = await c.container.n8nFlow?.build(mode);
-      results.push({ c, r: r ?? { status: 'error', message: 'Fluxo não analisado' } });
+    // Um por vez: cada fluxo mostra o próprio resultado na aba dele.
+    for (const c of tabs) {
+      const r = (await c.container.n8nFlow?.build(mode)) ?? { status: 'error', message: 'Fluxo não analisado' };
+      results.push(r.status === 'ok' ? { status: mode === 'create' ? 'created' : 'done' } : r);
     }
-    const label = { ok: ['ok', mode === 'create' ? 'Criado' : 'Gerado'], pending: ['warn', 'Falta escolher'], error: ['err', 'Erro'] };
-    swap(summary, h('div', { class: 'list' },
-      h('div', { class: 'list-title' }, 'Resultado'),
-      ...results.map(({ c, r }) => {
-        const [tone, text] = label[r.status] ?? label.error;
-        return h('div', { class: 'row' },
-          h('span', { class: `row-dot ${tone}` }, svg(tone === 'ok' ? 'check' : tone === 'warn' ? 'minus' : 'x')),
-          h('div', {}, h('div', { class: 'row-title' }, c.t.name),
-            r.status === 'pending' ? h('div', { class: 'row-detail' }, `${r.missing} item(ns) para escolher no cartão do fluxo`) : null,
-            r.status === 'error' ? h('div', { class: 'row-msg' }, r.message) : null),
-          h('div', { class: 'row-actions' },
-            badge(tone, text),
-            button('Ver', () => { c.card.open = true; spotlight(c.card); }, { variant: 'btn-small' })));
-      })));
+    draw(results);
   };
+  draw();
   swap(box,
-    notice(`${cards.length} fluxo(s) analisado(s). Revise cada cartão na etapa 4; os itens em amarelo precisam de escolha.`, 'info'),
+    list,
     h('div', { class: 'toolbar' },
       h('span', { class: 'spacer' }),
       state.n8nConfigured && button('Criar todos no n8n', () => runAll('create'), { icon: 'cloud' }),
-      button('Baixar todos os fluxos', () => runAll('download'), { variant: 'btn-primary', icon: 'download' })),
-    summary);
+      button('Baixar todos os fluxos', () => runAll('download'), { variant: 'btn-primary', icon: 'download' })));
 }
 
 // ---------- Usuários (formulário → mesmo fluxo de prévia) ----------
@@ -1106,7 +1261,7 @@ async function loadLookup(container, lookup, params) {
 function renderN8n(view) {
   const step1 = h('div');
   const step2 = h('div');
-  const desc = h('p', { class: 'panel-desc' }, 'Crie no WTS o painel, as etapas e o campo personalizado do cliente. Depois escolha o fluxo padrão: o sistema acha os IDs da conta modelo dentro dele e troca pelos da conta do cliente.');
+  const desc = h('p', { class: 'panel-desc' }, 'Escolha o fluxo padrão: ele sai pronto com os itens da conta do cliente.');
   view.append(desc, step1, step2);
 
   // Guarda a tela para voltar sem refazer a análise (ex.: ida e volta ao montador de prompt).
@@ -1168,8 +1323,8 @@ async function loadN8nTemplates(step1, step2) {
   const showInfo = () => {
     const t = mains.find((x) => x.id === select.value);
     templateInfo.replaceChildren(...[
-      t?.subflows?.length ? notice(`Gera junto as tools: ${t.subflows.join(', ')}. O fluxo principal já sai ligado a elas.`, 'info') : null,
-      t?.missingTools?.length ? notice(`Tool que não está nos fluxos padrão: ${t.missingTools.join(', ')}. Exporte do n8n e coloque em templates/n8n para incluir no pacote.`, 'warn') : null,
+      t?.subflows?.length ? h('p', { class: 'hint' }, `Gera junto: ${t.subflows.map(flowLabel).join(', ')}.`) : null,
+      t?.missingTools?.length ? notice(`Tool que não está nos fluxos padrão: ${t.missingTools.join(', ')}.`, 'warn') : null,
     ].filter(Boolean));
   };
   select.onchange = showInfo;
@@ -1199,14 +1354,14 @@ async function loadN8nTemplates(step1, step2) {
   const slugForm = webhookSlugForm();
   const nameInput = h('input', {
     type: 'text',
-    placeholder: 'Ex.: Clínica Sorriso',
+    placeholder: 'Clínica Sorriso',
     value: state.clientName,
     oninput: (e) => { state.clientName = e.target.value; slugForm.syncFromName(e.target.value); },
   });
 
   const source = () => (select.value === '__upload' ? { template: state.uploadedTemplate.workflow } : { templateId: select.value });
 
-  const analyzeBtn = button('Puxar painéis e analisar fluxo', () => {
+  const analyzeBtn = button('Analisar fluxo', () => {
     if (!select.value) return swap(step2, notice('Escolha ou envie um fluxo padrão.', 'info'));
     scanN8n(step2, source(), slugForm);
   }, { variant: 'btn-primary', icon: 'refresh' });
@@ -1214,22 +1369,23 @@ async function loadN8nTemplates(step1, step2) {
   // Deixa claro que o prompt montado veio junto e onde ele aparece.
   const promptReady = state.builtPrompt.trim()
     ? notice(fromPrompt
-      ? `Prompt da IA pronto (${state.builtPrompt.length.toLocaleString('pt-BR')} caracteres). Confira o fluxo e o nome do cliente e clique em "Puxar painéis e analisar fluxo": o prompt aparece no passo 4, já preenchido.`
-      : 'Há um prompt da IA montado nesta sessão: ele aparece no passo 4 depois de analisar o fluxo do agente.', 'ok')
+      ? 'Prompt da IA pronto. Confira o cliente e clique em "Analisar fluxo": o prompt já vem preenchido.'
+      : 'Há um prompt da IA montado: ele entra no fluxo do agente.', 'ok')
     : null;
 
   swap(step1, section('1', 'Fluxo padrão e cliente',
     promptReady,
     !mains.length && !state.uploadedTemplate
-      ? notice('Ainda não há fluxos padrão no servidor (pasta templates/n8n). Envie o .json abaixo ou peça para incluírem no repositório.', 'info')
+      ? notice('Ainda não há fluxos padrão no servidor. Envie o .json abaixo.', 'info')
       : null,
     h('div', { class: 'form-grid' },
-      h('label', { class: 'field' }, 'Fluxo padrão', select),
-      h('label', { class: 'field' }, 'Nome do cliente', nameInput)),
+      field('Fluxo padrão', select, 'Ex.: Rotativo'),
+      field('Nome do cliente', nameInput, 'Ex.: Clínica Sorriso')),
     templateInfo,
     slugForm.el,
-    h('div', { class: 'drop-wrap' }, drop),
-    fileError,
+    h('details', { class: 'advanced' }, h('summary', {}, 'Usar outro fluxo (.json)'),
+      h('div', { class: 'drop-wrap' }, drop),
+      fileError),
     h('div', { class: 'toolbar' }, h('span', { class: 'spacer' }), analyzeBtn)));
 
   if (state.n8nCache) {
@@ -1283,34 +1439,48 @@ async function scanN8n(container, source, slugForm, options = {}) {
 
 const escapeRegExp = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
+// Controle do lado direito de uma troca, com o exemplo logo abaixo.
+const withExample = (control, example) => h('div', { class: 'map-to' }, control, h('span', { class: 'field-example' }, example));
+// "49991031394" → "(49) 99103-1394", só para leitura.
+const formatPhone = (digits) => {
+  const d = String(digits).replace(/^55(?=\d{10,11}$)/, '');
+  if (d.length === 11) return `(${d.slice(0, 2)}) ${d.slice(2, 7)}-${d.slice(7)}`;
+  if (d.length === 10) return `(${d.slice(0, 2)}) ${d.slice(2, 6)}-${d.slice(6)}`;
+  return String(digits);
+};
+
 // Path de cada nó Webhook: já sugerido pelo identificador do cliente, editável.
 function webhookPathSection(scan, slugForm) {
-  const { modelSlug, count, webhookPaths = [] } = scan.slug ?? {};
+  const { modelSlug, webhookPaths = [] } = scan.slug ?? {};
   if (!webhookPaths.length) return { el: null, values: () => ({}), missing: () => [] };
   const rows = webhookPaths.map((w) => {
-    const input = h('input', { type: 'text', spellcheck: false, 'aria-label': `Novo path de ${w.node}` });
+    const input = h('input', { type: 'text', spellcheck: false, placeholder: 'rotativoclinicasorriso', title: `Path atual: ${w.path}`, 'aria-label': `Novo path de ${w.node}` });
+    // Path sugerido: troca o identificador do modelo; sem ele, tipo do fluxo + cliente.
+    const modelRe = () => (modelSlug ? new RegExp(escapeRegExp(modelSlug), 'gi') : null);
+    const base = (modelRe() ? cleanSlug(flowLabel(w.workflow)).replace(modelRe(), '') : cleanSlug(flowLabel(w.workflow))) || 'fluxo';
+    const suggestion = (clientSlug) => {
+      if (!clientSlug) return '';
+      return modelRe()?.test(w.path) ? w.path.replace(modelRe(), clientSlug) : `${base}${clientSlug}`;
+    };
     const row = h('div', { class: 'map-row' },
-      h('div', { class: 'map-from' }, h('div', { class: 'row-title' }, `${w.workflow} › ${w.node}`), h('div', { class: 'row-detail mono' }, w.path)),
+      h('div', { class: 'map-from' }, h('div', { class: 'row-title' }, w.node), h('div', { class: 'row-detail' }, flowLabel(w.workflow))),
       h('span', { class: 'arrow', 'aria-hidden': 'true' }, svg('arrow')),
-      input);
+      withExample(input, `Preenche sozinho. Ex.: ${base}clinicasorriso`));
     let edited = false;
     const mark = () => row.classList.toggle('unmatched', !input.value.trim() || input.value.trim() === w.path);
     input.oninput = () => { edited = true; input.value = input.value.replace(/[^\w/-]/g, ''); mark(); };
     const suggest = () => {
       if (edited) return;
-      const { clientSlug } = slugForm.input();
-      input.value = clientSlug && count ? w.path.replace(new RegExp(escapeRegExp(modelSlug), 'gi'), clientSlug) : w.path;
+      input.value = suggestion(slugForm.input().clientSlug);
       mark();
     };
     suggest();
     slugForm.el.addEventListener('input', suggest);
     return { w, input, row };
   });
-  const el = section('', 'Webhook do fluxo',
-    count
-      ? notice(`"${modelSlug}" aparece no fluxo e vira o identificador do cliente (o mesmo das URLs dos webhooks do WTS).`, 'info')
-      : notice('O path não tem o identificador da conta modelo: escreva o path novo do cliente (em amarelo).', 'warn'),
-    h('div', { class: 'list' }, h('div', { class: 'list-title' }, 'Path do webhook', badge('', String(rows.length))), ...rows.map((r) => r.row)));
+  const el = section('', 'Endereço do webhook',
+    h('p', { class: 'hint' }, 'Endereço que o WTS chama. Já vem com o identificador do cliente.'),
+    h('div', { class: 'list' }, ...rows.map((r) => r.row)));
   return {
     el,
     values: () => Object.fromEntries(rows.map((r) => [r.w.node, r.input.value.trim()])),
@@ -1325,14 +1495,14 @@ function phoneSection(scan) {
   const channels = scan.channels ?? [];
   const toTemplateFormat = (digits, from) => (digits.length > from.length && digits.startsWith('55') ? digits.slice(2) : digits);
   const rows = scan.phones.map((p) => {
-    const input = h('input', { type: 'text', inputMode: 'numeric', placeholder: 'Só números, ex.: 49999998888', 'aria-label': `Número que substitui ${p.from}` });
+    const input = h('input', { type: 'text', inputMode: 'numeric', placeholder: '47999998888', 'aria-label': `Número que substitui ${p.from}` });
     const select = h('select', { 'aria-label': 'Canal do cliente' },
-      h('option', { value: '' }, channels.length ? '— canal do cliente —' : 'Nenhum canal na conta'),
+      h('option', { value: '' }, channels.length ? 'Escolha o canal' : 'Nenhum canal na conta'),
       ...channels.map((c) => h('option', { value: c.id }, `${c.name || c.type || 'Canal'} · ${c.numberFormatted || c.number}`)));
     const row = h('div', { class: 'map-row' },
-      h('div', { class: 'map-from' }, h('div', { class: 'row-title mono' }, p.from), h('div', { class: 'row-detail' }, `${p.count}× · ${p.nodes.join(', ')}`)),
+      h('div', { class: 'map-from' }, h('div', { class: 'row-title' }, formatPhone(p.from)), h('div', { class: 'row-detail' }, 'Número do fluxo padrão')),
       h('span', { class: 'arrow', 'aria-hidden': 'true' }, svg('arrow')),
-      h('div', { class: 'phone-pick' }, select, input));
+      withExample(h('div', { class: 'phone-pick' }, select, input), 'Escolha o canal e o número entra sozinho. Ex.: 47999998888'));
     const mark = () => row.classList.toggle('unmatched', !input.value || input.value === p.from);
     select.onchange = () => {
       const channel = channels.find((c) => c.id === select.value);
@@ -1345,8 +1515,8 @@ function phoneSection(scan) {
     return { p, input, row };
   });
   const el = section('', 'Número do WhatsApp',
-    notice('O fluxo envia mensagens a partir deste número. Escolha o canal do cliente: o número entra no mesmo formato do fluxo (confira).', 'info'),
-    h('div', { class: 'list' }, h('div', { class: 'list-title' }, 'Número de origem (from)', badge('', String(rows.length))), ...rows.map((r) => r.row)));
+    h('p', { class: 'hint' }, 'Número que envia as mensagens do fluxo.'),
+    h('div', { class: 'list' }, ...rows.map((r) => r.row)));
   return {
     el,
     values: () => rows.filter((r) => r.input.value && r.input.value !== r.p.from).map((r) => ({ from: r.p.from, to: r.input.value })),
@@ -1376,12 +1546,11 @@ function sheetSection(scan) {
   const rows = scan.sheets.map((s) => {
     const input = h('input', { type: 'url', placeholder: 'https://docs.google.com/spreadsheets/d/...', 'aria-label': 'Link da planilha do cliente' });
     const row = h('div', { class: 'map-row' },
-      h('div', { class: 'map-from' },
-        h('div', { class: 'row-title' }, `Abas: ${s.sheetNames.join(', ') || '—'}`),
-        h('div', { class: 'row-detail mono' }, s.documentId.replace(/^https:\/\/docs\.google\.com\/spreadsheets\/d\//, '…/d/').slice(0, 60)),
-        h('div', { class: 'row-detail' }, `Usada em: ${s.nodes.join(', ')}`)),
+      h('div', { class: 'map-from', title: s.documentId },
+        h('div', { class: 'row-title' }, 'Planilha do fluxo padrão'),
+        h('div', { class: 'row-detail' }, `Abas: ${s.sheetNames.join(', ') || '—'}`)),
       h('span', { class: 'arrow', 'aria-hidden': 'true' }, svg('arrow')),
-      input);
+      withExample(input, 'Link da planilha do cliente. Ex.: https://docs.google.com/spreadsheets/d/1AbC.../edit'));
     const mark = () => row.classList.toggle('unmatched', !/^https:\/\/docs\.google\.com\/spreadsheets\/d\//.test(input.value.trim()));
     input.oninput = mark;
     mark();
@@ -1398,7 +1567,7 @@ function sheetSection(scan) {
         h('div', { class: 'list-title' }, 'Ordem do rodízio', badge('', `${order.filter((a) => a.on).length} atendente(s)`)),
         ...order.map((a, i) => h('div', { class: 'row' },
           h('input', { type: 'checkbox', checked: a.on, 'aria-label': `Incluir ${a.name}`, onchange: (e) => { a.on = e.target.checked; render(); } }),
-          h('div', {}, h('div', { class: 'row-title' }, `${a.on ? `${order.filter((x, j) => x.on && j <= i).length}. ` : ''}${a.name}`), h('div', { class: 'row-detail mono' }, a.userId || '')),
+          h('div', {}, h('div', { class: 'row-title' }, `${a.on ? `${order.filter((x, j) => x.on && j <= i).length}. ` : ''}${a.name}`)),
           h('div', { class: 'row-actions' },
             button('↑', () => { if (i > 0) { [order[i - 1], order[i]] = [order[i], order[i - 1]]; render(); } }, { variant: 'btn-small', disabled: i === 0, 'aria-label': 'Subir' }),
             button('↓', () => { if (i < order.length - 1) { [order[i + 1], order[i]] = [order[i], order[i + 1]]; render(); } }, { variant: 'btn-small', disabled: i === order.length - 1, 'aria-label': 'Descer' })))));
@@ -1406,7 +1575,7 @@ function sheetSection(scan) {
     render();
     const status = h('div');
     generator = h('div', { class: 'panel-section' },
-      notice('Planilha do rotativo: marque e ordene os atendentes do cliente e baixe a planilha pronta (5 abas, com as fórmulas).', 'info'),
+      h('p', { class: 'hint' }, 'Marque e ordene os atendentes do rodízio e baixe a planilha pronta.'),
       list,
       h('div', { class: 'toolbar' }, h('span', { class: 'spacer' }),
         button('Baixar planilha (.xlsx)', async () => {
@@ -1420,15 +1589,15 @@ function sheetSection(scan) {
           }
         }, { variant: 'btn-primary', icon: 'download' })),
       status,
-      h('ol', { class: 'steps' },
-        h('li', {}, `Abra o Google Drive da conta ${googleCred ? `da credencial "${googleCred}"` : 'usada no n8n'} e envie o arquivo .xlsx.`),
-        h('li', {}, 'Abra o arquivo e use Arquivo → Salvar como Planilhas Google.'),
-        h('li', {}, 'Copie o link da planilha nova (a do Google) e cole no campo abaixo.')));
+      howTo('Como colocar a planilha no Google',
+        `Abra o Google Drive ${googleCred ? `da credencial "${googleCred}"` : 'usado no n8n'} e envie o arquivo .xlsx.`,
+        'Abra o arquivo e use Arquivo → Salvar como Planilhas Google.',
+        'Copie o link da planilha nova e cole no campo abaixo.'));
   }
 
   const el = section('', 'Planilha do Google',
     generator,
-    h('div', { class: 'list' }, h('div', { class: 'list-title' }, 'Link da planilha do cliente', badge('', String(rows.length))), ...rows.map((r) => r.row)));
+    h('div', { class: 'list' }, ...rows.map((r) => r.row)));
   return {
     el,
     values: () => rows.filter((r) => r.input.value.trim()).map((r) => ({ from: r.s.documentId, to: r.input.value.trim() })),
@@ -1474,11 +1643,10 @@ function renderN8nMapping(container, source, scan, slugForm, options = {}) {
     refs.map((ref) => {
       const select = h('select', { 'aria-label': `Trocar ${ref.label}` }, h('option', { value: ref.suggestion ?? '' }));
       select.value = ref.suggestion ?? '';
-      const flag = badge('warn', 'Sem correspondência: escolha');
+      const flag = badge('warn', 'Escolha');
       const row = h('div', { class: 'map-row' },
-        h('div', { class: 'map-from' },
+        h('div', { class: 'map-from', title: ref.from },
           h('div', { class: 'row-title' }, ref.group ? `${ref.group} › ${ref.label}` : ref.label),
-          h('div', { class: 'row-detail mono' }, `${ref.from} · ${ref.count}× no fluxo`),
           flag),
         h('span', { class: 'arrow', 'aria-hidden': 'true' }, svg('arrow')),
         select);
@@ -1506,7 +1674,7 @@ function renderN8nMapping(container, source, scan, slugForm, options = {}) {
 
   // Token do WTS escrito direto em nós: é trocado pelo do cliente automaticamente.
   const tokenBox = scan.hardcodedTokens
-    ? notice(`Este fluxo tem token do WTS escrito direto em ${scan.hardcodedTokens} lugar(es): ele é trocado pelo token do cliente (fica dentro do arquivo).`, 'info')
+    ? h('p', { class: 'hint' }, `Token do WTS escrito em ${scan.hardcodedTokens} lugar(es) do fluxo: vira o do cliente.`)
     : null;
 
   // Credencial do WTS: token direto no header (padrão) ou credencial do n8n.
@@ -1518,18 +1686,16 @@ function renderN8nMapping(container, source, scan, slugForm, options = {}) {
     h('input', { type: 'radio', name: authGroup, value, checked }),
     h('span', {}, h('span', { class: 'choice-title' }, title), h('span', { class: 'choice-desc' }, desc)));
   const authChoice = wtsCreds.length ? h('div', { class: 'choices' },
-    authOption('header', 'Colocar o token direto nos nós',
-      `Header "Authorization: Bearer + token do cliente" nos ${wtsNodes} nó(s) do WTS. Funciona no download, no copiar e no criar. O token fica dentro do fluxo: não compartilhe o .json.`, true),
-    authOption('credential', 'Usar uma credencial do n8n com o nome do cliente',
-      state.n8nConfigured
-        ? 'Criada sozinha ao clicar em "Criar no n8n" (Header Auth). No download, você escolhe a credencial ao importar.'
-        : 'Ao importar, crie no n8n a credencial Header Auth com o nome do cliente e selecione nos nós.', false)) : null;
+    authOption('header', 'Token direto nos nós (padrão)',
+      `Vai nos ${wtsNodes} nó(s) do WTS. Não compartilhe o .json.`, true),
+    authOption('credential', 'Credencial do n8n com o nome do cliente',
+      state.n8nConfigured ? 'Criada sozinha no "Criar no n8n".' : 'Crie no n8n ao importar e selecione nos nós.', false)) : null;
   const selectedAuth = () => authChoice?.querySelector('input:checked')?.value ?? 'credential';
 
   const credentialNotes = [
-    wtsCreds.length ? notice(`A credencial do WTS "${wtsCreds.map((c) => c.name).join(', ')}" sai de todos os nós.`, 'info') : null,
     authChoice,
-    otherCreds.length ? notice(`Ficam como estão (ajuste no n8n se precisar): ${otherCreds.map((c) => `${c.name || c.type} (${c.nodes.length} nó${c.nodes.length > 1 ? 's' : ''})`).join('; ')}.`, 'info') : null,
+    wtsCreds.length ? h('p', { class: 'hint' }, `Sai dos nós a credencial do modelo: ${wtsCreds.map((c) => c.name).join(', ')}.`) : null,
+    otherCreds.length ? h('p', { class: 'hint' }, `Ficam como estão: ${otherCreds.map((c) => c.name || c.type).join(', ')}.`) : null,
   ];
   // Reaproveita a credencial criada nesta sessão para o mesmo cliente e token.
   const reusableCredential = () => {
@@ -1541,8 +1707,8 @@ function renderN8nMapping(container, source, scan, slugForm, options = {}) {
   const promptArea = wantsPrompt ? h('textarea', { placeholder: 'Cole aqui o prompt do cliente ou use o montador. Vazio = mantém o prompt do fluxo padrão.', value: state.builtPrompt }) : null;
 
   const toolsNotes = [
-    scan.subflows?.length ? notice(`Tools geradas junto: ${scan.subflows.map((s) => s.name).join(', ')}. Elas recebem as mesmas trocas (IDs, credencial, número).`, 'info') : null,
-    scan.missingTools?.length ? notice(`Tool fora do pacote: ${scan.missingTools.map((m) => m.name).join(', ')}. O nó fica para você escolher o subfluxo no n8n.`, 'warn') : null,
+    scan.subflows?.length ? h('p', { class: 'hint' }, `Gera junto: ${scan.subflows.map((s) => flowLabel(s.name)).join(', ')}.`) : null,
+    scan.missingTools?.length ? notice(`Tool fora do pacote: ${scan.missingTools.map((m) => m.name).join(', ')}. Escolha o subfluxo no n8n.`, 'warn') : null,
   ];
 
   const result = h('div');
@@ -1608,22 +1774,26 @@ function renderN8nMapping(container, source, scan, slugForm, options = {}) {
     button(scan.subflows?.length ? 'Baixar fluxos' : 'Baixar fluxo', () => build('download'), { variant: 'btn-primary', icon: 'download' }));
 
   const refsCount = scan.references.length;
+  const hasWtsAuth = wtsCreds.length || scan.hardcodedTokens;
   swap(container,
-    section('2', 'O que será trocado',
-      refsCount
-        ? notice(`Achei ${refsCount} referência(s) da conta de origem. Confira as correspondências; as em amarelo precisam de escolha.`, 'info')
-        : notice('Não achei IDs de painel, etapa, chatbot ou equipe neste fluxo.', 'info'),
+    refsCount || toolsNotes.some(Boolean) ? section('', 'Itens da conta do cliente',
+      refsCount ? h('p', { class: 'hint' }, 'Já escolhi pelo nome. Confira e escolha os que estão em amarelo.') : null,
       ...toolsNotes,
-      ...lists),
+      ...lists) : null,
     phones.el,
     sheets.el,
     webhooks.el,
-    (tokenBox || scan.credentials.length) && section('3', 'Credenciais',
-      tokenBox,
-      ...credentialNotes),
-    wantsPrompt && section('4', 'Prompt do agente de IA',
-      h('label', { class: 'field' }, h('span', {}, 'Prompt', h('span', { class: 'field-hint' }, scan.hasPromptPlaceholder ? ' · entra no lugar de {{PROMPT_CLIENTE}}' : ` · vai no System Message de: ${scan.agentNodes.join(', ')} (o bloco "Informações do contato" do topo é mantido)`)), promptArea),
-      h('div', { class: 'toolbar' }, button('Montar prompt', () => openBlock(BLOCK_BY_ID.prompt), { variant: 'btn-ghost btn-small', icon: 'sparkle' }))),
+    wantsPrompt && section('', 'Prompt do agente de IA',
+      field('Prompt', promptArea, options.inWizard
+        ? 'Vem do passo "Prompt da IA". Vazio = mantém o prompt do fluxo padrão.'
+        : 'Cole o prompt montado. Vazio = mantém o prompt do fluxo padrão.'),
+      !options.inWizard && h('div', { class: 'toolbar' }, button('Montar prompt', () => openBlock(BLOCK_BY_ID.prompt), { variant: 'btn-ghost btn-small', icon: 'sparkle' }))),
+    (tokenBox || scan.credentials.length) && h('div', { class: 'panel-section' },
+      hasWtsAuth ? h('p', { class: 'hint' }, svg('check'), ' O token do cliente entra sozinho nos nós do WTS.') : null,
+      h('details', { class: 'advanced' },
+        h('summary', {}, 'Credenciais (avançado)'),
+        tokenBox,
+        ...credentialNotes)),
     downloadBar,
     result);
   stagger(container.querySelectorAll('.map-row'), { step: 16, y: 6 });
@@ -1700,6 +1870,8 @@ function savePrompt(text) {
   try { text ? localStorage.setItem(PROMPT_KEY, text) : localStorage.removeItem(PROMPT_KEY); } catch { /* opcional */ }
 }
 
+const INFO_EXAMPLE = 'Ex.: "Vendemos pacotes de viagem. Atendemos de seg. a sex., das 8h às 18h. Parcelamos em até 10x." Pode colar a conversa inteira.';
+
 // options.embedded: dentro do "Configurar tudo" (o nome vem da etapa 1 e o
 // prompt pronto vai direto para o fluxo do agente via options.onReady).
 async function renderPrompt(view, _block, options = {}) {
@@ -1708,9 +1880,9 @@ async function renderPrompt(view, _block, options = {}) {
     state.builtPrompt = text;
     options.onReady?.(text);
   };
-  const nameInput = h('input', { type: 'text', placeholder: 'Ex.: Clínica Sorriso', value: state.clientName, oninput: (e) => { state.clientName = e.target.value; } });
+  const nameInput = h('input', { type: 'text', placeholder: 'Clínica Sorriso', value: state.clientName, oninput: (e) => { state.clientName = e.target.value; } });
   const template = h('textarea', { rows: 12, placeholder: 'Carregando prompt padrão...' });
-  const info = h('textarea', { rows: 10, placeholder: 'Cole aqui as mensagens e respostas do cliente: o que vende, preços, horários, regras, tom de voz, perguntas frequentes...' });
+  const info = h('textarea', { rows: 10, placeholder: 'O que vende, preços, horários, regras, tom de voz, perguntas frequentes...' });
   const output = h('div', { class: 'output', 'aria-live': 'polite' });
   const outputBox = h('div', { hidden: true });
   const status = h('div');
@@ -1740,9 +1912,9 @@ async function renderPrompt(view, _block, options = {}) {
     view.append(
       h('details', { class: 'advanced' },
         h('summary', {}, 'Prompt padrão (editar)'),
-        h('p', { class: 'panel-desc' }, 'Suas alterações ficam salvas neste navegador.'),
+        h('p', { class: 'hint' }, 'Suas alterações ficam salvas neste navegador.'),
         template, h('div', { class: 'toolbar' }, restore)),
-      h('label', { class: 'field prompt-info' }, 'Mensagens e respostas do cliente', info),
+      field('Informações do cliente', info, INFO_EXAMPLE, { className: 'prompt-info' }),
       h('div', { class: 'toolbar' }, h('span', { class: 'spacer' }), stopBtn, claudeBtn, runBtn),
       status,
       claudeBox,
@@ -1750,16 +1922,17 @@ async function renderPrompt(view, _block, options = {}) {
     outputBox.append(h('div', { class: 'panel-section' }, h('h3', {}, 'Prompt montado (vai para o fluxo do agente)'), output, afterActions));
   } else {
     view.append(
-      section('1', 'Cliente', h('label', { class: 'field' }, 'Nome do cliente', nameInput)),
-      section('2', 'Prompt padrão',
-        h('p', { class: 'panel-desc' }, 'Pode editar: suas alterações ficam salvas neste navegador.'),
+      section('1', 'Cliente', field('Nome do cliente', nameInput, 'Ex.: Clínica Sorriso')),
+      section('2', 'Informações do cliente', field('', info, INFO_EXAMPLE, { className: 'prompt-info' })),
+      h('details', { class: 'advanced' },
+        h('summary', {}, 'Prompt padrão (editar)'),
+        h('p', { class: 'hint' }, 'Suas alterações ficam salvas neste navegador.'),
         template, h('div', { class: 'toolbar' }, restore)),
-      section('3', 'Mensagens e respostas do cliente', info),
       h('div', { class: 'toolbar' }, h('span', { class: 'spacer' }), stopBtn, claudeBtn, runBtn),
       status,
       claudeBox,
       h('div', {}, outputBox));
-    outputBox.append(section('4', 'Prompt montado', output, afterActions));
+    outputBox.append(section('3', 'Prompt montado', output, afterActions));
   }
 
   try {
@@ -1813,11 +1986,11 @@ async function renderPrompt(view, _block, options = {}) {
     // Colou a resposta: já mostra o prompt pronto, sem precisar clicar.
     answer.addEventListener('paste', () => setTimeout(() => answer.value.trim() && useAnswer.click(), 0));
     swap(claudeBox, section('', 'Montar pelo Claude.ai',
-      notice('Copiado! Abra o Claude.ai, cole com Ctrl+V e envie. Quando ele responder, copie a resposta e cole abaixo.', 'ok'),
+      notice('Copiado! Cole no Claude.ai (Ctrl+V) e envie. Depois cole a resposta abaixo.', 'ok'),
       h('div', { class: 'toolbar' },
         h('a', { class: 'btn', href: 'https://claude.ai/new', target: '_blank', rel: 'noopener' }, svg('arrow'), h('span', {}, 'Abrir Claude.ai')),
         button('Copiar de novo', (e) => flashOnCopy(e.currentTarget, text), { variant: 'btn-ghost btn-small', icon: 'copy' })),
-      h('label', { class: 'field' }, 'Resposta do Claude', answer),
+      field('Resposta do Claude', answer, 'Copie a resposta inteira no Claude.ai e cole aqui.'),
       h('div', { class: 'toolbar' }, h('span', { class: 'spacer' }), useAnswer)));
     claudeBox.hidden = false;
     claudeBox.scrollIntoView({ behavior: reducedMotion.matches ? 'auto' : 'smooth', block: 'start' });
