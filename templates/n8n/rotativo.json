@@ -20,74 +20,12 @@
     },
     {
       "parameters": {
-        "url": "=https://api.wts.chat/core/v1/department/__EQUIPE_ROTATIVO__?includeDetails=Agents",
-        "authentication": "genericCredentialType",
-        "genericAuthType": "httpHeaderAuth",
-        "sendHeaders": true,
-        "headerParameters": {
-          "parameters": [
-            {
-              "name": "accept",
-              "value": "application/json"
-            }
-          ]
-        },
-        "options": {}
-      },
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4,
-      "position": [
-        592,
-        384
-      ],
-      "id": "a1b2c3d4-0001-4000-8000-000000000001",
-      "name": "Buscar equipe Rotativo",
-      "credentials": {
-        "httpHeaderAuth": {
-          "id": "credModeloWts01",
-          "name": "Embarque 22 Palmitos [Frédy]"
-        }
-      }
-    },
-    {
-      "parameters": {
-        "url": "=https://api.wts.chat/core/v1/agent",
-        "authentication": "genericCredentialType",
-        "genericAuthType": "httpHeaderAuth",
-        "sendHeaders": true,
-        "headerParameters": {
-          "parameters": [
-            {
-              "name": "accept",
-              "value": "application/json"
-            }
-          ]
-        },
-        "options": {}
-      },
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4,
-      "position": [
-        816,
-        384
-      ],
-      "id": "a1b2c3d4-0002-4000-8000-000000000002",
-      "name": "Buscar usuários",
-      "credentials": {
-        "httpHeaderAuth": {
-          "id": "credModeloWts01",
-          "name": "Embarque 22 Palmitos [Frédy]"
-        }
-      }
-    },
-    {
-      "parameters": {
-        "jsCode": "// Rotativo pelo sistema: quem está ligado = usuários da equipe \"Rotativo\" no WTS\n// (liga/desliga na tela Rotativo do Setup da Conta). A ordem e o nome de cada um\n// (o que vai no \"nome atendente\") vieram da página.\nconst ORDEM = [\"__ORDEM_ROTATIVO__\"];\n\nconst equipe = $('Buscar equipe Rotativo').first().json;\nconst ligados = new Set((equipe.agents || []).map((a) => a.userId));\nconst nomesWts = Object.fromEntries($('Buscar usuários').all().map((i) => [i.json.userId, i.json.name]));\nconst nomeNoRodizio = Object.fromEntries(ORDEM.map((o) => [o.id, o.nome]));\nconst ids = ORDEM.map((o) => o.id);\nconst nome = (id) => nomeNoRodizio[id] || nomesWts[id];\n\n// Na ordem escolhida; quem foi ligado depois entra no fim, com o nome do usuário.\nconst fila = [\n  ...ids.filter((id) => ligados.has(id)),\n  ...[...ligados].filter((id) => !ids.includes(id)).sort((a, b) => String(nome(a)).localeCompare(String(nome(b)))),\n].filter((id) => nome(id));\nif (!fila.length) throw new Error('Ninguém ligado no rotativo: ligue alguém na tela Rotativo do Setup da Conta.');\n\n// A vez fica guardada no próprio fluxo (só com o fluxo ativo; no teste manual começa do primeiro).\nconst memoria = $getWorkflowStaticData('global');\nconst proximo = fila[(fila.indexOf(memoria.ultimo) + 1) % fila.length];\nmemoria.ultimo = proximo;\n\nreturn [{ json: { userId: proximo, nome: nome(proximo), posicao: fila.indexOf(proximo) + 1, total: fila.length } }];\n"
+        "jsCode": "// Rotativo sem planilha: a lista (quem está ligado, ordem e o nome que vai no\n// \"nome atendente\") fica na memória deste fluxo. Liga/desliga na tela Rotativo\n// do Setup da Conta. Esta é a lista de quando o fluxo foi gerado:\nconst INICIAL = [\"__ORDEM_ROTATIVO__\"];\n\nconst memoria = $getWorkflowStaticData('global');\nconst lista = Array.isArray(memoria.lista) ? memoria.lista : INICIAL;\nconst fila = lista.filter((p) => p.ligado && p.nome);\nif (!fila.length) throw new Error('Ninguém ligado no rotativo: ligue alguém na tela Rotativo do Setup da Conta.');\n\n// A vez fica guardada na memória do fluxo (só com o fluxo ativo; no teste manual começa do primeiro).\nconst ids = fila.map((p) => p.id);\nconst proximo = fila[(ids.indexOf(memoria.ultimo) + 1) % fila.length];\nmemoria.ultimo = proximo.id;\n\nreturn [{ json: { userId: proximo.id, nome: proximo.nome, posicao: ids.indexOf(proximo.id) + 1, total: fila.length } }];\n"
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        1056,
+        592,
         384
       ],
       "id": "a1b2c3d4-0003-4000-8000-000000000003",
@@ -119,7 +57,7 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4,
       "position": [
-        1296,
+        832,
         384
       ],
       "retryOnFail": true,
@@ -140,38 +78,61 @@
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.1,
       "position": [
-        1520,
+        1072,
         384
       ],
       "id": "ce64e5ce-0635-4649-9f23-42bcd495dedf",
       "name": "Respond to Webhook1"
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "__ROTATIVO_CONFIG__",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        368,
+        640
+      ],
+      "id": "a1b2c3d4-0004-4000-8000-000000000004",
+      "name": "Webhook config",
+      "webhookId": "a1b2c3d4-0005-4000-8000-000000000005"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Usado pela tela Rotativo do Setup da Conta para ler e gravar a lista.\n// Só responde com a chave certa (gerada para esta conta).\nconst CHAVE = \"__ROTATIVO_CHAVE__\";\nconst INICIAL = [\"__ORDEM_ROTATIVO__\"];\n\nconst body = $('Webhook config').first().json.body || {};\nif (body.chave !== CHAVE) return [{ json: { ok: false, erro: 'chave inválida' } }];\n\nconst memoria = $getWorkflowStaticData('global');\nif (!Array.isArray(memoria.lista)) memoria.lista = INICIAL;\nif (body.acao === 'salvar' && Array.isArray(body.lista)) {\n  memoria.lista = body.lista\n    .filter((p) => p && typeof p.id === 'string')\n    .map((p) => ({ id: p.id, nome: String(p.nome || '').slice(0, 100), ligado: Boolean(p.ligado) }));\n}\nreturn [{ json: { ok: true, lista: memoria.lista, ultimo: memoria.ultimo || null } }];\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        592,
+        640
+      ],
+      "id": "a1b2c3d4-0006-4000-8000-000000000006",
+      "name": "Ler ou gravar lista"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify($json) }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        832,
+        640
+      ],
+      "id": "a1b2c3d4-0007-4000-8000-000000000007",
+      "name": "Responder config"
     }
   ],
   "pinData": {},
   "connections": {
     "Webhook1": {
-      "main": [
-        [
-          {
-            "node": "Buscar equipe Rotativo",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Buscar equipe Rotativo": {
-      "main": [
-        [
-          {
-            "node": "Buscar usuários",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Buscar usuários": {
       "main": [
         [
           {
@@ -198,6 +159,28 @@
         [
           {
             "node": "Respond to Webhook1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Webhook config": {
+      "main": [
+        [
+          {
+            "node": "Ler ou gravar lista",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Ler ou gravar lista": {
+      "main": [
+        [
+          {
+            "node": "Responder config",
             "type": "main",
             "index": 0
           }

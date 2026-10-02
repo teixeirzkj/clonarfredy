@@ -1553,66 +1553,84 @@ function sheetSection(scan) {
   };
 }
 
-// Rotativo: usuários do cliente, quem entra no rodízio, em que ordem e com que
-// nome (o que vai no "nome atendente"). Quem está ligado vira a equipe "Rotativo"
-// no WTS ao gerar o fluxo; ela só guarda a lista.
-function rotativoSection(scan) {
-  if (!scan.rotativo) return { el: null, values: () => null, missing: () => [] };
-  const people = (scan.rotativoUsers ?? []).map((u) => ({ ...u, label: u.suggestedName || u.name }));
-  // Primeira vez (ninguém na equipe ainda): todos começam ligados.
-  if (!people.some((p) => p.on)) people.forEach((p) => { p.on = true; });
-
-  const listId = `equipes-${Date.now()}`;
-  const datalist = h('datalist', { id: listId }, ...(scan.rotativoTeams ?? []).map((t) => h('option', { value: t })));
+// Lista do rodízio: liga/desliga, ordem (setas) e o nome que vai no "nome
+// atendente" de cada pessoa. Usada ao gerar o fluxo e na tela Rotativo.
+function rotativoEditor(people, { teamNames = [], onChange = () => {} } = {}) {
+  const listId = `equipes-${Math.random().toString(36).slice(2)}`;
+  const datalist = h('datalist', { id: listId }, ...teamNames.map((t) => h('option', { value: t })));
   const list = h('div', { class: 'list' });
-  const empty = h('div', { class: 'map-row', hidden: true },
-    h('div', { class: 'map-from' }, h('div', { class: 'row-title' }, 'Ligue pelo menos uma pessoa no rodízio.')));
+  const count = badge('', '');
   const render = () => {
     const on = people.filter((p) => p.on);
-    empty.hidden = on.length > 0;
-    empty.classList.toggle('unmatched', !on.length);
+    count.textContent = `${on.length} ligada(s)`;
     list.replaceChildren(
-      h('div', { class: 'list-title' }, 'Ordem do rodízio', badge('', `${on.length} ligada(s)`)),
+      h('div', { class: 'list-title' }, 'Ordem do rodízio', count),
       ...people.map((p, i) => {
         const nameInput = h('input', {
           type: 'text', value: p.label, disabled: !p.on, placeholder: 'Rafael',
           'aria-label': `Nome no rodízio de ${p.name}`,
           oninput: (e) => { p.label = e.target.value; row.classList.toggle('unmatched', !p.label.trim()); },
+          onchange: () => { if (p.label.trim()) onChange('nome'); },
         });
         nameInput.setAttribute('list', listId);
+        const sw = h('button', { type: 'button', class: 'switch', role: 'switch', 'aria-checked': String(p.on), 'aria-label': `Rodízio: ${p.name}` }, h('span', { class: 'switch-knob' }));
+        sw.onclick = () => {
+          p.on = !p.on;
+          render();
+          onChange('ligar', p);
+        };
+        const move = (to) => { [people[i], people[to]] = [people[to], people[i]]; render(); onChange('ordem'); };
         const row = h('div', { class: `map-row rot-row rot-edit${p.on ? '' : ' is-off'}${p.on && !p.label.trim() ? ' unmatched' : ''}` },
-          h('input', { type: 'checkbox', checked: p.on, 'aria-label': `Incluir ${p.name}`, onchange: (e) => { p.on = e.target.checked; render(); } }),
+          sw,
           h('div', { class: 'rot-name' },
-            h('div', { class: 'row-title' }, p.on ? `${on.indexOf(p) + 1}. ${p.name}` : p.name),
+            h('div', { class: 'row-title' }, p.on ? `${on.indexOf(p) + 1}. ${p.name}` : `${p.name} (desligado)`),
             nameInput),
           h('div', { class: 'row-actions' },
-            button('↑', () => { [people[i - 1], people[i]] = [people[i], people[i - 1]]; render(); }, { variant: 'btn-small', disabled: i === 0, 'aria-label': `Subir ${p.name}` }),
-            button('↓', () => { [people[i + 1], people[i]] = [people[i], people[i + 1]]; render(); }, { variant: 'btn-small', disabled: i === people.length - 1, 'aria-label': `Descer ${p.name}` })));
+            button('↑', () => move(i - 1), { variant: 'btn-small', disabled: i === 0, 'aria-label': `Subir ${p.name}` }),
+            button('↓', () => move(i + 1), { variant: 'btn-small', disabled: i === people.length - 1, 'aria-label': `Descer ${p.name}` })));
         return row;
       }));
   };
   render();
+  return { el: h('div', {}, list, datalist), list, render };
+}
+
+const rotativoList = (people) => people.map((p) => ({ userId: p.userId, name: p.label.trim(), on: p.on }));
+
+// Rotativo ao gerar o fluxo: a lista vai dentro do fluxo e depois é mudada pela tela Rotativo.
+function rotativoSection(scan) {
+  if (!scan.rotativo) return { el: null, values: () => null, missing: () => [] };
+  const people = (scan.rotativoUsers ?? []).map((u) => ({ ...u, label: u.label ?? u.name }));
+  // Primeira vez (fluxo ainda não ativo): todos começam ligados.
+  if (!people.some((p) => p.on)) people.forEach((p) => { p.on = true; });
+
+  const empty = h('div', { class: 'map-row', hidden: true },
+    h('div', { class: 'map-from' }, h('div', { class: 'row-title' }, 'Ligue pelo menos uma pessoa no rodízio.')));
+  const editor = rotativoEditor(people, {
+    teamNames: scan.rotativoTeams,
+    onChange: () => {
+      const none = !people.some((p) => p.on);
+      empty.hidden = !none;
+      empty.classList.toggle('unmatched', none);
+    },
+  });
 
   const el = section('', 'Quem entra no rodízio',
-    h('p', { class: 'hint' }, 'Marque quem recebe atendimentos, a ordem e o nome que vai no "nome atendente" (o mesmo que o chatbot usa para levar à equipe da pessoa). Ex.: Rafael'),
-    scan.rotativoDuplicates ? notice(`Há ${scan.rotativoDuplicates + 1} equipes "Rotativo" repetidas. Abra a tela Rotativo e clique em "Juntar equipes repetidas".`, 'warn') : null,
-    people.length ? list : notice('Nenhum usuário na conta do cliente.', 'warn'),
-    datalist,
+    h('p', { class: 'hint' }, 'Ligue quem recebe atendimentos, use as setas para a ordem e confira o nome que vai no "nome atendente" (o mesmo que o chatbot usa). Ex.: Rafael'),
+    scan.rotativoConnected ? notice('Este cliente já tem um rotativo ativo: esta é a lista atual dele.', 'info') : null,
+    people.length ? editor.el : notice('Nenhum usuário na conta do cliente.', 'warn'),
     empty);
   return {
     el,
-    values: () => ({
-      order: people.filter((p) => p.on).map((p) => ({ userId: p.userId, name: p.label.trim() })),
-      on: people.filter((p) => p.on).map((p) => p.userId),
-    }),
+    values: () => ({ list: rotativoList(people) }),
     missing: () => [
-      ...(people.some((p) => p.on) ? [] : [{ label: 'Pessoas do rodízio', row: empty, focus: list.querySelector('input') ?? empty }]),
-      ...people.filter((p) => p.on && !p.label.trim()).map((p) => ({ label: `Nome no rodízio de ${p.name}`, row: list, focus: list.querySelector('.rot-row.unmatched input[type=text]') ?? list })),
+      ...(people.some((p) => p.on) ? [] : [{ label: 'Pessoas do rodízio', row: empty, focus: editor.list.querySelector('.switch') ?? empty }]),
+      ...people.filter((p) => p.on && !p.label.trim()).map((p) => ({ label: `Nome no rodízio de ${p.name}`, row: editor.list, focus: editor.list.querySelector('.rot-row.unmatched input') ?? editor.list })),
     ],
   };
 }
 
-// Tela Rotativo: liga e desliga quem recebe atendimentos (equipe "Rotativo" no WTS).
+// Tela Rotativo: liga, desliga, ordena e renomeia. Grava na hora no fluxo do n8n.
 async function renderRotativoBlock(view) {
   const body = h('div');
   view.append(h('p', { class: 'panel-desc' }, 'Ligue ou desligue quem recebe atendimentos no rodízio. Vale na hora, sem mexer no n8n.'), body);
@@ -1631,7 +1649,7 @@ async function renderRotativoBlock(view) {
 async function loadRotativo(body) {
   if (!requireToken(body)) return;
   const token = clientToken();
-  swap(body, loading('Lendo os usuários da conta...'));
+  swap(body, loading('Lendo o rotativo da conta...'));
   let data;
   try {
     data = await api('rotativo', { action: 'get', clientToken: token });
@@ -1641,75 +1659,47 @@ async function loadRotativo(body) {
   }
   if (token !== clientToken()) return; // token trocado no meio: outra leitura já vem
   setTokenStatus('ok');
+
+  if (!data.connected) {
+    swap(body,
+      notice('Não achei o fluxo Rotativo ativo no n8n para esta conta.', 'warn'),
+      howTo('Como ativar o rotativo',
+        'Em Fluxos do n8n (ou Configurar tudo), gere o fluxo Rotativo deste cliente.',
+        'Importe no n8n e ligue a chave Active.',
+        'Volte aqui: a lista aparece e dá para ligar e desligar as pessoas.'),
+      h('div', { class: 'toolbar' }, h('span', { class: 'spacer' }),
+        button('Verificar de novo', () => loadRotativo(body), { icon: 'refresh' })));
+    return;
+  }
+
+  const people = data.users;
   const status = h('div');
-  const count = badge('', '');
-  const updateCount = () => { count.textContent = `${data.users.filter((u) => u.on).length} ligada(s)`; };
-  // Um clique por vez no WTS: evita criar duas equipes "Rotativo" ao ligar várias pessoas rápido.
+  // Uma gravação por vez; cada mudança grava a lista inteira.
   let queue = Promise.resolve();
-  const row = (u) => {
-    const sw = h('button', { type: 'button', class: 'switch', role: 'switch', 'aria-checked': String(u.on), 'aria-label': `Rotativo: ${u.name}` }, h('span', { class: 'switch-knob' }));
-    const label = h('span', { class: 'switch-label' });
-    const el = h('div', { class: 'row rot-row' },
-      h('span', { class: 'row-dot ok' }, svg('user')),
-      h('div', {}, h('div', { class: 'row-title' }, u.name)),
-      h('div', { class: 'row-actions' }, label, sw));
-    const paint = () => {
-      sw.setAttribute('aria-checked', String(u.on));
-      label.textContent = u.on ? 'Ligado' : 'Desligado';
-      el.classList.toggle('is-off', !u.on);
-      updateCount();
-    };
-    sw.onclick = async () => {
-      if (u.on && data.users.filter((x) => x.on).length === 1) {
-        status.replaceChildren(notice('Deixe pelo menos uma pessoa ligada no rotativo.', 'warn'));
-        return;
-      }
-      u.on = !u.on;
-      paint();
-      pop(sw.firstChild);
-      sw.disabled = true;
-      status.replaceChildren();
-      const on = u.on;
-      queue = queue.then(async () => {
-        try {
-          await api('rotativo', { action: 'toggle', clientToken: clientToken(), userId: u.userId, on });
-          data.teamId ??= true;
-        } catch (err) {
-          u.on = !on; // volta como estava
-          paint();
-          status.replaceChildren(notice(err.message));
-        } finally {
-          sw.disabled = false;
-        }
-      });
-    };
-    paint();
-    return el;
-  };
-  // Equipes "Rotativo" repetidas (versão anterior criava uma por clique): junta na mais antiga.
-  const merge = data.duplicates ? h('div', { class: 'notice warn', role: 'status' }, svg('alert'),
-    h('span', {}, `Há ${data.duplicates + 1} equipes "Rotativo" repetidas no WTS. Junte numa só (fica a mais antiga, com todo mundo que estava ligado). Depois gere o fluxo Rotativo de novo.`),
-    button('Juntar equipes repetidas', async (e) => {
-      const btn = e.currentTarget;
-      if (!window.confirm(`Apagar ${data.duplicates} equipe(s) "Rotativo" repetida(s) no WTS? As pessoas delas passam para a equipe "Rotativo" que fica.`)) return;
-      btn.disabled = true;
+  const save = (kind, person) => {
+    status.replaceChildren();
+    if (!people.some((p) => p.on)) {
+      if (person) { person.on = true; editor.render(); }
+      status.replaceChildren(notice('Deixe pelo menos uma pessoa ligada no rotativo.', 'warn'));
+      return;
+    }
+    if (people.some((p) => p.on && !p.label.trim())) {
+      status.replaceChildren(notice('Preencha o nome no rodízio de quem está ligado.', 'warn'));
+      return;
+    }
+    const list = rotativoList(people);
+    queue = queue.then(async () => {
       try {
-        const r = await api('rotativo', { action: 'merge', clientToken: clientToken() });
-        status.replaceChildren(notice(`${r.removed} equipe(s) repetida(s) apagada(s). Gere o fluxo Rotativo de novo para ele usar a equipe que ficou.`, 'ok'));
-        setTimeout(() => loadRotativo(body), 1500);
+        await api('rotativo', { action: 'save', clientToken: clientToken(), list });
+        status.replaceChildren(notice(kind === 'ligar' ? `${person.name} ${person.on ? 'ligado' : 'desligado'} no rodízio.` : 'Rodízio atualizado.', 'ok'));
       } catch (err) {
-        btn.disabled = false;
         status.replaceChildren(notice(err.message));
+        if (person) { person.on = !person.on; editor.render(); } // volta como estava
       }
-    }, { variant: 'btn-small' })) : null;
-  swap(body,
-    merge,
-    data.teamId ? null : notice('Ainda não há rotativo nesta conta. Ao ligar alguém, a equipe "Rotativo" é criada no WTS. Depois gere o fluxo Rotativo em Fluxos do n8n.', 'info'),
-    data.users.length
-      ? h('div', { class: 'list' }, h('div', { class: 'list-title' }, 'Usuários', count), ...data.users.map(row))
-      : notice('Nenhum usuário na conta.', 'info'),
-    h('p', { class: 'hint' }, 'Quem for ligado aqui e não estava no fluxo entra com o nome de usuário no "nome atendente". Para escolher o nome, gere o fluxo Rotativo de novo.'),
-    status);
+    });
+  };
+  const editor = rotativoEditor(people, { teamNames: data.teamNames, onChange: save });
+  swap(body, people.length ? editor.el : notice('Nenhum usuário na conta.', 'info'), status);
   stagger(body.querySelectorAll('.rot-row'), { step: 25, y: 6 });
 }
 
@@ -1961,7 +1951,7 @@ function renderN8nResult(container, data, mode) {
     notice(headline, 'ok'),
     ...data.warnings.map((w) => notice(w, 'warn')),
     data.credential ? notice(`Credencial "${data.credential.name}" ligada em ${data.credentialNodes} nó(s) do WTS.`, 'ok') : null,
-    data.rotativo ? notice(`Equipe "Rotativo" ${data.rotativo.created ? 'criada' : 'atualizada'} no WTS com ${data.rotativo.people} pessoa(s).`, 'ok') : null,
+    data.rotativo ? notice(`Rotativo com ${data.rotativo.people} pessoa(s) ligada(s). Importe e ative o fluxo no n8n; depois ligue e desligue pela tela Rotativo.`, 'ok') : null,
     data.headerNodes ? notice(`Token do cliente colocado no header Authorization de ${data.headerNodes} nó(s) do WTS.`, 'ok') : null,
     data.webhookPaths?.length ? h('div', { class: 'list' },
       h('div', { class: 'list-title' }, 'URL do webhook (configure no WTS: chatbot ou assinatura)'),
