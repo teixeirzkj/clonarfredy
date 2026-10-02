@@ -87,7 +87,7 @@ const LOOKUPS = [
 ];
 
 const BLOCK_BY_ID = Object.fromEntries(SECTIONS.flatMap((s) => s.blocks).map((b) => [b.id, b]));
-const SETUP_ALL = { id: 'setupAll', kind: 'setupAll', title: 'Configurar tudo', desc: 'Etiquetas, equipes e webhooks padrão de uma vez.' };
+const SETUP_ALL = { id: 'setupAll', kind: 'setupAll', title: 'Configurar tudo', desc: 'Implantação completa: etiquetas, equipes, webhooks, prompt da IA e fluxos do n8n.' };
 
 const APPLY_BATCH = 8;
 const SESSION_KEY = 'setup-session';
@@ -428,7 +428,7 @@ function renderGrid({ animate = false } = {}) {
       h('span', { class: 'hero-icon', 'aria-hidden': 'true' }, svg('rocket')),
       h('span', { class: 'hero-body' },
         h('span', { class: 'hero-title' }, 'Configurar tudo de uma vez'),
-        h('span', { class: 'hero-desc' }, 'Cria etiquetas, equipes e webhooks padrão que faltam, com uma prévia antes.')),
+        h('span', { class: 'hero-desc' }, 'Etiquetas, equipes e webhooks, prompt da IA e fluxos do n8n (agente, mover card, rotativo) numa tela só.')),
       state.status.setupAll ? badge(state.status.setupAll.tone, state.status.setupAll.text) : null,
       h('span', { class: 'hero-arrow', 'aria-hidden': 'true' }, svg('arrow'))));
   }
@@ -769,18 +769,123 @@ function renderWebhooksBlock(view, block) {
 
 // ---------- Configurar tudo ----------
 
+// Implantação completa numa tela só, em etapas:
+// 1 cliente · 2 etiquetas/equipes/webhooks · 3 prompt da IA · 4 fluxos do n8n · 5 baixar/criar tudo.
+function wizardStep(number, title, desc, ...children) {
+  return h('section', { class: 'wizard-step' },
+    h('header', { class: 'wizard-head' },
+      h('span', { class: 'step-num' }, number),
+      h('div', {}, h('h3', {}, title), desc && h('p', { class: 'panel-desc' }, desc))),
+    ...children);
+}
+
 function renderSetupAll(view) {
   const form = webhookSlugForm({ withName: true });
-  const body = h('div');
-  const start = () => loadPreview(body, SETUP_ALL_BLOCKS.map((id) => (id === 'webhooks'
+
+  const setupBody = h('div');
+  const startSetup = () => loadPreview(setupBody, SETUP_ALL_BLOCKS.map((id) => (id === 'webhooks'
     ? { block: BLOCK_BY_ID[id], input: form.input(), onMeta: form.onMeta }
     : { block: BLOCK_BY_ID[id] })));
+
+  const promptBox = h('div');
+  const flowsBox = h('div');
+  const finalBox = h('div');
+  const flowCards = [];
+
   view.append(
-    h('p', { class: 'panel-desc' }, 'Junta Etiquetas, Equipes e Webhooks padrão numa prévia só. Usuários continuam no bloco próprio, porque precisam de formulário.'),
-    form.el,
-    h('div', { class: 'toolbar' }, h('span', { class: 'spacer' }), button('Gerar prévia', start, { variant: 'btn-primary', icon: 'play' })),
-    body);
-  if (state.clientSlug || state.clientName) start();
+    h('p', { class: 'panel-desc' }, 'Implantação completa do cliente, de cima para baixo. Usuários continuam no bloco próprio, porque precisam de formulário.'),
+    wizardStep('1', 'Cliente', 'Nome e identificador do cliente. O token da conta fica no topo da tela.', form.el),
+    wizardStep('2', 'Etiquetas, equipes e webhooks', 'Copia da conta modelo o que falta no cliente, com prévia antes.',
+      h('div', { class: 'toolbar' }, h('span', { class: 'spacer' }), button('Gerar prévia', startSetup, { variant: 'btn-primary', icon: 'play' })),
+      setupBody),
+    wizardStep('3', 'Prompt da IA', 'Monta o prompt do agente; ele entra sozinho no fluxo do agente (etapa 4).', promptBox),
+    wizardStep('4', 'Fluxos do n8n', 'Marque os fluxos e analise: cada um mostra o que trocar para este cliente.', flowsBox),
+    wizardStep('5', 'Baixar ou criar tudo', 'Gera todos os fluxos analisados de uma vez.', finalBox));
+
+  // O prompt pronto vai direto para os fluxos que têm agente de IA.
+  renderPrompt(promptBox, null, {
+    embedded: true,
+    onReady: (text) => flowCards.forEach((c) => c.container.n8nFlow?.setPrompt(text)),
+  });
+  loadWizardFlows(flowsBox, flowCards, form, finalBox);
+}
+
+async function loadWizardFlows(box, cards, form, finalBox) {
+  swap(box, loading('Carregando fluxos padrão...'));
+  let data;
+  try {
+    data = await api('n8n', { action: 'templates' });
+  } catch (err) {
+    retry(box, err, () => loadWizardFlows(box, cards, form, finalBox));
+    return;
+  }
+  state.n8nConfigured = data.n8nConfigured;
+  const mains = data.templates.filter((t) => !t.isSubflow && !t.invalid);
+  const checks = mains.map((t) => ({ t, input: h('input', { type: 'checkbox', checked: true }) }));
+  const cardsBox = h('div');
+
+  const analyze = async () => {
+    const chosen = checks.filter((c) => c.input.checked).map((c) => c.t);
+    if (!chosen.length) return swap(cardsBox, notice('Marque pelo menos um fluxo.', 'info'));
+    if (!clientToken()) return swap(cardsBox, notice('Informe o token da conta do cliente no topo da tela.', 'info'));
+    cards.length = 0;
+    cardsBox.replaceChildren();
+    // Um fluxo por vez: cada análise lê as duas contas e respeita o limite da API.
+    for (const t of chosen) {
+      const container = h('div');
+      const card = h('details', { class: 'flow-card', open: true },
+        h('summary', {}, svg('flow'), h('span', {}, t.name), t.subflows?.length ? badge('info', `+ ${t.subflows.length} tools`) : null),
+        container);
+      cardsBox.append(card);
+      cards.push({ t, container, card });
+      await scanN8n(container, { templateId: t.id }, form);
+    }
+    renderWizardFinal(finalBox, cards);
+    spotlight(finalBox);
+  };
+
+  swap(box,
+    h('div', { class: 'list' },
+      h('div', { class: 'list-title' }, 'Fluxos para este cliente', badge('', String(mains.length))),
+      ...checks.map(({ t, input }) => h('label', { class: 'row' }, input,
+        h('div', {}, h('div', { class: 'row-title' }, t.name), h('div', { class: 'row-detail' }, t.subflows?.length ? `Com as tools: ${t.subflows.join(', ')}` : `${t.nodes} nós`)),
+        h('span')))),
+    h('div', { class: 'toolbar' }, h('span', { class: 'spacer' }), button('Puxar painéis e analisar fluxos marcados', analyze, { variant: 'btn-primary', icon: 'refresh' })),
+    cardsBox);
+  swap(finalBox, notice('Analise os fluxos na etapa 4 para liberar esta etapa.', 'info'));
+}
+
+function renderWizardFinal(box, cards) {
+  const summary = h('div');
+  const runAll = async (mode) => {
+    const results = [];
+    // Um por vez: cada fluxo mostra o próprio resultado (ou o que falta) no cartão dele.
+    for (const c of cards) {
+      const r = await c.container.n8nFlow?.build(mode);
+      results.push({ c, r: r ?? { status: 'error', message: 'Fluxo não analisado' } });
+    }
+    const label = { ok: ['ok', mode === 'create' ? 'Criado' : 'Gerado'], pending: ['warn', 'Falta escolher'], error: ['err', 'Erro'] };
+    swap(summary, h('div', { class: 'list' },
+      h('div', { class: 'list-title' }, 'Resultado'),
+      ...results.map(({ c, r }) => {
+        const [tone, text] = label[r.status] ?? label.error;
+        return h('div', { class: 'row' },
+          h('span', { class: `row-dot ${tone}` }, svg(tone === 'ok' ? 'check' : tone === 'warn' ? 'minus' : 'x')),
+          h('div', {}, h('div', { class: 'row-title' }, c.t.name),
+            r.status === 'pending' ? h('div', { class: 'row-detail' }, `${r.missing} item(ns) para escolher no cartão do fluxo`) : null,
+            r.status === 'error' ? h('div', { class: 'row-msg' }, r.message) : null),
+          h('div', { class: 'row-actions' },
+            badge(tone, text),
+            button('Ver', () => { c.card.open = true; spotlight(c.card); }, { variant: 'btn-small' })));
+      })));
+  };
+  swap(box,
+    notice(`${cards.length} fluxo(s) analisado(s). Revise cada cartão na etapa 4; os itens em amarelo precisam de escolha.`, 'info'),
+    h('div', { class: 'toolbar' },
+      h('span', { class: 'spacer' }),
+      state.n8nConfigured && button('Criar todos no n8n', () => runAll('create'), { icon: 'cloud' }),
+      button('Baixar todos os fluxos', () => runAll('download'), { variant: 'btn-primary', icon: 'download' })),
+    summary);
 }
 
 // ---------- Usuários (formulário → mesmo fluxo de prévia) ----------
@@ -1249,6 +1354,88 @@ function phoneSection(scan) {
   };
 }
 
+// Baixa a planilha do rotativo (.xlsx) gerada no servidor.
+async function downloadRotativoSheet(attendants) {
+  const res = await fetch('/api/sheet', { method: 'POST', headers: authHeaders(), body: JSON.stringify({ attendants, clientName: state.clientName }) });
+  if (res.status === 401) throw expireSession();
+  if (!res.ok) throw new ApiError((await res.json().catch(() => ({}))).error || `Erro ${res.status}`);
+  const url = URL.createObjectURL(await res.blob());
+  const link = h('a', { href: url, download: `Rotativo_${slug(state.clientName)}.xlsx` });
+  document.body.append(link);
+  link.click();
+  link.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+// Planilhas do Google usadas pelo fluxo: link da planilha do cliente (obrigatório)
+// e, no rotativo, gerador da planilha com os atendentes do cliente.
+function sheetSection(scan) {
+  if (!scan.sheets?.length) return { el: null, values: () => [], missing: () => [] };
+  const googleCred = scan.credentials.find((c) => /googleSheets/i.test(c.type))?.name;
+
+  const rows = scan.sheets.map((s) => {
+    const input = h('input', { type: 'url', placeholder: 'https://docs.google.com/spreadsheets/d/...', 'aria-label': 'Link da planilha do cliente' });
+    const row = h('div', { class: 'map-row' },
+      h('div', { class: 'map-from' },
+        h('div', { class: 'row-title' }, `Abas: ${s.sheetNames.join(', ') || '—'}`),
+        h('div', { class: 'row-detail mono' }, s.documentId.replace(/^https:\/\/docs\.google\.com\/spreadsheets\/d\//, '…/d/').slice(0, 60)),
+        h('div', { class: 'row-detail' }, `Usada em: ${s.nodes.join(', ')}`)),
+      h('span', { class: 'arrow', 'aria-hidden': 'true' }, svg('arrow')),
+      input);
+    const mark = () => row.classList.toggle('unmatched', !/^https:\/\/docs\.google\.com\/spreadsheets\/d\//.test(input.value.trim()));
+    input.oninput = mark;
+    mark();
+    return { s, input, row };
+  });
+
+  let generator = null;
+  if (scan.rotativo) {
+    // Atendentes do cliente, na ordem do rodízio (todos marcados de início).
+    const list = h('div', { class: 'list' });
+    const order = (scan.clientAgents ?? []).filter((a) => a.name).map((a) => ({ ...a, on: true }));
+    const render = () => {
+      list.replaceChildren(
+        h('div', { class: 'list-title' }, 'Ordem do rodízio', badge('', `${order.filter((a) => a.on).length} atendente(s)`)),
+        ...order.map((a, i) => h('div', { class: 'row' },
+          h('input', { type: 'checkbox', checked: a.on, 'aria-label': `Incluir ${a.name}`, onchange: (e) => { a.on = e.target.checked; render(); } }),
+          h('div', {}, h('div', { class: 'row-title' }, `${a.on ? `${order.filter((x, j) => x.on && j <= i).length}. ` : ''}${a.name}`), h('div', { class: 'row-detail mono' }, a.userId || '')),
+          h('div', { class: 'row-actions' },
+            button('↑', () => { if (i > 0) { [order[i - 1], order[i]] = [order[i], order[i - 1]]; render(); } }, { variant: 'btn-small', disabled: i === 0, 'aria-label': 'Subir' }),
+            button('↓', () => { if (i < order.length - 1) { [order[i + 1], order[i]] = [order[i], order[i + 1]]; render(); } }, { variant: 'btn-small', disabled: i === order.length - 1, 'aria-label': 'Descer' })))));
+    };
+    render();
+    const status = h('div');
+    generator = h('div', { class: 'panel-section' },
+      notice('Planilha do rotativo: marque e ordene os atendentes do cliente e baixe a planilha pronta (5 abas, com as fórmulas).', 'info'),
+      list,
+      h('div', { class: 'toolbar' }, h('span', { class: 'spacer' }),
+        button('Baixar planilha (.xlsx)', async () => {
+          status.replaceChildren();
+          const attendants = order.filter((a) => a.on).map(({ name, userId }) => ({ name, userId }));
+          try {
+            await downloadRotativoSheet(attendants);
+            status.replaceChildren(notice('Planilha baixada. Agora suba no Google Drive e cole o link abaixo.', 'ok'));
+          } catch (err) {
+            status.replaceChildren(notice(err.message));
+          }
+        }, { variant: 'btn-primary', icon: 'download' })),
+      status,
+      h('ol', { class: 'steps' },
+        h('li', {}, `Abra o Google Drive da conta ${googleCred ? `da credencial "${googleCred}"` : 'usada no n8n'} e envie o arquivo .xlsx.`),
+        h('li', {}, 'Abra o arquivo e use Arquivo → Salvar como Planilhas Google.'),
+        h('li', {}, 'Copie o link da planilha nova (a do Google) e cole no campo abaixo.')));
+  }
+
+  const el = section('', 'Planilha do Google',
+    generator,
+    h('div', { class: 'list' }, h('div', { class: 'list-title' }, 'Link da planilha do cliente', badge('', String(rows.length))), ...rows.map((r) => r.row)));
+  return {
+    el,
+    values: () => rows.filter((r) => r.input.value.trim()).map((r) => ({ from: r.s.documentId, to: r.input.value.trim() })),
+    missing: () => rows.filter((r) => r.row.classList.contains('unmatched')).map((r) => ({ label: 'Link da planilha do Google', row: r.row, focus: r.input })),
+  };
+}
+
 const normalizeName = (s) => String(s ?? '').normalize('NFC').trim().replace(/\s+/g, ' ').toLowerCase();
 
 function renderN8nMapping(container, source, scan, slugForm, options = {}) {
@@ -1315,9 +1502,11 @@ function renderN8nMapping(container, source, scan, slugForm, options = {}) {
 
   const webhooks = webhookPathSection(scan, slugForm);
   const phones = phoneSection(scan);
+  const sheets = sheetSection(scan);
 
-  const tokenBox = scan.hasModelToken
-    ? h('label', { class: 'check-toggle' }, h('input', { type: 'checkbox', checked: true }), 'Trocar o token da conta modelo pelo token do cliente (o token vai dentro do arquivo)')
+  // Token do WTS escrito direto em nós: é trocado pelo do cliente automaticamente.
+  const tokenBox = scan.hardcodedTokens
+    ? notice(`Este fluxo tem token do WTS escrito direto em ${scan.hardcodedTokens} lugar(es): ele é trocado pelo token do cliente (fica dentro do arquivo).`, 'info')
     : null;
 
   // Credencial do WTS: token direto no header (padrão) ou credencial do n8n.
@@ -1362,6 +1551,7 @@ function renderN8nMapping(container, source, scan, slugForm, options = {}) {
     const missing = [
       ...entries.filter((s) => !s.select.value).map((s) => ({ label: `${s.ref.kindLabel}: ${s.ref.group ? `${s.ref.group} › ` : ''}${s.ref.label}`, row: s.row, focus: s.select })),
       ...phones.missing(),
+      ...sheets.missing(),
       ...webhooks.missing(),
     ];
     if (missing.length && !force) {
@@ -1374,17 +1564,17 @@ function renderN8nMapping(container, source, scan, slugForm, options = {}) {
             missing.forEach((m) => enter(m.row, { y: 0, scale: 0.98, duration: 320, easing: SPRING }));
           }, { variant: 'btn-primary', icon: 'arrow' }),
           button('Gerar mesmo assim', () => build(mode, true), { variant: 'btn-ghost' })));
-      return;
+      return { status: 'pending', missing: missing.length };
     }
     const body = {
       action: 'build',
       ...source,
       mapping: entries.filter((s) => s.select.value).map((s) => ({ from: s.ref.from, to: s.select.value })),
       phoneMapping: phones.values(),
+      sheetMapping: sheets.values(),
       webhookPaths: webhooks.values(),
       clientName: state.clientName,
       prompt: promptArea?.value ?? '',
-      replaceToken: Boolean(tokenBox?.querySelector('input').checked),
       clientToken: clientToken(),
       create: mode === 'create',
       auth: selectedAuth(),
@@ -1398,15 +1588,18 @@ function renderN8nMapping(container, source, scan, slugForm, options = {}) {
       data = await api('n8n', body);
     } catch (err) {
       swap(result, notice(err.message));
-      return;
+      return { status: 'error', message: err.message };
     }
     if (data.credential) state.n8nCredential = { ...data.credential, token: clientToken(), clientName: state.clientName };
     if (data.createError) {
       swap(result, notice(`${data.createError}. A credencial "${data.credential.name}" já foi criada e será reaproveitada ao tentar de novo.`));
-      return;
+      return { status: 'error', message: data.createError };
     }
     renderN8nResult(result, data, mode);
+    return { status: 'ok', data };
   };
+  // Para o "Configurar tudo": gerar este fluxo e atualizar o prompt de fora.
+  container.n8nFlow = { build, setPrompt: (text) => { if (promptArea) promptArea.value = text; }, hasPrompt: Boolean(promptArea) };
 
   const downloadBar = h('div', { class: 'toolbar' },
     h('span', { class: 'spacer' }),
@@ -1423,6 +1616,7 @@ function renderN8nMapping(container, source, scan, slugForm, options = {}) {
       ...toolsNotes,
       ...lists),
     phones.el,
+    sheets.el,
     webhooks.el,
     (tokenBox || scan.credentials.length) && section('3', 'Credenciais',
       tokenBox,
@@ -1486,7 +1680,12 @@ function renderN8nResult(container, data, mode) {
     ...data.warnings.map((w) => notice(w, 'warn')),
     data.credential ? notice(`Credencial "${data.credential.name}" ligada em ${data.credentialNodes} nó(s) do WTS.`, 'ok') : null,
     data.headerNodes ? notice(`Token do cliente colocado no header Authorization de ${data.headerNodes} nó(s) do WTS.`, 'ok') : null,
-    data.webhookPaths?.length ? notice(`Path do webhook: ${data.webhookPaths.map((w) => w.path).join(', ')}`, 'info') : null,
+    data.webhookPaths?.length ? h('div', { class: 'list' },
+      h('div', { class: 'list-title' }, 'URL do webhook (configure no WTS: chatbot ou assinatura)'),
+      ...data.webhookPaths.map((w) => h('div', { class: 'row' },
+        h('span', { class: 'row-dot ok' }, svg('webhook')),
+        h('div', {}, h('div', { class: 'row-title' }, `${w.workflow} › ${w.node}`)),
+        copyButton(w.url || w.path)))) : null,
     list,
     h('p', { class: 'summary' }, `${data.applied.length} valor(es) trocados${data.slugReplaced ? ` · identificador da empresa trocado ${data.slugReplaced}×` : ''}.`));
 }
@@ -1501,7 +1700,14 @@ function savePrompt(text) {
   try { text ? localStorage.setItem(PROMPT_KEY, text) : localStorage.removeItem(PROMPT_KEY); } catch { /* opcional */ }
 }
 
-async function renderPrompt(view) {
+// options.embedded: dentro do "Configurar tudo" (o nome vem da etapa 1 e o
+// prompt pronto vai direto para o fluxo do agente via options.onReady).
+async function renderPrompt(view, _block, options = {}) {
+  const embedded = Boolean(options.embedded);
+  const ready = (text) => {
+    state.builtPrompt = text;
+    options.onReady?.(text);
+  };
   const nameInput = h('input', { type: 'text', placeholder: 'Ex.: Clínica Sorriso', value: state.clientName, oninput: (e) => { state.clientName = e.target.value; } });
   const template = h('textarea', { rows: 12, placeholder: 'Carregando prompt padrão...' });
   const info = h('textarea', { rows: 10, placeholder: 'Cole aqui as mensagens e respostas do cliente: o que vende, preços, horários, regras, tom de voz, perguntas frequentes...' });
@@ -1519,30 +1725,45 @@ async function renderPrompt(view) {
   const claudeBtn = button('Copiar para o Claude.ai', null, { icon: 'copy' });
   const claudeBox = h('div', { hidden: true });
   let instructions = '';
+  let claudeSuffix = '';
   const afterActions = h('div', { class: 'toolbar', hidden: true },
     h('span', { class: 'spacer' }),
     button('Copiar', (e) => flashOnCopy(e.currentTarget, output.textContent), { icon: 'copy' }),
     button('Baixar .txt', () => download(`prompt-${slug(state.clientName)}.txt`, output.textContent, 'text/plain;charset=utf-8'), { icon: 'download' }),
-    button('Gerar fluxo do n8n com este prompt', () => {
+    !embedded && button('Gerar fluxo do n8n com este prompt', () => {
       state.builtPrompt = output.textContent;
       state.preferAgent = true; // abre no fluxo do agente, analisa e leva ao download
       openBlock(BLOCK_BY_ID.n8n);
     }, { variant: 'btn-primary', icon: 'download' }));
 
-  view.append(
-    section('1', 'Cliente', h('label', { class: 'field' }, 'Nome do cliente', nameInput)),
-    section('2', 'Prompt padrão',
-      h('p', { class: 'panel-desc' }, 'Pode editar: suas alterações ficam salvas neste navegador.'),
-      template, h('div', { class: 'toolbar' }, restore)),
-    section('3', 'Mensagens e respostas do cliente', info),
-    h('div', { class: 'toolbar' }, h('span', { class: 'spacer' }), stopBtn, claudeBtn, runBtn),
-    status,
-    claudeBox,
-    h('div', {}, outputBox));
-  outputBox.append(section('4', 'Prompt montado', output, afterActions));
+  if (embedded) {
+    view.append(
+      h('details', { class: 'advanced' },
+        h('summary', {}, 'Prompt padrão (editar)'),
+        h('p', { class: 'panel-desc' }, 'Suas alterações ficam salvas neste navegador.'),
+        template, h('div', { class: 'toolbar' }, restore)),
+      h('label', { class: 'field prompt-info' }, 'Mensagens e respostas do cliente', info),
+      h('div', { class: 'toolbar' }, h('span', { class: 'spacer' }), stopBtn, claudeBtn, runBtn),
+      status,
+      claudeBox,
+      outputBox);
+    outputBox.append(h('div', { class: 'panel-section' }, h('h3', {}, 'Prompt montado (vai para o fluxo do agente)'), output, afterActions));
+  } else {
+    view.append(
+      section('1', 'Cliente', h('label', { class: 'field' }, 'Nome do cliente', nameInput)),
+      section('2', 'Prompt padrão',
+        h('p', { class: 'panel-desc' }, 'Pode editar: suas alterações ficam salvas neste navegador.'),
+        template, h('div', { class: 'toolbar' }, restore)),
+      section('3', 'Mensagens e respostas do cliente', info),
+      h('div', { class: 'toolbar' }, h('span', { class: 'spacer' }), stopBtn, claudeBtn, runBtn),
+      status,
+      claudeBox,
+      h('div', {}, outputBox));
+    outputBox.append(section('4', 'Prompt montado', output, afterActions));
+  }
 
   try {
-    ({ prompt: defaultText, instructions = '' } = await api('prompt', { action: 'default' }));
+    ({ prompt: defaultText, instructions = '', claudeSuffix = '' } = await api('prompt', { action: 'default' }));
   } catch (err) {
     if (err instanceof ApiError) status.replaceChildren(notice(err.message));
   }
@@ -1552,7 +1773,7 @@ async function renderPrompt(view) {
     output.textContent = text;
     outputBox.hidden = false;
     afterActions.hidden = false;
-    state.builtPrompt = text;
+    ready(text);
     enter(outputBox, { y: 10 });
     stagger(afterActions.querySelectorAll('.btn'), { y: 6, step: 50 });
     outputBox.scrollIntoView({ behavior: reducedMotion.matches ? 'auto' : 'smooth', block: 'start' });
@@ -1570,6 +1791,7 @@ async function renderPrompt(view) {
       `<prompt_padrao>\n${template.value.trim()}\n</prompt_padrao>`,
       `<informacoes_cliente>\n${state.clientName.trim() ? `Cliente: ${state.clientName.trim()}\n\n` : ''}${info.value.trim()}\n</informacoes_cliente>`,
       'Monte o prompt final deste cliente.',
+      claudeSuffix,
     ].filter(Boolean).join('\n\n');
     if (!(await copyText(text))) {
       status.replaceChildren(notice('Não consegui copiar. Tente de novo.'));
@@ -1582,7 +1804,9 @@ async function renderPrompt(view) {
     const answer = h('textarea', { rows: 10, placeholder: 'Cole aqui a resposta do Claude...' });
     const useAnswer = button('Usar esta resposta', () => {
       // Tira a cerca de código (```) se o Claude responder dentro de uma.
-      const cleaned = answer.value.trim().replace(/^```[\w-]*\n([\s\S]*?)\n```$/, '$1').trim();
+      // Pega o conteúdo do bloco de código, mesmo com texto antes ou depois dele.
+      const raw = answer.value.trim();
+      const cleaned = (raw.match(/```[\w-]*\n([\s\S]*?)\n```/)?.[1] ?? raw).trim();
       if (!cleaned) return answer.focus();
       showResult(cleaned);
     }, { variant: 'btn-primary', icon: 'check' });
@@ -1638,7 +1862,7 @@ async function renderPrompt(view) {
       stopBtn.hidden = true;
       if (output.textContent.trim()) {
         afterActions.hidden = false;
-        state.builtPrompt = output.textContent;
+        ready(output.textContent);
         stagger(afterActions.querySelectorAll('.btn'), { y: 6, step: 50 });
       }
     }

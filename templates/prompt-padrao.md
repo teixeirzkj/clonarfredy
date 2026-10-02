@@ -1,3 +1,13 @@
+### Informações do contato
+
+- Nome completo: {{ $node["campos básicos"].json["nome"] }}
+- Primeiro nome: {{ $node["campos básicos"].json["nome"].split(' ')[0] }}
+- Telefone: {{ $node["campos básicos"].json["telefone"] }}
+- Data e hora de hoje: {{ $now }}
+- Dia da semana: {{ $now.setLocale('pt-BR').toFormat('cccc') }}
+- Turno para saudação: {{ parseInt($now.toFormat("HH")) >= 4 && parseInt($now.toFormat("HH")) < 12 ? "Bom dia" : parseInt($now.toFormat("HH")) >=12 && parseInt($now.toFormat("HH")) < 18 ? "Boa tarde" : "Boa noite" }}.
+
+---
 ## 📌 Sumário 
 1. Objetivo e Papel do Agente 
 2. Bebecê Viagens e Turismo (Explicação sobre a agência) 

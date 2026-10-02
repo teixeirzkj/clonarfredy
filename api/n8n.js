@@ -34,11 +34,13 @@ export default route(async ({ body }) => {
     case 'build': {
       const pkg = await loadPackage(body);
       const auth = body.auth === 'header' ? 'header' : 'credential';
-      const needsToken = body.replaceToken || auth === 'header' || (body.create && body.createCredential);
-      const clientToken = needsToken ? customerClient(body.clientToken) && body.clientToken.trim() : null;
+      // Token do cliente: obrigatório no modo header/credencial nova; senão usado se vier (tokens escritos nos nós).
+      const needsToken = auth === 'header' || (body.create && body.createCredential);
+      const clientToken = needsToken || body.clientToken ? customerClient(body.clientToken) && body.clientToken.trim() : null;
       const options = {
         mapping: body.mapping,
         phoneMapping: body.phoneMapping,
+        sheetMapping: body.sheetMapping,
         webhookPaths: pathOverrides(body.webhookPaths),
         clientName: body.clientName,
         prompt: body.prompt,

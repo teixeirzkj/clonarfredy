@@ -1,6 +1,6 @@
 import { isAuthenticated } from '../lib/auth.js';
 import { HttpError, readJson, send } from '../lib/http.js';
-import { SYSTEM, buildPrompt, checkPromptInput, defaultPrompt } from '../lib/prompt.js';
+import { CLAUDE_AI_SUFFIX, SYSTEM, buildPrompt, checkPromptInput, defaultPrompt } from '../lib/prompt.js';
 
 // action "default": devolve o prompt padrão.
 // action "build": gera o prompt do cliente em streaming (NDJSON: uma linha por evento).
@@ -14,7 +14,7 @@ export default async function handler(req, res) {
     const body = await readJson(req);
 
     // As instruções vão junto para o botão "Copiar para o Claude.ai" (sem custo de API).
-    if (body.action === 'default') return send(res, 200, { prompt: await defaultPrompt(), instructions: SYSTEM });
+    if (body.action === 'default') return send(res, 200, { prompt: await defaultPrompt(), instructions: SYSTEM, claudeSuffix: CLAUDE_AI_SUFFIX });
     if (body.action !== 'build') throw new HttpError(400, 'Ação desconhecida');
     checkPromptInput(body);
 
