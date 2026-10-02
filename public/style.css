@@ -916,3 +916,8 @@ details.advanced .field { margin-top: 10px; max-width: 420px; }
 .switch[aria-checked="true"] .switch-knob { transform: translateX(20px); }
 .row-actions:has(.switch) { align-items: center; flex-wrap: nowrap; }
 @media (prefers-reduced-motion: reduce) { .switch-knob { transition: none; } }
+.map-row.rot-edit { grid-template-columns: auto minmax(0, 1fr) auto; gap: 14px; }
+.rot-name { display: grid; gap: 6px; min-width: 0; }
+.rot-name input { max-width: 320px; min-height: 36px; padding-top: 6px; padding-bottom: 6px; }
+@media (max-width: 767px) { .map-row.rot-edit { grid-template-columns: auto minmax(0, 1fr); } .map-row.rot-edit .row-actions { grid-column: 2; } }
+.notice > .btn { flex: none; white-space: nowrap; margin-left: auto; }
