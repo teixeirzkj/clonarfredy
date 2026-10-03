@@ -1106,6 +1106,30 @@ function mark(status, label) {
   return h('span', { class: `mark ${status}`, role: 'img', 'aria-label': label }, svg(MARK_ICON[status]));
 }
 
+// Conteúdo completo do item na conta modelo, com botões de copiar.
+function checkDetail(item) {
+  const { rows = [], texts = [], lists = [], note } = item.detail;
+  const all = [
+    ...rows.map(([label, value]) => `${label}: ${value}`),
+    ...texts.filter((t) => t.value).map((t) => `\n${t.label}:\n${t.value}`),
+    ...lists.filter((l) => l.items.length).map((l) => `\n${l.label}:\n${l.items.map((i) => `- ${i}`).join('\n')}`),
+  ].join('\n');
+  const copy = (text, label) => button(label, (e) => flashOnCopy(e.currentTarget, text), { variant: 'btn-small', icon: 'copy' });
+  return h('div', { class: 'compare-detail' },
+    rows.length ? h('dl', { class: 'detail-grid' },
+      ...rows.flatMap(([label, value]) => [h('dt', {}, label), h('dd', {}, value)])) : null,
+    ...texts.map((t) => h('div', { class: 'detail-block' },
+      h('div', { class: 'detail-head' }, h('span', {}, t.label), t.value ? copy(t.value, `Copiar ${t.label.toLowerCase()}`) : null),
+      t.value ? h('pre', { class: 'detail-text' }, t.value) : h('p', { class: 'hint' }, 'Vazio'))),
+    ...lists.map((l) => h('div', { class: 'detail-block' },
+      h('div', { class: 'detail-head' }, h('span', {}, l.label), l.items.length ? copy(l.items.join('\n'), 'Copiar') : null),
+      l.items.length
+        ? h('ul', { class: 'detail-chips' }, ...l.items.map((i) => h('li', {}, i)))
+        : h('p', { class: 'hint' }, l.empty || 'Nenhum'))),
+    note ? notice(note, 'info') : null,
+    h('div', { class: 'toolbar' }, h('span', { class: 'spacer' }), copy(all, 'Copiar tudo')));
+}
+
 function renderCheckBlock(view, block) {
   const body = h('div');
   view.append(body);
@@ -1136,13 +1160,17 @@ async function loadCheck(container, block) {
     table.replaceChildren(
       h('div', { class: 'compare-head' }, h('span', {}, 'Item'), h('span', {}, 'Modelo'), h('span', {}, 'Cliente')),
       ...(rows.length
-        ? rows.map((item) => h('div', { class: 'compare-row' },
-          h('div', {},
-            h('div', { class: 'row-title' }, item.label),
-            item.info && h('div', { class: 'row-detail' }, item.info),
-            item.note && h('div', { class: 'row-msg' }, item.note)),
-          mark('ok', 'Existe no modelo'),
-          mark(item.status, MARK_LABEL[item.status])))
+        ? rows.map((item) => h('details', { class: 'compare-item' },
+          h('summary', { class: 'compare-row' },
+            h('div', { class: 'compare-name' },
+              h('span', { class: 'chevron', 'aria-hidden': 'true' }, svg('arrow')),
+              h('div', {},
+                h('div', { class: 'row-title' }, item.label),
+                item.info && h('div', { class: 'row-detail' }, item.info),
+                item.note && h('div', { class: 'row-msg' }, item.note))),
+            mark('ok', 'Existe no modelo'),
+            mark(item.status, MARK_LABEL[item.status])),
+          item.detail ? checkDetail(item) : null))
         : [h('p', { class: 'empty' }, items.length ? 'Nada faltando.' : 'A conta modelo não tem itens deste tipo.')]),
     );
     stagger(table.querySelectorAll('.compare-row'), { step: 18, y: 6 });
