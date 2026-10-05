@@ -58,12 +58,14 @@ const SECTIONS = [
     blocks: [
       { id: 'n8n', kind: 'n8n', icon: 'flow', title: 'Fluxos do n8n', desc: 'Gera os fluxos padrão já com painel, etapas, bot key e campos do cliente.' },
       { id: 'prompt', kind: 'prompt', icon: 'sparkle', title: 'Montar prompt da IA', desc: 'Adapta o prompt padrão com as respostas do cliente.' },
+      { id: 'chatbotsPadrao', kind: 'chatbots', icon: 'bot', title: 'Chatbots padrão', desc: 'JSON dos chatbots padrão para copiar e colar no WTS.' },
     ],
   },
   {
     title: 'Manutenção do CRM',
     blocks: [
       { id: 'archiveCards', kind: 'archive', icon: 'archive', title: 'Arquivar cards', desc: 'Arquiva os cards de uma coluna, filtrando por data.' },
+      { id: 'importContacts', kind: 'contacts', icon: 'upload', title: 'Importar contatos', desc: 'Sobe uma planilha (CSV) de contatos, com etiquetas e campos.' },
     ],
   },
   {
@@ -74,6 +76,7 @@ const SECTIONS = [
       { id: 'chatbots', kind: 'check', icon: 'bot', title: 'Chatbots', desc: 'Lista os chatbots do modelo que faltam no cliente.' },
       { id: 'sequences', kind: 'check', icon: 'repeat', title: 'Sequências', desc: 'Lista as sequências do modelo que faltam no cliente.' },
       { id: 'fields', kind: 'check', icon: 'form', title: 'Campos personalizados', desc: 'Confere campos de contato e de painel.' },
+      { id: 'officeHours', kind: 'check', icon: 'calendar', title: 'Horário de atendimento', desc: 'Compara os horários e a mensagem fora do horário.' },
     ],
   },
 ];
@@ -431,6 +434,8 @@ function openBlock(block) {
     prompt: renderPrompt,
     rotativo: renderRotativoBlock,
     archive: renderArchiveBlock,
+    contacts: renderContactsBlock,
+    chatbots: renderChatbotsBlock,
   };
   renderers[block.kind]?.(view, block);
 }
@@ -1361,15 +1366,341 @@ async function loadArchive(body) {
   stagger(panelGrid.querySelectorAll('.pick'), { step: 25, y: 6 });
 }
 
+// ---------- Importar contatos de uma planilha ----------
+
+const CONTACT_BATCH = 100;
+
+// Lê CSV (vírgula ou ponto e vírgula, aspas, BOM do Excel).
+function parseCsv(textIn) {
+  const textCsv = textIn.replace(/^﻿/, '');
+  const firstLine = textCsv.split(/\r?\n/, 1)[0] ?? '';
+  const sep = (firstLine.match(/;/g) ?? []).length > (firstLine.match(/,/g) ?? []).length ? ';' : (firstLine.includes('\t') && !firstLine.includes(',') ? '\t' : ',');
+  const rows = [];
+  let row = [];
+  let cell = '';
+  let quoted = false;
+  for (let i = 0; i < textCsv.length; i++) {
+    const c = textCsv[i];
+    if (quoted) {
+      if (c === '"' && textCsv[i + 1] === '"') { cell += '"'; i++; } else if (c === '"') quoted = false; else cell += c;
+    } else if (c === '"') quoted = true;
+    else if (c === sep) { row.push(cell); cell = ''; } else if (c === '\n' || c === '\r') {
+      if (c === '\r' && textCsv[i + 1] === '\n') i++;
+      row.push(cell); rows.push(row); row = []; cell = '';
+    } else cell += c;
+  }
+  if (cell || row.length) { row.push(cell); rows.push(row); }
+  return rows.filter((r) => r.some((c) => c.trim()));
+}
+
+// Lista suspensa própria (no lugar do <select> padrão).
+function menuSelect(options, value, onChange, label) {
+  const current = () => options.find((o) => o.value === value) ?? options[0];
+  const text = h('span', {}, current().label);
+  const trigger = h('button', { type: 'button', class: 'menu-trigger', 'aria-haspopup': 'listbox', 'aria-label': label }, text, h('span', { class: 'menu-caret', 'aria-hidden': 'true' }, '▾'));
+  const list = h('div', { class: 'menu-pop', role: 'listbox', hidden: true });
+  const wrap = h('div', { class: 'menu-field' }, trigger, list);
+  const close = () => { list.hidden = true; trigger.setAttribute('aria-expanded', 'false'); document.removeEventListener('pointerdown', outside, true); };
+  const outside = (e) => { if (!wrap.contains(e.target)) close(); };
+  const render = () => list.replaceChildren(...options.map((o) => {
+    if (o.group) return h('div', { class: 'menu-group' }, o.group);
+    return h('button', {
+      type: 'button', role: 'option', class: `menu-opt${o.value === value ? ' is-on' : ''}`, 'aria-selected': String(o.value === value),
+      onclick: () => { value = o.value; text.textContent = o.label; trigger.classList.toggle('is-set', Boolean(value)); close(); onChange(value); },
+    }, o.label);
+  }));
+  trigger.classList.toggle('is-set', Boolean(value));
+  trigger.onclick = () => {
+    if (!list.hidden) return close();
+    render();
+    list.hidden = false;
+    trigger.setAttribute('aria-expanded', 'true');
+    enter(list, { y: -4, duration: 180 });
+    list.scrollIntoView({ behavior: reducedMotion.matches ? 'auto' : 'smooth', block: 'nearest' });
+    document.addEventListener('pointerdown', outside, true);
+  };
+  list.addEventListener('keydown', (e) => { if (e.key === 'Escape') { close(); trigger.focus(); } });
+  return { el: wrap, set: (v) => { value = v; text.textContent = current().label; trigger.classList.toggle('is-set', Boolean(v)); } };
+}
+
+// Coluna da planilha → campo do WTS, pelo nome do cabeçalho.
+function guessColumn(header, fields) {
+  const n = normalizeName(header).normalize('NFD').replace(/[̀-ͯ]/g, '');
+  if (/^(nome|name|cliente|contato|nome completo)$/.test(n)) return 'name';
+  if (/(telefone|celular|whats|fone|phone|numero)/.test(n)) return 'phoneNumber';
+  if (/(e-?mail)/.test(n)) return 'email';
+  if (/insta/.test(n)) return 'instagram';
+  if (/(etiqueta|tag)/.test(n)) return 'tags';
+  if (/(^obs|observa|anota|nota)/.test(n)) return 'annotation';
+  const field = fields.find((f) => normalizeName(f.name) === normalizeName(header) || f.key.toLowerCase() === n);
+  return field ? `cf:${field.key}` : '';
+}
+
+function renderContactsBlock(view) {
+  const body = h('div');
+  view.append(h('p', { class: 'panel-desc' }, 'Suba a planilha de contatos (CSV), diga o que é cada coluna e importe. Quem já existe (mesmo telefone ou e-mail) é atualizado.'), body);
+  const tokenInput = $('client-token');
+  let timer = null;
+  const onToken = () => {
+    if (!body.isConnected) return tokenInput.removeEventListener('input', onToken);
+    clearTimeout(timer);
+    timer = setTimeout(() => loadContactsImport(body), 500);
+  };
+  tokenInput.addEventListener('input', onToken);
+  loadContactsImport(body);
+}
+
+async function loadContactsImport(body) {
+  if (!requireToken(body)) return;
+  swap(body, loading('Lendo etiquetas, sequências e campos da conta...'));
+  let opts;
+  try {
+    opts = await api('contacts', { action: 'options', clientToken: clientToken() });
+  } catch (err) {
+    retry(body, err, () => loadContactsImport(body));
+    return;
+  }
+  setTokenStatus('ok');
+
+  const FIELD_OPTIONS = [
+    { value: '', label: 'Não importar' },
+    { value: 'name', label: 'Nome' },
+    { value: 'phoneNumber', label: 'Telefone (WhatsApp)' },
+    { value: 'email', label: 'E-mail' },
+    { value: 'instagram', label: 'Instagram' },
+    { value: 'tags', label: 'Etiquetas (separadas por vírgula)' },
+    { value: 'annotation', label: 'Anotação' },
+    ...(opts.fields.length ? [{ group: 'Campos personalizados' }, ...opts.fields.map((f) => ({ value: `cf:${f.key}`, label: f.name }))] : []),
+  ];
+  const sheet = { headers: [], rows: [], map: [] };
+  const extra = { tags: new Set(), sequences: new Set() };
+  const mapBox = h('div');
+  const result = h('div');
+
+  const fileInput = h('input', { type: 'file', accept: '.csv,text/csv,.txt' });
+  const drop = h('label', { class: 'drop' }, svg('upload'), h('span', {}, 'Escolher ou arrastar a planilha (.csv)'), fileInput);
+  const fileError = h('div');
+  const readFile = async (file) => {
+    fileError.replaceChildren();
+    result.replaceChildren();
+    const rows = parseCsv(await file.text());
+    if (rows.length < 2) return fileError.replaceChildren(notice('A planilha precisa de uma linha de títulos e pelo menos um contato.'));
+    sheet.headers = rows[0].map((c, i) => c.trim() || `Coluna ${i + 1}`);
+    sheet.rows = rows.slice(1);
+    sheet.map = sheet.headers.map((hd) => guessColumn(hd, opts.fields));
+    drop.querySelector('span').textContent = `${file.name} · ${sheet.rows.length} linha(s)`;
+    renderMap();
+  };
+  fileInput.onchange = () => fileInput.files[0] && readFile(fileInput.files[0]);
+  drop.ondragover = (e) => { e.preventDefault(); drop.classList.add('dragging'); };
+  drop.ondragleave = () => drop.classList.remove('dragging');
+  drop.ondrop = (e) => { e.preventDefault(); drop.classList.remove('dragging'); if (e.dataTransfer.files[0]) readFile(e.dataTransfer.files[0]); };
+
+  const renderMap = () => {
+    swap(mapBox, section('2', 'O que é cada coluna',
+      h('p', { class: 'hint' }, 'Já reconheci pelos títulos. Confira; precisa de pelo menos Telefone, E-mail ou Instagram.'),
+      h('div', { class: 'list' }, ...sheet.headers.map((hd, i) => {
+        const sample = sheet.rows.map((r) => r[i]).find((v) => v?.trim()) ?? '';
+        return h('div', { class: 'map-row' },
+          h('div', { class: 'map-from' }, h('div', { class: 'row-title' }, hd), h('div', { class: 'row-detail' }, sample ? `Ex.: ${sample.slice(0, 60)}` : 'Vazia')),
+          h('span', { class: 'arrow', 'aria-hidden': 'true' }, svg('arrow')),
+          menuSelect(FIELD_OPTIONS, sheet.map[i], (v) => { sheet.map[i] = v; result.replaceChildren(); }, `Campo da coluna ${hd}`).el);
+      }))),
+    section('3', 'Para todos os contatos (opcional)',
+      opts.tags.length ? field('Etiquetas', chipToggles(opts.tags, extra.tags), 'Ex.: "Importado" — use etiquetas que já existem na conta.') : null,
+      opts.sequences.length ? field('Colocar na sequência', chipToggles(opts.sequences, extra.sequences), 'Os contatos entram na sequência e começam a receber as mensagens dela.') : null,
+      !opts.tags.length && !opts.sequences.length ? h('p', { class: 'hint' }, 'A conta não tem etiquetas nem sequências.') : null),
+    h('div', { class: 'toolbar' }, h('span', { class: 'spacer' }), button('Ver contatos', previewImport, { variant: 'btn-primary', icon: 'eye' })));
+  };
+
+  const chipToggles = (items, set) => h('div', { class: 'chip-row' }, ...items.map((it) => {
+    const chip = h('button', { type: 'button', class: 'pick-chip pick-chip-sm', 'aria-pressed': 'false' }, it.name);
+    chip.onclick = () => {
+      set.has(it.id) ? set.delete(it.id) : set.add(it.id);
+      chip.classList.toggle('is-on', set.has(it.id));
+      chip.setAttribute('aria-pressed', String(set.has(it.id)));
+      result.replaceChildren();
+    };
+    return chip;
+  }));
+
+  // Monta os contatos e separa as linhas que não dá para importar.
+  const buildContacts = () => {
+    const ok = [];
+    const skipped = [];
+    sheet.rows.forEach((r, idx) => {
+      const c = { tags: [], customFields: {} };
+      sheet.map.forEach((target, i) => {
+        const v = (r[i] ?? '').trim();
+        if (!target || !v) return;
+        if (target === 'tags') c.tags.push(...v.split(/[,;|]/).map((t) => t.trim()).filter(Boolean));
+        else if (target.startsWith('cf:')) c.customFields[target.slice(3)] = v;
+        else c[target] = v;
+      });
+      const phone = String(c.phoneNumber ?? '').replace(/\D/g, '');
+      if (c.phoneNumber !== undefined) c.phoneNumber = phone;
+      const reason = !phone && !c.email && !c.instagram ? 'sem telefone, e-mail ou Instagram'
+        : phone && phone.length < 10 ? `telefone curto (${phone})`
+          : c.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(c.email) ? 'e-mail inválido' : '';
+      (reason ? skipped : ok).push(reason ? { line: idx + 2, reason, row: c } : c);
+    });
+    return { ok, skipped };
+  };
+
+  const previewImport = () => {
+    if (!sheet.map.some((m) => ['phoneNumber', 'email', 'instagram'].includes(m))) {
+      return swap(result, notice('Marque qual coluna é o Telefone, o E-mail ou o Instagram.', 'warn'));
+    }
+    const { ok, skipped } = buildContacts();
+    const label = (c) => c.name || c.phoneNumber || c.email || c.instagram;
+    swap(result,
+      notice(`${ok.length} contato(s) prontos para importar${skipped.length ? `, ${skipped.length} linha(s) serão puladas` : ''}.`, ok.length ? 'info' : 'warn'),
+      ok.length ? h('div', { class: 'list' },
+        h('div', { class: 'list-title' }, 'Primeiros contatos', badge('', String(ok.length))),
+        ...ok.slice(0, 15).map((c) => h('div', { class: 'row' },
+          h('span', { class: 'row-dot' }, svg('user')),
+          h('div', {}, h('div', { class: 'row-title' }, label(c)), h('div', { class: 'row-detail' }, [c.phoneNumber, c.email, c.tags.length ? `Etiquetas: ${c.tags.join(', ')}` : ''].filter(Boolean).join(' · '))),
+          h('span')))) : null,
+      skipped.length ? h('details', { class: 'advanced' }, h('summary', {}, `Linhas puladas (${skipped.length})`),
+        h('div', { class: 'list' }, ...skipped.slice(0, 100).map((s) => h('div', { class: 'row' },
+          h('span', { class: 'row-dot err' }, svg('x')),
+          h('div', {}, h('div', { class: 'row-title' }, `Linha ${s.line}`), h('div', { class: 'row-msg' }, s.reason)), h('span'))))) : null,
+      ok.length ? h('div', { class: 'toolbar' }, h('span', { class: 'spacer' }), button(`Importar ${ok.length} contato(s)`, () => runImport(ok), { variant: 'btn-primary', icon: 'upload' })) : null);
+  };
+
+  const runImport = async (contacts) => {
+    const tagNames = opts.tags.filter((t) => extra.tags.has(t.id)).map((t) => t.name);
+    const sequenceIds = [...extra.sequences];
+    const tiles = stats([{ id: 'ok', label: 'Importados', tone: 'ok' }, { id: 'err', label: 'Com erro', tone: 'err' }, { id: 'left', label: 'Faltam' }]);
+    const bar = h('div', { class: 'progress' }, h('span'));
+    const errors = h('div');
+    const status = h('div', {}, loading('Importando... Deixe esta tela aberta.'));
+    swap(result, tiles, bar, status, errors);
+    let done = 0;
+    let saved = 0;
+    const failed = [];
+    tiles.set('left', contacts.length);
+    for (let i = 0; i < contacts.length; i += CONTACT_BATCH) {
+      const batch = contacts.slice(i, i + CONTACT_BATCH);
+      try {
+        const r = await api('contacts', { action: 'import', clientToken: clientToken(), contacts: batch, tagNames, sequenceIds });
+        saved += r.saved;
+      } catch (err) {
+        failed.push({ from: i + 1, to: i + batch.length, count: batch.length, message: err.message });
+        if (err.message === 'Sessão expirada') break;
+      }
+      done = Math.min(i + CONTACT_BATCH, contacts.length);
+      tiles.set('ok', saved);
+      tiles.set('err', failed.reduce((n, f) => n + f.count, 0));
+      tiles.set('left', contacts.length - done);
+      bar.firstChild.style.transform = `scaleX(${done / contacts.length})`;
+    }
+    swap(status, notice(failed.length ? `Importados ${saved}; ${failed.length} lote(s) com erro.` : `Pronto: ${saved} contato(s) importados.`, failed.length ? 'warn' : 'ok'));
+    if (failed.length) {
+      errors.replaceChildren(h('div', { class: 'list' },
+        h('div', { class: 'list-title' }, 'Lotes com erro'),
+        ...failed.map((f) => h('div', { class: 'row' }, h('span', { class: 'row-dot err' }, svg('x')),
+          h('div', {}, h('div', { class: 'row-title' }, `Contatos ${f.from} a ${f.to}`), h('div', { class: 'row-msg' }, f.message)), h('span')))));
+    }
+  };
+
+  swap(body,
+    section('1', 'Planilha', h('div', { class: 'drop-wrap' }, drop), fileError,
+      howTo('Como gerar o CSV',
+        'No Excel: Arquivo → Salvar como → CSV UTF-8 (separado por vírgulas).',
+        'No Google Planilhas: Arquivo → Fazer download → Valores separados por vírgula (.csv).',
+        'A primeira linha precisa ter os títulos das colunas. Ex.: Nome, Telefone, E-mail, Etiquetas.')),
+    mapBox,
+    result);
+}
+
+// ---------- Chatbots padrão (JSON para colar no WTS) ----------
+
+async function renderChatbotsBlock(view) {
+  const body = h('div');
+  view.append(h('p', { class: 'panel-desc' }, 'A API do WTS não cria chatbots. Copie o JSON do chatbot padrão e cole no chatbot da conta do cliente.'), body);
+  swap(body, loading('Carregando chatbots padrão...'));
+  let chatbots;
+  try {
+    ({ chatbots } = await api('chatbots', {}));
+  } catch (err) {
+    retry(body, err, () => { view.replaceChildren(); renderChatbotsBlock(view); });
+    return;
+  }
+  if (!chatbots.length) {
+    swap(body, notice('Ainda não há chatbots padrão cadastrados. Mande o JSON de cada chatbot da conta modelo para incluir aqui.', 'info'));
+    return;
+  }
+  const list = h('div', { class: 'list' },
+    h('div', { class: 'list-title' }, 'Chatbots padrão', badge('', String(chatbots.length))),
+    ...chatbots.map((bot) => h('details', { class: 'compare-item' },
+      h('summary', { class: 'compare-row bot-row' },
+        h('div', { class: 'compare-name' },
+          h('span', { class: 'chevron', 'aria-hidden': 'true' }, svg('arrow')),
+          h('div', {},
+            h('div', { class: 'row-title' }, bot.name),
+            h('div', { class: 'row-detail' }, bot.valid ? `${Math.max(1, Math.round(bot.size / 1024))} KB` : 'JSON com erro: confira o arquivo'))),
+        h('span'),
+        h('span')),
+      h('div', { class: 'compare-detail' },
+        h('div', { class: 'toolbar' },
+          bot.video ? h('a', { class: 'btn btn-small', href: bot.video, target: '_blank', rel: 'noopener' }, svg('play'), h('span', {}, 'Ver vídeo')) : null,
+          h('span', { class: 'spacer' }),
+          button('Baixar', () => download(bot.id, bot.content, 'application/json'), { variant: 'btn-small', icon: 'download' }),
+          button('Copiar JSON', (e) => flashOnCopy(e.currentTarget, bot.content), { variant: 'btn-primary btn-small', icon: 'copy' })),
+        h('pre', { class: 'detail-text' }, bot.content),
+        howTo('Como colar no WTS',
+          'Clique em "Copiar JSON".',
+          'No WTS do cliente, abra Chatbots e crie (ou abra) o chatbot.',
+          'Use a opção de importar/colar JSON do editor e cole (Ctrl+V).',
+          'Confira equipes, etiquetas e campos usados no chatbot: os nomes vêm da conta modelo.')))));
+  list.addEventListener('toggle', (e) => {
+    if (!e.target.matches?.('.compare-item') || !e.target.open) return;
+    for (const other of list.querySelectorAll('.compare-item[open]')) if (other !== e.target) other.open = false;
+  }, true);
+  swap(body, list);
+  stagger(list.querySelectorAll('.compare-item'), { step: 25, y: 6 });
+}
+
 // ---------- Usuários (formulário → mesmo fluxo de prévia) ----------
 
 function renderAgentsBlock(view, block) {
   const rowsBox = h('div', { class: 'grid-form' });
   const result = h('div');
+  // Equipes da conta do cliente (para marcar em cada usuário).
+  let teams = null;
+  const teamRows = new Set();
+  const paintTeams = (box) => {
+    if (!teams) return box.replaceChildren(h('span', { class: 'hint' }, clientToken() ? 'Carregando equipes...' : 'Cole o token no topo para escolher as equipes.'));
+    if (!teams.length) return box.replaceChildren(h('span', { class: 'hint' }, 'A conta não tem equipes.'));
+    const chosen = new Set(box.dataset.teams ? box.dataset.teams.split(',') : []);
+    box.replaceChildren(h('span', { class: 'row-teams-label' }, 'Equipes:'), ...teams.map((t) => {
+      const chip = h('button', { type: 'button', class: `pick-chip pick-chip-sm${chosen.has(t.id) ? ' is-on' : ''}`, 'aria-pressed': String(chosen.has(t.id)) }, t.name);
+      chip.onclick = () => {
+        chosen.has(t.id) ? chosen.delete(t.id) : chosen.add(t.id);
+        box.dataset.teams = [...chosen].join(',');
+        chip.classList.toggle('is-on', chosen.has(t.id));
+        chip.setAttribute('aria-pressed', String(chosen.has(t.id)));
+      };
+      return chip;
+    }));
+  };
+  const loadTeams = async () => {
+    if (!clientToken()) return;
+    try {
+      const { rows } = await api('lookup', { lookup: 'departments', clientToken: clientToken() });
+      teams = rows.map((r) => ({ id: r.id, name: r.name })).filter((t) => t.id && t.name);
+    } catch {
+      teams = [];
+    }
+    teamRows.forEach(paintTeams);
+  };
 
   function addRow() {
-    const profile = h('select', { 'aria-label': 'Perfil' }, PROFILES.map(([value, label]) => h('option', { value }, label)));
-    profile.dataset.f = 'profile';
+    // Perfil: lista própria; o valor fica num campo escondido lido pelo collect().
+    const profileValue = h('input', { type: 'hidden', value: PROFILES[0][0], 'data-f': 'profile' });
+    const profile = h('div', { class: 'profile-pick' }, profileValue,
+      menuSelect(PROFILES.map(([value, label]) => ({ value, label })), PROFILES[0][0], (v) => { profileValue.value = v; }, 'Perfil').el);
     const row = h('div', { class: 'grid-form-row' },
       h('input', { type: 'text', placeholder: 'Nome', maxLength: 100, 'aria-label': 'Nome', 'data-f': 'name' }),
       h('input', { type: 'email', placeholder: 'email@empresa.com', 'aria-label': 'E-mail', 'data-f': 'email' }),
@@ -1379,8 +1710,9 @@ function renderAgentsBlock(view, block) {
         type: 'button',
         class: 'icon-btn',
         'aria-label': 'Remover linha',
-        onclick: () => rowsBox.querySelectorAll('.grid-form-row:not(.grid-form-head)').length > 1 && row.remove(),
+        onclick: () => { if (rowsBox.querySelectorAll('.grid-form-row:not(.grid-form-head)').length > 1) { teamRows.delete(row.querySelector('.row-teams')); row.remove(); } },
       }, svg('x')),
+      (() => { const box = h('div', { class: 'row-teams' }); teamRows.add(box); paintTeams(box); return box; })(),
     );
     rowsBox.append(row);
     enter(row, { y: 6, duration: 240 });
@@ -1389,16 +1721,23 @@ function renderAgentsBlock(view, block) {
 
   function collect() {
     return [...rowsBox.querySelectorAll('.grid-form-row:not(.grid-form-head)')]
-      .map((row) => Object.fromEntries([...row.querySelectorAll('[data-f]')].map((el) => [el.dataset.f, el.value.trim()])))
+      .map((row) => ({
+        ...Object.fromEntries([...row.querySelectorAll('[data-f]')].map((el) => [el.dataset.f, el.value.trim()])),
+        teams: (row.querySelector('.row-teams')?.dataset.teams || '').split(',').filter(Boolean),
+      }))
       .filter((u) => u.name || u.email);
   }
 
   rowsBox.append(h('div', { class: 'grid-form-row grid-form-head', 'aria-hidden': 'true' },
     h('span', {}, 'Nome'), h('span', {}, 'E-mail'), h('span', {}, 'Telefone'), h('span', {}, 'Perfil'), h('span')));
   addRow();
+  loadTeams();
+  const tokenInput = $('client-token');
+  const onToken = () => (rowsBox.isConnected ? (teams = null, teamRows.forEach(paintTeams), loadTeams()) : tokenInput.removeEventListener('change', onToken));
+  tokenInput.addEventListener('change', onToken);
 
   view.append(
-    h('p', { class: 'panel-desc' }, 'Preencha os usuários e gere a prévia. Quem já existe na conta (mesmo e-mail) é pulado.'),
+    h('p', { class: 'panel-desc' }, 'Preencha os usuários, marque as equipes de cada um e gere a prévia. Quem já existe na conta (mesmo e-mail) é pulado.'),
     rowsBox,
     h('div', { class: 'toolbar' },
       button('Adicionar linha', addRow, { variant: 'btn-ghost btn-small', icon: 'plus' }),

@@ -1123,3 +1123,52 @@ details.advanced .field { margin-top: 10px; max-width: 420px; }
 .chip-copy:hover { background: var(--blue-100); }
 .copy-mini:focus-visible, .chip-copy:focus-visible { outline: none; box-shadow: var(--ring); }
 @media (max-width: 767px) { .detail-grid dd { margin-bottom: 6px; } }
+
+/* Usuários: equipes de cada linha */
+.grid-form-row .row-teams { grid-column: 1 / -1; display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.row-teams-label { font-size: 12px; font-weight: 700; color: var(--faint); margin-right: 2px; }
+.pick-chip-sm { min-height: 30px; padding: 3px 11px; font-size: 12.5px; }
+
+/* Lista suspensa própria */
+.menu-field { position: relative; min-width: 0; }
+.menu-trigger {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  width: 100%;
+  min-height: 42px;
+  padding: 8px 14px;
+  border: 1px solid var(--line-strong);
+  border-radius: 12px;
+  background: var(--surface);
+  font: inherit;
+  font-weight: 600;
+  color: var(--faint);
+  text-align: left;
+  cursor: pointer;
+  transition: border-color 0.15s;
+}
+.menu-trigger.is-set { color: var(--navy-900); font-weight: 700; }
+.menu-trigger:hover, .menu-trigger[aria-expanded="true"] { border-color: var(--blue-500); }
+.menu-trigger:focus-visible, .menu-opt:focus-visible { outline: none; box-shadow: var(--ring); }
+.menu-caret { color: var(--blue-600); font-size: 12px; }
+.menu-pop {
+  position: absolute;
+  z-index: 20;
+  top: calc(100% + 6px);
+  left: 0;
+  right: 0;
+  max-height: 280px;
+  overflow: auto;
+  padding: 6px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--surface);
+  box-shadow: 0 24px 50px -24px rgba(16, 52, 120, 0.45);
+}
+.menu-opt { display: block; width: 100%; padding: 9px 12px; border: 0; border-radius: 9px; background: none; font: inherit; font-size: 13.5px; text-align: left; color: var(--ink); cursor: pointer; }
+.menu-opt:hover { background: var(--blue-50); }
+.menu-opt.is-on { background: var(--blue-600); color: #fff; font-weight: 700; }
+.menu-group { padding: 10px 12px 4px; font-size: 11px; font-weight: 800; letter-spacing: 0.06em; text-transform: uppercase; color: var(--faint); }
+.compare-row.bot-row { grid-template-columns: minmax(0, 1fr) 0 0; }
