@@ -1082,3 +1082,44 @@ details.advanced .field { margin-top: 10px; max-width: 420px; }
   .date-field { flex: 1 1 100%; }
   .date-pop { width: min(296px, calc(100vw - 32px)); }
 }
+
+/* Copiar título, botões, variáveis e opções */
+.detail-grid dd { display: flex; align-items: center; gap: 6px; }
+.copy-mini {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--faint);
+  cursor: pointer;
+  transition: color 0.15s, border-color 0.15s, background-color 0.15s;
+}
+.copy-mini svg, .chip-copy svg { width: 14px; height: 14px; fill: none; stroke: currentColor; stroke-width: 2; }
+.copy-mini:hover { color: var(--blue-700); border-color: var(--blue-200); }
+.copy-mini.is-done, .chip-copy.is-done { background: var(--ok-soft); border-color: var(--ok); color: var(--ok); }
+.detail-chips li { padding: 0; background: none; }
+.chip-copy {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 10px;
+  border: 1px solid transparent;
+  border-radius: 999px;
+  background: var(--blue-50);
+  font: inherit;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--blue-700);
+  text-align: left;
+  overflow-wrap: anywhere;
+  cursor: pointer;
+  transition: background-color 0.15s, border-color 0.15s;
+}
+.chip-copy:hover { background: var(--blue-100); }
+.copy-mini:focus-visible, .chip-copy:focus-visible { outline: none; box-shadow: var(--ring); }
+@media (max-width: 767px) { .detail-grid dd { margin-bottom: 6px; } }

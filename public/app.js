@@ -1431,16 +1431,21 @@ function checkDetail(item) {
     ...lists.filter((l) => l.items.length).map((l) => `\n${l.label}:\n${l.items.map((i) => `- ${i}`).join('\n')}`),
   ].join('\n');
   const copy = (text, label) => button(label, (e) => flashOnCopy(e.currentTarget, text), { variant: 'btn-small', icon: 'copy' });
+  // Botãozinho de copiar ao lado de um valor (título, key, atalho...).
+  const copyIcon = (text, label) => h('button', { type: 'button', class: 'copy-mini', title: `Copiar ${label}`, 'aria-label': `Copiar ${label}`, onclick: (e) => flashOnCopy(e.currentTarget, text) }, svg('copy'));
+  // Botões vêm como "Texto [TIPO] → link": copia só o texto do botão.
+  const chipText = (i) => String(i).split(' [')[0].split(' → ')[0];
   return h('div', { class: 'compare-detail' },
     rows.length ? h('dl', { class: 'detail-grid' },
-      ...rows.flatMap(([label, value]) => [h('dt', {}, label), h('dd', {}, value)])) : null,
+      ...rows.flatMap(([label, value]) => [h('dt', {}, label), h('dd', {}, h('span', {}, value), copyIcon(value, label.toLowerCase()))])) : null,
     ...texts.map((t) => h('div', { class: 'detail-block' },
       h('div', { class: 'detail-head' }, h('span', {}, t.label), t.value ? copy(t.value, `Copiar ${t.label.toLowerCase()}`) : null),
       t.value ? h('pre', { class: 'detail-text' }, t.value) : h('p', { class: 'hint' }, 'Vazio'))),
     ...lists.map((l) => h('div', { class: 'detail-block' },
       h('div', { class: 'detail-head' }, h('span', {}, l.label), l.items.length ? copy(l.items.join('\n'), 'Copiar') : null),
       l.items.length
-        ? h('ul', { class: 'detail-chips' }, ...l.items.map((i) => h('li', {}, i)))
+        ? h('ul', { class: 'detail-chips' }, ...l.items.map((i) => h('li', {},
+          h('button', { type: 'button', class: 'chip-copy', title: 'Clique para copiar', onclick: (e) => flashOnCopy(e.currentTarget, chipText(i)) }, h('span', {}, i), svg('copy')))))
         : h('p', { class: 'hint' }, l.empty || 'Nenhum'))),
     note ? notice(note, 'info') : null,
     // Resposta da API como veio (para achar onde estão botões e outros dados).
