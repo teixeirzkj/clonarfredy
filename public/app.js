@@ -36,6 +36,8 @@ const ICONS = {
   stop: '<rect x="6" y="6" width="12" height="12" rx="2"/>',
   cloud: '<path d="M7 18a5 5 0 1 1 .9-9.9A6 6 0 0 1 19 10a4 4 0 0 1 0 8z"/>',
   back: '<path d="M19 12H5M11 6l-6 6 6 6"/>',
+  calendar: '<rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/>',
+  archive: '<rect x="3" y="4" width="18" height="5" rx="1.5"/><path d="M5 9v10a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V9M10 13h4"/>',
 };
 
 const SETUP_ALL_BLOCKS = ['tags', 'departments', 'webhooks'];
@@ -56,6 +58,12 @@ const SECTIONS = [
     blocks: [
       { id: 'n8n', kind: 'n8n', icon: 'flow', title: 'Fluxos do n8n', desc: 'Gera os fluxos padrão já com painel, etapas, bot key e campos do cliente.' },
       { id: 'prompt', kind: 'prompt', icon: 'sparkle', title: 'Montar prompt da IA', desc: 'Adapta o prompt padrão com as respostas do cliente.' },
+    ],
+  },
+  {
+    title: 'Manutenção do CRM',
+    blocks: [
+      { id: 'archiveCards', kind: 'archive', icon: 'archive', title: 'Arquivar cards', desc: 'Arquiva os cards de uma coluna, filtrando por data.' },
     ],
   },
   {
@@ -422,6 +430,7 @@ function openBlock(block) {
     n8n: renderN8n,
     prompt: renderPrompt,
     rotativo: renderRotativoBlock,
+    archive: renderArchiveBlock,
   };
   renderers[block.kind]?.(view, block);
 }
@@ -1045,6 +1054,313 @@ function renderWizardFinal(box, tabs, openFlow) {
       button('Baixar todos os fluxos', () => runAll('download'), { variant: 'btn-primary', icon: 'download' })));
 }
 
+// ---------- Arquivar cards de uma coluna ----------
+
+const MONTHS = ['janeiro', 'fevereiro', 'março', 'abril', 'maio', 'junho', 'julho', 'agosto', 'setembro', 'outubro', 'novembro', 'dezembro'];
+const WEEKDAYS = ['D', 'S', 'T', 'Q', 'Q', 'S', 'S'];
+const CARD_STATUS = { OPEN: 'Aberto', WON: 'Ganho', LOST: 'Perdido' };
+// Arquiva de pouco em pouco: lotes pequenos e pausa entre eles, deixando folga no
+// limite da API do WTS (1.000 chamadas / 5 min por conta) para o resto da conta.
+const ARCHIVE_BATCH = 25;
+const ARCHIVE_PAUSE_MS = 3000;
+
+const sameDay = (a, b) => a && b && a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
+const formatDay = (d) => (d ? `${d.getDate()} de ${MONTHS[d.getMonth()]} de ${d.getFullYear()}` : '');
+const shortDate = (iso) => {
+  const d = iso ? new Date(iso) : null;
+  return d && !Number.isNaN(d.getTime()) ? d.toLocaleDateString('pt-BR') : '—';
+};
+
+// Botões lado a lado (escolha única), no lugar do <select> padrão.
+function segmented(options, value, onChange, label) {
+  const el = h('div', { class: 'seg', role: 'radiogroup', 'aria-label': label });
+  const paint = () => el.querySelectorAll('.seg-btn').forEach((b) => {
+    const on = b.dataset.value === value;
+    b.classList.toggle('is-on', on);
+    b.setAttribute('aria-checked', String(on));
+  });
+  for (const [v, text] of options) {
+    el.append(h('button', {
+      type: 'button', class: 'seg-btn', role: 'radio', 'data-value': v,
+      onclick: () => { if (value === v) return; value = v; paint(); onChange(v); },
+    }, text));
+  }
+  paint();
+  return el;
+}
+
+// Calendário próprio da página (no lugar da caixa de data do navegador).
+function datePicker(initial, onChange, label) {
+  let value = initial;
+  let view = new Date((value ?? new Date()).getFullYear(), (value ?? new Date()).getMonth(), 1);
+  const text = h('span', {}, value ? formatDay(value) : 'Escolher data');
+  const trigger = h('button', { type: 'button', class: 'date-trigger', 'aria-haspopup': 'dialog', 'aria-label': label }, svg('calendar'), text);
+  const popover = h('div', { class: 'date-pop', role: 'dialog', 'aria-label': label, hidden: true });
+  const wrap = h('div', { class: 'date-field' }, trigger, popover);
+
+  const close = () => { popover.hidden = true; trigger.setAttribute('aria-expanded', 'false'); document.removeEventListener('pointerdown', outside, true); };
+  const outside = (e) => { if (!wrap.contains(e.target)) close(); };
+  const render = () => {
+    const first = new Date(view.getFullYear(), view.getMonth(), 1);
+    const start = new Date(first);
+    start.setDate(1 - first.getDay());
+    const today = new Date();
+    const days = Array.from({ length: 42 }, (_, i) => new Date(start.getFullYear(), start.getMonth(), start.getDate() + i));
+    popover.replaceChildren(
+      h('div', { class: 'date-head' },
+        h('button', { type: 'button', class: 'date-nav', 'aria-label': 'Mês anterior', onclick: () => { view = new Date(view.getFullYear(), view.getMonth() - 1, 1); render(); } }, '‹'),
+        h('strong', {}, `${MONTHS[view.getMonth()][0].toUpperCase()}${MONTHS[view.getMonth()].slice(1)} de ${view.getFullYear()}`),
+        h('button', { type: 'button', class: 'date-nav', 'aria-label': 'Próximo mês', onclick: () => { view = new Date(view.getFullYear(), view.getMonth() + 1, 1); render(); } }, '›')),
+      h('div', { class: 'date-grid' },
+        ...WEEKDAYS.map((w) => h('span', { class: 'date-wd' }, w)),
+        ...days.map((d) => h('button', {
+          type: 'button',
+          class: `date-day${d.getMonth() !== view.getMonth() ? ' is-out' : ''}${sameDay(d, today) ? ' is-today' : ''}${sameDay(d, value) ? ' is-on' : ''}`,
+          'aria-label': formatDay(d),
+          onclick: () => { value = d; text.textContent = formatDay(d); close(); pop(trigger); onChange(d); },
+        }, String(d.getDate())))),
+      h('div', { class: 'date-foot' },
+        h('button', { type: 'button', class: 'btn btn-ghost btn-small', onclick: () => { view = new Date(today.getFullYear(), today.getMonth(), 1); render(); } }, 'Hoje')));
+  };
+  trigger.onclick = () => {
+    if (!popover.hidden) return close();
+    view = new Date((value ?? new Date()).getFullYear(), (value ?? new Date()).getMonth(), 1);
+    render();
+    popover.hidden = false;
+    trigger.setAttribute('aria-expanded', 'true');
+    enter(popover, { y: -4, scale: 0.98, duration: 200 });
+    popover.scrollIntoView({ behavior: reducedMotion.matches ? 'auto' : 'smooth', block: 'nearest' });
+    document.addEventListener('pointerdown', outside, true);
+  };
+  popover.addEventListener('keydown', (e) => { if (e.key === 'Escape') { close(); trigger.focus(); } });
+  return { el: wrap, get: () => value };
+}
+
+function renderArchiveBlock(view) {
+  const body = h('div');
+  view.append(h('p', { class: 'panel-desc' }, 'Escolha o painel, a coluna e o período. Você vê os cards antes de arquivar.'), body);
+  const tokenInput = $('client-token');
+  let timer = null;
+  const onToken = () => {
+    if (!body.isConnected) return tokenInput.removeEventListener('input', onToken);
+    clearTimeout(timer);
+    timer = setTimeout(() => loadArchive(body), 500);
+  };
+  tokenInput.addEventListener('input', onToken);
+  loadArchive(body);
+}
+
+async function loadArchive(body) {
+  if (!requireToken(body)) return;
+  swap(body, loading('Lendo os painéis da conta...'));
+  let panels;
+  try {
+    ({ panels } = await api('cards', { action: 'panels', clientToken: clientToken() }));
+  } catch (err) {
+    retry(body, err, () => loadArchive(body));
+    return;
+  }
+  setTokenStatus('ok');
+  if (!panels.length) return swap(body, notice('Esta conta não tem painéis.', 'info'));
+
+  const f = { panel: null, step: null, mode: 'all', from: null, to: null, dateField: 'created', statuses: ['OPEN', 'WON', 'LOST'] };
+  const result = h('div');
+  const stepBox = h('div');
+  const periodBox = h('div');
+  const reset = () => result.replaceChildren();
+
+  // 1. Painel
+  const panelGrid = h('div', { class: 'pick-grid' }, ...panels.map((p) => h('button', {
+    type: 'button', class: 'pick', 'data-id': p.id,
+    onclick: (e) => {
+      f.panel = p;
+      f.step = null;
+      panelGrid.querySelectorAll('.pick').forEach((b) => b.classList.toggle('is-on', b === e.currentTarget));
+      renderSteps();
+      reset();
+    },
+  }, h('span', { class: 'pick-title' }, p.title), h('span', { class: 'pick-sub' }, `${p.steps.length} coluna(s)`))));
+
+  // 2. Coluna
+  const renderSteps = () => {
+    if (!f.panel) return stepBox.replaceChildren(h('p', { class: 'hint' }, 'Escolha um painel acima.'));
+    swap(stepBox, f.panel.steps.length
+      ? h('div', { class: 'chip-row' }, ...f.panel.steps.map((s) => h('button', {
+        type: 'button', class: 'pick-chip',
+        onclick: (e) => {
+          f.step = s;
+          stepBox.querySelectorAll('.pick-chip').forEach((b) => b.classList.toggle('is-on', b === e.currentTarget));
+          reset();
+        },
+      }, h('span', {}, s.title), s.count !== null ? h('span', { class: 'chip-count' }, String(s.count)) : null)))
+      : notice('Este painel não tem colunas.', 'info'));
+  };
+
+  // 3. Período
+  const fromPicker = datePicker(null, (d) => { f.from = d; reset(); }, 'Data inicial');
+  const toPicker = datePicker(null, (d) => { f.to = d; reset(); }, 'Data final');
+  const renderPeriod = () => {
+    const show = { all: [], before: [['Até o dia', toPicker]], after: [['A partir do dia', fromPicker]], between: [['De', fromPicker], ['Até', toPicker]] }[f.mode];
+    periodBox.replaceChildren(...show.map(([label, picker]) => h('div', { class: 'date-row' }, h('span', { class: 'field-label' }, label), picker.el)));
+  };
+  renderPeriod();
+
+  const statusChips = h('div', { class: 'chip-row' }, ...Object.entries(CARD_STATUS).map(([value, text]) => {
+    const btn = h('button', { type: 'button', class: 'pick-chip is-on', 'aria-pressed': 'true' }, h('span', {}, text));
+    btn.onclick = () => {
+      const on = !btn.classList.contains('is-on');
+      btn.classList.toggle('is-on', on);
+      btn.setAttribute('aria-pressed', String(on));
+      f.statuses = on ? [...f.statuses, value] : f.statuses.filter((s) => s !== value);
+      reset();
+    };
+    return btn;
+  }));
+
+  // Limites do dia no fuso do navegador, enviados em UTC.
+  const range = () => {
+    const startOf = (d) => new Date(d.getFullYear(), d.getMonth(), d.getDate(), 0, 0, 0, 0);
+    const endOf = (d) => new Date(d.getFullYear(), d.getMonth(), d.getDate(), 23, 59, 59, 999);
+    if (f.mode === 'before') return { before: f.to && endOf(f.to) };
+    if (f.mode === 'after') return { after: f.from && startOf(f.from) };
+    if (f.mode === 'between') return { after: f.from && startOf(f.from), before: f.to && endOf(f.to) };
+    return {};
+  };
+  const describe = () => {
+    const base = f.dateField === 'updated' ? 'atualizados' : 'criados';
+    if (f.mode === 'before') return `${base} até ${formatDay(f.to)}`;
+    if (f.mode === 'after') return `${base} a partir de ${formatDay(f.from)}`;
+    if (f.mode === 'between') return `${base} de ${formatDay(f.from)} até ${formatDay(f.to)}`;
+    return 'de qualquer data';
+  };
+
+  const previewBtn = button('Ver cards', () => preview(), { variant: 'btn-primary', icon: 'eye' });
+  const preview = async () => {
+    const problems = [
+      !f.panel && 'escolha o painel',
+      f.panel && !f.step && 'escolha a coluna',
+      (f.mode === 'before' || f.mode === 'between') && !f.to && 'escolha a data final',
+      (f.mode === 'after' || f.mode === 'between') && !f.from && 'escolha a data inicial',
+      !f.statuses.length && 'marque pelo menos uma situação',
+    ].filter(Boolean);
+    if (problems.length) return swap(result, notice(`Falta: ${problems.join(', ')}.`, 'warn'));
+    swap(result, loading('Buscando os cards...'));
+    const { after, before } = range();
+    let data;
+    try {
+      data = await api('cards', {
+        action: 'preview',
+        clientToken: clientToken(),
+        filter: { panelId: f.panel.id, stepId: f.step.id, statuses: f.statuses, dateField: f.dateField, after: after?.toISOString(), before: before?.toISOString() },
+      });
+    } catch (err) {
+      swap(result, notice(err.message));
+      return;
+    }
+    renderPreview(data);
+  };
+
+  const renderPreview = ({ cards, truncated }) => {
+    const where = `"${f.step.title}" do painel "${f.panel.title}", ${describe()}`;
+    if (!cards.length) return swap(result, notice(`Nenhum card em ${where}.`, 'info'));
+    const dateKey = f.dateField === 'updated' ? 'updatedAt' : 'createdAt';
+    let showAll = cards.length <= 30;
+    const list = h('div', { class: 'list' });
+    const renderList = () => list.replaceChildren(
+      h('div', { class: 'list-title' }, 'Cards que serão arquivados', badge('', String(cards.length))),
+      ...(showAll ? cards : cards.slice(0, 30)).map((c) => h('div', { class: 'row' },
+        h('span', { class: 'row-dot' }, svg('card')),
+        h('div', {}, h('div', { class: 'row-title' }, c.title), h('div', { class: 'row-detail' }, [c.contact, CARD_STATUS[c.status] ?? c.status].filter(Boolean).join(' · '))),
+        h('span', { class: 'row-detail' }, shortDate(c[dateKey])))),
+      !showAll ? h('div', { class: 'list-more' }, button(`Mostrar todos (${cards.length})`, () => { showAll = true; renderList(); }, { variant: 'btn-ghost btn-small' })) : null);
+    renderList();
+    const go = button(`Arquivar ${cards.length} card(s)`, () => confirmArchive(cards, where), { variant: 'btn-danger', icon: 'archive' });
+    swap(result,
+      notice(`${cards.length} card(s) em ${where}.`, 'info'),
+      truncated ? notice('Mostrando só os primeiros 5.000. Depois de arquivar, rode de novo para o restante.', 'warn') : null,
+      list,
+      h('div', { class: 'toolbar' }, h('span', { class: 'spacer' }), go));
+    spotlight(go);
+  };
+
+  const confirmArchive = (cards, where) => {
+    swap(result,
+      h('div', { class: 'confirm-box' },
+        svg('alert'),
+        h('div', {},
+          h('strong', {}, `Arquivar ${cards.length} card(s)?`),
+          h('p', {}, `Em ${where}. Eles saem da coluna e ficam como arquivados no WTS.`)),
+        h('div', { class: 'toolbar' },
+          button('Cancelar', () => renderPreview({ cards }), { variant: 'btn-ghost' }),
+          button('Sim, arquivar', () => runArchive(cards), { variant: 'btn-danger', icon: 'archive' }))));
+  };
+
+  const runArchive = async (cards) => {
+    let stop = false;
+    const tiles = stats([{ id: 'ok', label: 'Arquivados', tone: 'ok' }, { id: 'err', label: 'Com erro', tone: 'err' }, { id: 'left', label: 'Faltam' }]);
+    const bar = h('div', { class: 'progress' }, h('span'));
+    const errors = h('div');
+    const stopBtn = button('Parar', () => { stop = true; stopBtn.disabled = true; setLabel(stopBtn, 'Parando...'); }, { icon: 'stop' });
+    const pace = h('p', { class: 'hint' });
+    const status = h('div', {}, loading('Arquivando de pouco em pouco... Deixe esta tela aberta.'), pace);
+    const started = Date.now();
+    swap(result, tiles, bar, h('div', { class: 'toolbar' }, h('span', { class: 'spacer' }), stopBtn), status, errors);
+    let ok = 0;
+    const failed = [];
+    tiles.set('left', cards.length);
+    for (let i = 0; i < cards.length && !stop; i += ARCHIVE_BATCH) {
+      const batch = cards.slice(i, i + ARCHIVE_BATCH);
+      try {
+        const { results } = await api('cards', { action: 'archive', clientToken: clientToken(), ids: batch.map((c) => c.id) });
+        for (const r of results) r.status === 'ok' ? ok++ : failed.push({ card: cards.find((c) => c.id === r.id), message: r.message });
+      } catch (err) {
+        failed.push(...batch.map((card) => ({ card, message: err.message })));
+        if (err.message === 'Sessão expirada') break;
+      }
+      const done = Math.min(i + ARCHIVE_BATCH, cards.length);
+      tiles.set('ok', ok);
+      tiles.set('err', failed.length);
+      tiles.set('left', cards.length - done);
+      bar.firstChild.style.transform = `scaleX(${done / cards.length})`;
+      const left = cards.length - done;
+      if (left && !stop) {
+        const perCard = (Date.now() - started) / done;
+        const minutes = Math.ceil((perCard * left) / 60000);
+        pace.textContent = `Faltam cerca de ${minutes} minuto(s). Pode parar a qualquer hora: o que já foi arquivado fica arquivado.`;
+        // Pausa entre lotes (interrompida se clicar em Parar).
+        for (let waited = 0; waited < ARCHIVE_PAUSE_MS && !stop; waited += 250) await new Promise((r) => setTimeout(r, 250));
+      }
+    }
+    stopBtn.remove();
+    const left = cards.length - ok - failed.length;
+    swap(status,
+      notice(stop && left ? `Parado: ${ok} arquivado(s), ${left} não processado(s).` : `Pronto: ${ok} card(s) arquivado(s)${failed.length ? `, ${failed.length} com erro` : ''}.`, failed.length || (stop && left) ? 'warn' : 'ok'),
+      h('div', { class: 'toolbar' }, h('span', { class: 'spacer' }), button('Ver de novo a coluna', () => preview(), { icon: 'refresh' })));
+    if (failed.length) {
+      errors.replaceChildren(h('div', { class: 'list' },
+        h('div', { class: 'list-title' }, 'Não arquivados', badge('err', String(failed.length))),
+        ...failed.slice(0, 50).map(({ card, message }) => h('div', { class: 'row' },
+          h('span', { class: 'row-dot err' }, svg('x')),
+          h('div', {}, h('div', { class: 'row-title' }, card?.title ?? 'Card'), h('div', { class: 'row-msg' }, message))))));
+    }
+  };
+
+  swap(body,
+    section('1', 'Painel', panelGrid),
+    section('2', 'Coluna', stepBox),
+    section('3', 'Período',
+      field('Quais cards', segmented([['all', 'Todos'], ['before', 'Até uma data'], ['after', 'A partir de uma data'], ['between', 'Entre datas']], f.mode, (v) => { f.mode = v; renderPeriod(); reset(); }, 'Período'),
+        'Ex.: "Até uma data" + 31 de agosto = arquiva tudo do dia 31/08 para trás.'),
+      periodBox,
+      field('Data usada no filtro', segmented([['created', 'Criação do card'], ['updated', 'Última atualização']], f.dateField, (v) => { f.dateField = v; reset(); }, 'Data usada'),
+        'Criação = quando o card entrou no painel. Atualização = última mudança no card.'),
+      field('Situação', statusChips, 'Cards já arquivados nunca entram.')),
+    h('div', { class: 'toolbar' }, h('span', { class: 'spacer' }), previewBtn),
+    result);
+  renderSteps();
+  stagger(panelGrid.querySelectorAll('.pick'), { step: 25, y: 6 });
+}
+
 // ---------- Usuários (formulário → mesmo fluxo de prévia) ----------
 
 function renderAgentsBlock(view, block) {
@@ -1108,7 +1424,7 @@ function mark(status, label) {
 
 // Conteúdo completo do item na conta modelo, com botões de copiar.
 function checkDetail(item) {
-  const { rows = [], texts = [], lists = [], note } = item.detail;
+  const { rows = [], texts = [], lists = [], note, raw } = item.detail;
   const all = [
     ...rows.map(([label, value]) => `${label}: ${value}`),
     ...texts.filter((t) => t.value).map((t) => `\n${t.label}:\n${t.value}`),
@@ -1127,6 +1443,11 @@ function checkDetail(item) {
         ? h('ul', { class: 'detail-chips' }, ...l.items.map((i) => h('li', {}, i)))
         : h('p', { class: 'hint' }, l.empty || 'Nenhum'))),
     note ? notice(note, 'info') : null,
+    // Resposta da API como veio (para achar onde estão botões e outros dados).
+    raw ? h('details', { class: 'advanced' },
+      h('summary', {}, 'Dados da API (avançado)'),
+      h('pre', { class: 'detail-text' }, raw),
+      h('div', { class: 'toolbar' }, h('span', { class: 'spacer' }), copy(raw, 'Copiar dados'))) : null,
     h('div', { class: 'toolbar' }, h('span', { class: 'spacer' }), copy(all, 'Copiar tudo')));
 }
 
@@ -1154,6 +1475,13 @@ async function loadCheck(container, block) {
 
   let onlyMissing = summary.missing > 0;
   const table = h('div', { class: 'list' });
+  // Um item aberto por vez: abrir um fecha o outro.
+  table.addEventListener('toggle', (e) => {
+    const opened = e.target;
+    if (!opened.matches?.('.compare-item') || !opened.open) return;
+    for (const other of table.querySelectorAll('.compare-item[open]')) if (other !== opened) other.open = false;
+    opened.scrollIntoView({ behavior: reducedMotion.matches ? 'auto' : 'smooth', block: 'nearest' });
+  }, true);
 
   function renderRows() {
     const rows = items.filter((i) => !onlyMissing || i.status !== 'ok');

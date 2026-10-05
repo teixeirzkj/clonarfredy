@@ -13,6 +13,7 @@ copiando o padrão da **conta modelo**, só com a API pública do WTS.
 | Usuários | Cria usuários a partir de um formulário (`/core/v1/agent`) |
 | **Fluxos do n8n** | Lê os fluxos padrão, acha os IDs da conta modelo (painel, etapas, campos, bot key, etiquetas, equipes...) e troca pelos do cliente, casando pelo nome. Download do `.json`, copiar para colar no n8n, ou criar direto via API do n8n |
 | **Montar prompt da IA** | Adapta o prompt padrão com as mensagens do cliente usando Claude (`claude-opus-5-5`, com fallback automático se o modelo recusar). O resultado pode ir direto para o fluxo do agente |
+| **Arquivar cards** | Escolhe painel e coluna, filtra por data (criação ou atualização: todos, até, a partir de, entre) e situação, mostra a prévia e arquiva em lotes (`GET /crm/v2/panel/card` + `PUT /crm/v3/panel/card/{id}` com status ARCHIVED) |
 | Conferir | Compara modelo × cliente em modelos de mensagem, painéis/etapas, chatbots, sequências e campos (a API não permite criar esses) |
 | **Consultar** | Botões que listam dados da conta do token informado, com IDs para copiar e CSV: painéis e StepIds, campos do painel, cards, motivos de perda, usuários, equipes, etiquetas, bot keys, sequências, modelos, canais, campos do contato, carteiras, webhooks |
 
