@@ -1507,14 +1507,14 @@ async function loadContactsImport(body) {
           menuSelect(FIELD_OPTIONS, sheet.map[i], (v) => { sheet.map[i] = v; result.replaceChildren(); }, `Campo da coluna ${hd}`).el);
       }))),
     section('3', 'Para todos os contatos (opcional)',
-      opts.tags.length ? field('Etiquetas', chipToggles(opts.tags, extra.tags), 'Ex.: "Importado" — use etiquetas que já existem na conta.') : null,
+      field('Etiquetas', h('div', { class: 'tag-pick' }, tagChips, tagCreator), 'Ex.: "Ex-cliente". Contato que já existe só ganha a etiqueta: nome, e-mail e campos dele não mudam.'),
       opts.sequences.length ? field('Colocar na sequência', chipToggles(opts.sequences, extra.sequences), 'Os contatos entram na sequência e começam a receber as mensagens dela.') : null,
-      !opts.tags.length && !opts.sequences.length ? h('p', { class: 'hint' }, 'A conta não tem etiquetas nem sequências.') : null),
+),
     h('div', { class: 'toolbar' }, h('span', { class: 'spacer' }), button('Ver contatos', previewImport, { variant: 'btn-primary', icon: 'eye' })));
   };
 
-  const chipToggles = (items, set) => h('div', { class: 'chip-row' }, ...items.map((it) => {
-    const chip = h('button', { type: 'button', class: 'pick-chip pick-chip-sm', 'aria-pressed': 'false' }, it.name);
+  const toggleChip = (it, set) => {
+    const chip = h('button', { type: 'button', class: `pick-chip pick-chip-sm${set.has(it.id) ? ' is-on' : ''}`, 'aria-pressed': String(set.has(it.id)) }, it.name);
     chip.onclick = () => {
       set.has(it.id) ? set.delete(it.id) : set.add(it.id);
       chip.classList.toggle('is-on', set.has(it.id));
@@ -1522,7 +1522,41 @@ async function loadContactsImport(body) {
       result.replaceChildren();
     };
     return chip;
-  }));
+  };
+  const chipToggles = (items, set) => h('div', { class: 'chip-row' }, ...items.map((it) => toggleChip(it, set)));
+
+  // Etiquetas: as da conta + criar uma nova na hora (ex.: "Ex-cliente").
+  const tagChips = chipToggles(opts.tags, extra.tags);
+  const newTag = h('input', { type: 'text', placeholder: 'Nova etiqueta, ex.: Ex-cliente', maxLength: 255, 'aria-label': 'Nome da nova etiqueta' });
+  const tagStatus = h('span', { class: 'hint' });
+  const createBtn = button('Criar etiqueta', async () => {
+    const name = newTag.value.trim();
+    if (!name) return newTag.focus();
+    createBtn.disabled = true;
+    tagStatus.textContent = '';
+    try {
+      const { tag, existed } = await api('contacts', { action: 'createTag', clientToken: clientToken(), name });
+      if (!opts.tags.some((t) => t.id === tag.id)) {
+        opts.tags.push(tag);
+        extra.tags.add(tag.id);
+        const chip = toggleChip(tag, extra.tags);
+        tagChips.append(chip);
+        pop(chip);
+      } else {
+        extra.tags.add(tag.id);
+        tagChips.replaceChildren(...opts.tags.map((t) => toggleChip(t, extra.tags)));
+      }
+      tagStatus.textContent = existed ? `"${tag.name}" já existia: marcada.` : `Etiqueta "${tag.name}" criada e marcada.`;
+      newTag.value = '';
+      result.replaceChildren();
+    } catch (err) {
+      tagStatus.textContent = err.message;
+    } finally {
+      createBtn.disabled = false;
+    }
+  }, { variant: 'btn-small', icon: 'plus' });
+  newTag.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); createBtn.click(); } });
+  const tagCreator = h('div', { class: 'tag-create' }, newTag, createBtn, tagStatus);
 
   // Monta os contatos e separa as linhas que não dá para importar.
   const buildContacts = () => {

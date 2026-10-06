@@ -1172,3 +1172,8 @@ details.advanced .field { margin-top: 10px; max-width: 420px; }
 .menu-opt.is-on { background: var(--blue-600); color: #fff; font-weight: 700; }
 .menu-group { padding: 10px 12px 4px; font-size: 11px; font-weight: 800; letter-spacing: 0.06em; text-transform: uppercase; color: var(--faint); }
 .compare-row.bot-row { grid-template-columns: minmax(0, 1fr) 0 0; }
+
+/* Importar contatos: criar etiqueta na hora */
+.tag-pick { display: grid; gap: 10px; }
+.tag-create { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.tag-create input { flex: 0 1 280px; min-height: 36px; }
