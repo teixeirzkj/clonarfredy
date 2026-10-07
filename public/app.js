@@ -1882,6 +1882,8 @@ function renderSignupPage() {
     ownerName: input({ placeholder: 'Maria Souza', autocomplete: 'name' }),
     ownerEmail: input({ type: 'email', placeholder: 'maria@empresa.com.br', autocomplete: 'email' }),
     ownerPhone: input({ type: 'tel', placeholder: '(47) 99999-0000', autocomplete: 'tel' }),
+    password: input({ type: 'password', autocomplete: 'new-password', minLength: 8 }),
+    password2: input({ type: 'password', autocomplete: 'new-password', minLength: 8 }),
     notes: h('textarea', { rows: 3, placeholder: 'Algo que a equipe precise saber (opcional)' }),
     website: input({ tabIndex: -1, autocomplete: 'off', 'aria-hidden': 'true' }), // armadilha para robôs
   };
@@ -1949,15 +1951,31 @@ function renderSignupPage() {
       owner: { name: f.ownerName.value, email: f.ownerEmail.value, phone: f.ownerPhone.value },
       users, notes: f.notes.value, consent: consent.checked, website: f.website.value,
     };
+    if (f.password.value !== f.password2.value) {
+      status.replaceChildren(notice('As duas senhas não são iguais.'));
+      return;
+    }
+    data.password = f.password.value;
     sendBtn.disabled = true;
+    status.replaceChildren(loading('Enviando e criando sua conta... pode levar até 1 minuto.'));
     try {
-      await api('portal', { action: 'signup', data });
-      setHeader('Cadastro recebido!', 'Sua conta está sendo criada.', false);
-      swap(view, h('div', { class: 'signup-done' },
-        h('span', { class: 'signup-done-icon', 'aria-hidden': 'true' }, svg('check')),
-        h('h2', {}, 'Recebemos seu cadastro'),
-        h('p', {}, `A equipe Frédy vai criar sua conta e enviar o acesso para ${data.owner.email}. Os usuários recebem um convite no e-mail de cada um.`),
-        h('p', { class: 'hint' }, 'Pode fechar esta página.')));
+      const result = await api('portal', { action: 'signup', data });
+      if (result.created) {
+        setHeader('Conta criada!', 'Tudo pronto para começar a configuração.', false);
+        swap(view, h('div', { class: 'signup-done' },
+          h('span', { class: 'signup-done-icon', 'aria-hidden': 'true' }, svg('check')),
+          h('h2', {}, 'Sua conta Frédy foi criada'),
+          h('p', {}, `Entre no portal com o e-mail ${result.email} e a senha que você acabou de criar. Lá tem o passo a passo para deixar a conta pronta.`),
+          h('a', { class: 'btn btn-primary', href: '/cliente' }, svg('arrow'), h('span', {}, 'Entrar no portal')),
+          h('p', { class: 'hint' }, 'Os usuários que você cadastrou recebem o convite no e-mail de cada um.')));
+      } else {
+        setHeader('Cadastro recebido!', 'Sua conta está sendo criada.', false);
+        swap(view, h('div', { class: 'signup-done' },
+          h('span', { class: 'signup-done-icon', 'aria-hidden': 'true' }, svg('check')),
+          h('h2', {}, 'Recebemos seu cadastro'),
+          h('p', {}, `A equipe Frédy vai finalizar sua conta e avisar em ${data.owner.email}. Depois é só entrar no portal com esse e-mail e a senha que você criou.`),
+          h('p', { class: 'hint' }, 'Pode fechar esta página.')));
+      }
       pop(view.querySelector('.signup-done-icon'));
     } catch (err) {
       status.replaceChildren(notice(err.message));
@@ -1989,7 +2007,9 @@ function renderSignupPage() {
       h('div', { class: 'form-grid' },
         field('Nome', f.ownerName, ''),
         field('E-mail', f.ownerEmail, 'Este será o seu login no portal.'),
-        field('WhatsApp', f.ownerPhone, 'Ex.: (47) 99999-0000'))),
+        field('WhatsApp', f.ownerPhone, 'Ex.: (47) 99999-0000'),
+        field('Crie a senha do portal', f.password, 'Pelo menos 8 caracteres. Você entra com seu e-mail e esta senha.'),
+        field('Repita a senha', f.password2, ''))),
     section('4', 'Usuários da conta',
       h('div', { class: 'form-stack' }, field('Quantos usuários vão usar o sistema?', count, 'Inclua você, se for atender.')),
       usersBox),
@@ -2041,7 +2061,10 @@ async function loadClients(body, tab = 'signups') {
     tabs.querySelectorAll('.tab').forEach((t, i) => { const on = (i === 0 ? 'signups' : 'clients') === tab; t.classList.toggle('is-active', on); t.setAttribute('aria-selected', String(on)); });
     swap(content, tab === 'signups' ? signupsView(data, body) : clientsView(data, body));
   };
-  swap(body, links, tabs, content);
+  const auto = data.autoCreate
+    ? notice('Criação automática ligada: cadastros com CNPJ ativo viram conta sozinhos (status ONBOARDING).', 'ok')
+    : notice('Criação automática desligada: falta o HELENA_PARTNER_TOKEN na Vercel (ou PORTAL_AUTO_CREATE=off). Os cadastros chegam aqui para a equipe criar.', 'info');
+  swap(body, auto, links, tabs, content);
   draw();
 }
 
@@ -2062,6 +2085,32 @@ function signupText(s) {
   ].filter((l) => l !== null).join('\n');
 }
 
+const PROVISION_STEPS = [['cnpj', 'CNPJ na Receita'], ['conta', 'Conta criada'], ['token', 'Token de API'], ['usuarios', 'Usuários'], ['padrao-tags', 'Etiquetas padrão'], ['padrao-departments', 'Equipes padrão'], ['portal', 'Acesso ao portal']];
+
+// Andamento da criação automática da conta (passo a passo e erro, se houver).
+function provisionBox(s, body) {
+  const p = s.provision;
+  if (!p) return null;
+  const ok = p.status === 'criada';
+  return h('div', { class: 'list' },
+    h('div', { class: 'list-title' }, 'Criação automática', badge(ok ? 'ok' : 'warn', ok ? 'Conta criada' : 'Aguardando equipe')),
+    ...PROVISION_STEPS.filter(([id]) => p.steps?.[id]).map(([id, label]) => {
+      const st = p.steps[id];
+      const tone = st.status === 'ok' ? 'ok' : st.status === 'erro' ? 'err' : 'warn';
+      return h('div', { class: 'row' },
+        h('span', { class: `row-dot ${tone}` }, svg(tone === 'ok' ? 'check' : tone === 'err' ? 'x' : 'minus')),
+        h('div', {}, h('div', { class: 'row-title' }, label), h('div', { class: 'row-detail' }, st.detail)), h('span'));
+    }),
+    p.error ? h('div', { class: 'row' }, h('span', { class: 'row-dot err' }, svg('alert')), h('div', {}, h('div', { class: 'row-title' }, 'Parou aqui'), h('div', { class: 'row-msg' }, p.error)),
+      button('Tentar de novo', async (e) => {
+        const btn = e.currentTarget;
+        if (/Receita|situação/.test(p.error) && !confirm('Criar mesmo assim? Confira o CNPJ antes.')) return;
+        btn.disabled = true;
+        try { await api('portal', { action: 'clients', op: 'provision', id: s.id }); } catch (err) { alert(err.message); }
+        loadClients(body, 'signups');
+      }, { variant: 'btn-small btn-primary', icon: 'refresh' })) : null);
+}
+
 function signupsView(data, body) {
   if (!data.signups.length) return notice('Nenhum cadastro ainda. Mande o link do cadastro para o cliente novo.', 'info');
   const list = h('div', { class: 'list' }, ...data.signups.map((s) => {
@@ -2076,6 +2125,7 @@ function signupsView(data, body) {
             h('div', { class: 'row-detail' }, `${s.owner.name} · ${s.users.length} usuário(s) · ${new Date(s.createdAt).toLocaleString('pt-BR')}`))),
         h('span'), h('span')),
       h('div', { class: 'compare-detail' },
+        provisionBox(s, body),
         h('pre', { class: 'detail-text' }, text),
         h('div', { class: 'toolbar' },
           button('Copiar dados', (e) => flashOnCopy(e.currentTarget, text), { variant: 'btn-small', icon: 'copy' }),
@@ -2103,9 +2153,13 @@ function accessMessage(email, password) {
 }
 
 function credentialsBox(email, password) {
-  const msg = accessMessage(email, password);
+  const msg = password ? accessMessage(email, password) : `Seu acesso ao portal Frédy está pronto!
+
+Endereço: ${location.origin}/cliente
+E-mail: ${email}
+Senha: a que você criou no cadastro.`;
   return h('div', { class: 'credentials' },
-    notice('Acesso pronto. Copie a mensagem e mande para o cliente (a senha só aparece agora).', 'ok'),
+    notice(password ? 'Acesso pronto. Copie a mensagem e mande para o cliente (a senha só aparece agora).' : 'Acesso pronto. O cliente entra com a senha que ele criou no cadastro.', 'ok'),
     h('pre', { class: 'detail-text' }, msg),
     h('div', { class: 'toolbar' }, h('span', { class: 'spacer' }), button('Copiar mensagem', (e) => flashOnCopy(e.currentTarget, msg), { variant: 'btn-primary', icon: 'copy' })));
 }

@@ -4,7 +4,8 @@ import { authenticate, changePassword, createClient, deleteClient, listClients, 
 import { readGuide } from '../lib/guide.js';
 import { authorize, clientIp, HttpError, route } from '../lib/http.js';
 import { n8nConfigured } from '../lib/n8n.js';
-import { createSignup, deleteSignup, listSignups, lookupCep, setSignupStatus } from '../lib/signups.js';
+import { createSignup, deleteSignup, listSignups, lookupCep, retryProvision, setSignupStatus, signupPasswordHash } from '../lib/signups.js';
+import { autoCreateEnabled } from '../lib/provision.js';
 import { resolveModelSlug } from '../lib/slug.js';
 import { storeConfigured } from '../lib/store.js';
 
@@ -13,16 +14,20 @@ import { storeConfigured } from '../lib/store.js';
 // Cada ação diz quem pode usar:
 //   aberta: login do portal, CEP e envio do cadastro
 //   equipe ou cliente: config, chatbots, me, guide, guideDone, changePassword
-//   só equipe: clients (op: list, create, update, delete, signupStatus, signupDelete)
+//   só equipe: clients (op: list, provision, create, update, delete, signupStatus, signupDelete)
 const BOTH = ['admin', 'client'];
 
 async function clientsOp(body) {
   switch (body.op) {
     case 'list':
       if (!storeConfigured()) return { configured: false, clients: [], signups: [] };
-      return { configured: true, clients: await listClients(), signups: await listSignups() };
+      return { configured: true, autoCreate: autoCreateEnabled(), clients: await listClients(), signups: await listSignups() };
+    case 'provision':
+      return { signup: await retryProvision(body.id) };
     case 'create': {
-      const result = await createClient(body);
+      // Do cadastro: o cliente entra com a senha que ele escolheu.
+      const passwordHash = body.signupId ? await signupPasswordHash(body.signupId) : null;
+      const result = await createClient({ company: body.company, email: body.email, wtsToken: body.wtsToken, passwordHash, signupId: body.signupId });
       if (body.signupId) await setSignupStatus(body.signupId, 'concluído').catch(() => {});
       return result;
     }

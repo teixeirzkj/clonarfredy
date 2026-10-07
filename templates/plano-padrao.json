@@ -1,0 +1,21 @@
+{
+  "_leia": "Plano das contas criadas pelo cadastro (/cadastro). Campos com null não são enviados (fica o padrão da Helena para o parceiro). Painéis, chatbots, automações de chatbot, sequências e agentes de IA: 0 a 10, ou 999 = ilimitado. apps: lista de apps ligados (MESSAGE_DELAY, SESSION_REASON, SESSION_DISTRIBUTION, CONTACT_PORTFOLIO, PAYMENT, WEBHOOK, CAMPAIGN, PANEL, DIALOG, SEQUENCE, TRANSCRIPTION, CSAT, AI_AGENT, SCHEDULED_MESSAGE, GROUP, CALLING). resourcers: WEBHOOK_API, CUSTOM_FIELDS, INSTA_MESSENGER_CHANNELS, UNOFFICIAL_CHANNELS_ENABLED. copiarPadrao: o que copiar da conta modelo depois de criar (tags = etiquetas, departments = equipes).",
+  "status": "ONBOARDING",
+  "category": null,
+  "config": {
+    "session": null,
+    "agents": null,
+    "panels": null,
+    "chatBots": null,
+    "chatbotAutomations": null,
+    "whatsAppChannels": null,
+    "instagramChannels": null,
+    "messengerChannels": null,
+    "sequences": null,
+    "aiAgents": null,
+    "webchatChannels": null
+  },
+  "apps": null,
+  "resourcers": null,
+  "copiarPadrao": ["tags", "departments"]
+}

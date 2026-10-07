@@ -27,18 +27,19 @@ Conferido na documentação pública da API do WTS (109 endpoints, out/2026).
      telas ele vê e onde ficam os vídeos (links do YouTube/Loom/Drive).
    - Precisa guardar os clientes em algum lugar (hoje a página não tem banco
      de dados; dá para usar o banco da própria Vercel).
-2. **Página de cadastro do cliente** (CNPJ, nome, apelido/usuário, e-mail,
-   endereço): dá para montar o formulário e mandar os dados para a equipe
-   (n8n, e-mail ou planilha). **Não** dá para criar a conta no WTS por ela
-   (ver abaixo). Senha: não recolher pelo formulário; o WTS manda o convite.
+2. **Página de cadastro do cliente** (`/cadastro`): feita. Com o Token de
+   Parceiro, cria a conta sozinha (ver abaixo); sem ele, o cadastro chega na
+   tela Clientes para a equipe.
 3. **Vídeos explicativos** em cada tela: só precisamos dos links.
+
+## Resolvido com a API de parceiro da Helena (out/2026)
+
+Criar a conta da empresa e gerar o token dela: `POST /v1/company` e `POST /v1/company/{id}/tokens` com o Token de Parceiro (helena.readme.io → Contas). Já está ligado ao `/cadastro`.
 
 ## Não dá pela API pública (perguntar ao suporte do WTS)
 
 | O que queremos | Situação na API pública | Pergunta para o suporte |
 |---|---|---|
-| Criar a conta/empresa do cliente (CNPJ, endereço, conta de implantação) | Não existe endpoint de empresa (só `GET /core/v1/company/officehours`) | Existe API de parceiro/revenda para criar contas? Ou outra forma de automatizar? |
-| Gerar o token da API da conta nova | Não existe | Dá para gerar o token ao criar a conta, ou só pelo painel? |
 | Criar painéis e etapas | Só listar (`GET /crm/v2/panel`) | Há endpoint para criar painel/etapa, ou importar/duplicar painel de outra conta? |
 | Criar campos personalizados (contato e painel) | Só listar | Há endpoint para criar campos? |
 | Criar chatbots | Só listar e disparar | O editor aceita importar JSON? Há endpoint para criar/importar? |
