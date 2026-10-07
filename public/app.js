@@ -2021,10 +2021,11 @@ async function loadClients(body, tab = 'signups') {
   }
   if (!data.configured) {
     swap(body, notice('O banco de dados ainda não foi ligado na Vercel. Sem ele, o portal e o cadastro não guardam nada.', 'warn'),
-      howTo('Como ligar (uma vez só)',
-        'Na Vercel, abra o projeto e vá em Storage → Create Database → Upstash (Redis) → plano Free.',
-        'Clique em Connect Project e escolha este projeto.',
-        'Vá em Deployments → ⋯ no último deploy → Redeploy.'));
+      howTo('Como ligar o Supabase (uma vez só)',
+        'No Supabase: SQL Editor → New query → cole o arquivo docs/supabase.sql do projeto → Run.',
+        'No Supabase: Project Settings → API → copie a Project URL e a chave service_role (secreta).',
+        'Na Vercel: Settings → Environment Variables → crie SUPABASE_URL e SUPABASE_SERVICE_ROLE_KEY com esses valores.',
+        'Na Vercel: Deployments → ⋯ no último deploy → Redeploy.'));
     return;
   }
   const origin = location.origin;

@@ -58,7 +58,8 @@ própria tela). Veja `templates/n8n/LEIA-ME.md`. O prompt padrão da IA fica em
 | `ANTHROPIC_API_KEY` | Montar prompt da IA |
 | `WEBHOOK_MODEL_SLUG` | Opcional: trecho da conta modelo no fim das URLs dos webhooks (padrão `embarque22palmitos`), trocado pelo identificador do cliente |
 | `N8N_BASE_URL`, `N8N_API_KEY` | Opcional: botão "Criar no n8n" |
-| `KV_REST_API_URL`, `KV_REST_API_TOKEN` | Banco do portal (Vercel → Storage → Upstash Redis). Sem ele, o portal e o cadastro não funcionam na Vercel |
+| `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY` | Banco do portal (tabela `portal_kv`, criada com `docs/supabase.sql`). A chave service_role fica só no servidor. Sem banco, o portal e o cadastro não funcionam na Vercel |
+| `KV_REST_API_URL`, `KV_REST_API_TOKEN` | Alternativa ao Supabase: Upstash Redis |
 | `DATA_SECRET` | Opcional: chave para criptografar os tokens dos clientes (sem ela, usa o `SESSION_SECRET`; trocar qualquer uma invalida os tokens guardados) |
 | `SIGNUP_WEBHOOK_URL` | Opcional: recebe cada cadastro novo (ex.: fluxo do n8n que avisa a equipe no WhatsApp) |
 | `N8N_WEBHOOK_BASE` | Opcional: base das URLs de webhook mostradas (padrão `https://webhooks.tedyleads.com.br/webhook/`) |
