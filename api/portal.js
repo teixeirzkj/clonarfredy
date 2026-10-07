@@ -23,7 +23,7 @@ async function clientsOp(body) {
       if (!storeConfigured()) return { configured: false, clients: [], signups: [] };
       return { configured: true, autoCreate: autoCreateEnabled(), clients: await listClients(), signups: await listSignups() };
     case 'provision':
-      return { signup: await retryProvision(body.id) };
+      return { signup: await retryProvision(body.id, { force: body.force !== false }) };
     case 'create': {
       // Do cadastro: o cliente entra com a senha que ele escolheu.
       const passwordHash = body.signupId ? await signupPasswordHash(body.signupId) : null;

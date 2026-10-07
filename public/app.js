@@ -1975,7 +1975,9 @@ function renderSignupPage() {
           h('div', { class: 'signup-next' },
             h('strong', {}, 'Depois: o passo a passo'),
             h('p', {}, `O que não dá para criar sozinho (painéis, modelos de mensagem, chatbots, sequências) fica no portal, com vídeos. Entre em ${location.origin}/cliente com o mesmo e-mail e a senha que você criou aqui.`),
-            h('a', { class: 'btn btn-small', href: '/cliente', target: '_blank', rel: 'noopener' }, svg('arrow'), h('span', {}, 'Abrir o passo a passo')))));
+            h('div', { class: 'toolbar' },
+              h('a', { class: 'btn btn-small', href: '/cliente', target: '_blank', rel: 'noopener' }, svg('arrow'), h('span', {}, 'Abrir o passo a passo')),
+              button('Copiar endereço', (e) => flashOnCopy(e.currentTarget, `${location.origin}/cliente`), { variant: 'btn-small btn-ghost', icon: 'copy' })))));
         let left = 10;
         const tick = setInterval(() => {
           left -= 1;
@@ -1987,8 +1989,14 @@ function renderSignupPage() {
         swap(view, h('div', { class: 'signup-done' },
           h('span', { class: 'signup-done-icon', 'aria-hidden': 'true' }, svg('check')),
           h('h2', {}, 'Recebemos seu cadastro'),
-          h('p', {}, `A equipe Frédy vai finalizar sua conta e avisar em ${data.owner.email}. Depois é só entrar no portal com esse e-mail e a senha que você criou.`),
-          h('p', { class: 'hint' }, 'Pode fechar esta página.')));
+          result.reason ? notice(result.reason, 'warn') : null,
+          h('p', {}, `A equipe Frédy vai finalizar sua conta e avisar em ${data.owner.email}.`),
+          h('div', { class: 'signup-next' },
+            h('strong', {}, 'Seu portal: o passo a passo da implantação'),
+            h('p', {}, `Quando a conta estiver pronta, entre em ${location.origin}/cliente com o e-mail ${data.owner.email} e a senha que você criou aqui. Guarde este endereço.`),
+            h('div', { class: 'toolbar' },
+              h('a', { class: 'btn btn-small', href: '/cliente' }, svg('arrow'), h('span', {}, 'Abrir o portal')),
+              button('Copiar endereço', (e) => flashOnCopy(e.currentTarget, `${location.origin}/cliente`), { variant: 'btn-small btn-ghost', icon: 'copy' })))));
       }
       pop(view.querySelector('.signup-done-icon'));
     } catch (err) {
@@ -2075,6 +2083,7 @@ async function loadClients(body, tab = 'signups') {
     tabs.querySelectorAll('.tab').forEach((t, i) => { const on = (i === 0 ? 'signups' : 'clients') === tab; t.classList.toggle('is-active', on); t.setAttribute('aria-selected', String(on)); });
     swap(content, tab === 'signups' ? signupsView(data, body) : clientsView(data, body));
   };
+  body.autoCreate = Boolean(data.autoCreate);
   const auto = data.autoCreate
     ? notice('Criação automática ligada: cadastros com CNPJ ativo viram conta sozinhos (status ONBOARDING).', 'ok')
     : notice('Criação automática desligada: falta o HELENA_PARTNER_TOKEN na Vercel (ou PORTAL_AUTO_CREATE=off). Os cadastros chegam aqui para a equipe criar.', 'info');
@@ -2104,7 +2113,19 @@ const PROVISION_STEPS = [['cnpj', 'CNPJ na Receita'], ['conta', 'Conta criada'],
 // Andamento da criação automática da conta (passo a passo e erro, se houver).
 function provisionBox(s, body) {
   const p = s.provision;
-  if (!p) return null;
+  if (!p) {
+    if (!body.autoCreate || s.status === 'concluído') return null;
+    return h('div', { class: 'toolbar' },
+      h('span', { class: 'hint' }, 'Chegou com a criação automática desligada.'),
+      h('span', { class: 'spacer' }),
+      button('Criar conta agora', async (e) => {
+        const btn = e.currentTarget;
+        if (!confirm(`Criar a conta de ${s.company.tradeName || s.company.legalName} agora (CNPJ, conta, token, usuários, padrão e portal)?`)) return;
+        btn.disabled = true;
+        try { await api('portal', { action: 'clients', op: 'provision', id: s.id, force: false }); } catch (err) { alert(err.message); }
+        loadClients(body, 'signups');
+      }, { variant: 'btn-small btn-primary', icon: 'rocket' }));
+  }
   const ok = p.status === 'criada';
   return h('div', { class: 'list' },
     h('div', { class: 'list-title' }, 'Criação automática', badge(ok ? 'ok' : 'warn', ok ? 'Conta criada' : 'Aguardando equipe')),
