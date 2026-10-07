@@ -1,45 +1,69 @@
 {
-  "_leia": "Passo a passo do portal do cliente. Em 'video', cole o link do vídeo (YouTube, Loom, Drive). Em 'blocks', as telas que o passo abre (ids das telas da página).",
+  "_leia": "Passo a passo do portal do cliente. Em 'video', cole o link do vídeo (YouTube, Loom, Drive). Em 'blocks', as telas que o passo abre (ids das telas da página). Em 'link', um botão para fora (ex.: o sistema Frédy). 'autoDone': marcado como concluído quando a conta é criada sozinha pelo cadastro.",
   "steps": [
     {
-      "id": "boas-vindas",
-      "title": "Boas-vindas",
-      "desc": "Veja como funciona a implantação da sua conta, passo a passo.",
-      "tips": ["Siga os passos na ordem e marque cada um como concluído.", "Qualquer dúvida, fale com a equipe Frédy pelo WhatsApp."],
+      "id": "entrar",
+      "title": "Entre na sua conta Frédy",
+      "desc": "Sua conta já foi criada com usuários, equipes e etiquetas. Entre no sistema para conhecer.",
+      "tips": [
+        "Use o e-mail que você informou no cadastro.",
+        "No primeiro acesso, siga o e-mail de boas-vindas ou use \"Esqueci minha senha\" na tela de login.",
+        "Depois volte aqui e siga os próximos passos na ordem."
+      ],
       "video": "",
+      "link": {
+        "label": "Abrir a Frédy",
+        "url": "https://fredy.wts.chat/"
+      },
       "blocks": []
     },
     {
       "id": "whatsapp",
       "title": "Conecte seu WhatsApp",
       "desc": "Ligue o número da empresa à sua conta para começar a atender.",
-      "tips": ["No sistema, vá em Ajustes → Canais e conecte o número.", "Use o celular com o WhatsApp da empresa por perto para ler o QR code."],
+      "tips": [
+        "No sistema, vá em Ajustes → Canais e conecte o número.",
+        "Use o celular com o WhatsApp da empresa por perto para ler o QR code."
+      ],
       "video": "",
       "blocks": []
     },
     {
       "id": "equipe",
       "title": "Cadastre sua equipe",
-      "desc": "Crie os usuários de quem vai atender e coloque cada um na equipe certa.",
-      "tips": ["Cada pessoa recebe um e-mail para criar a senha dela."],
+      "desc": "Confira os usuários e as equipes. Quem você informou no cadastro já foi criado.",
+      "tips": [
+        "Cada pessoa recebe um e-mail para criar a senha dela."
+      ],
       "video": "",
-      "blocks": ["departments", "agents"]
+      "blocks": [
+        "departments",
+        "agents"
+      ],
+      "autoDone": true
     },
     {
       "id": "etiquetas",
       "title": "Etiquetas",
-      "desc": "Traga as etiquetas padrão, usadas para organizar os contatos.",
+      "desc": "As etiquetas padrão já foram copiadas. Confira e ajuste se precisar.",
       "tips": [],
       "video": "",
-      "blocks": ["tags"]
+      "blocks": [
+        "tags"
+      ],
+      "autoDone": true
     },
     {
       "id": "paineis",
       "title": "Painéis e etapas (CRM)",
       "desc": "Monte o funil de vendas com as mesmas etapas do modelo.",
-      "tips": ["Abra cada painel, copie as etapas na ordem e crie no sistema em CRM → Painéis."],
+      "tips": [
+        "Abra cada painel, copie as etapas na ordem e crie no sistema em CRM → Painéis."
+      ],
       "video": "",
-      "blocks": ["panels"]
+      "blocks": [
+        "panels"
+      ]
     },
     {
       "id": "campos",
@@ -47,31 +71,46 @@
       "desc": "Crie os campos extras dos contatos e dos cards.",
       "tips": [],
       "video": "",
-      "blocks": ["fields"]
+      "blocks": [
+        "fields"
+      ]
     },
     {
       "id": "modelos",
       "title": "Modelos de mensagem",
       "desc": "Copie os modelos de mensagem (texto, variáveis e botões) e cadastre na sua conta.",
-      "tips": ["Os modelos do WhatsApp oficial passam por aprovação antes de poder usar."],
+      "tips": [
+        "Os modelos do WhatsApp oficial passam por aprovação antes de poder usar."
+      ],
       "video": "",
-      "blocks": ["templates"]
+      "blocks": [
+        "templates"
+      ]
     },
     {
       "id": "chatbots",
       "title": "Chatbots",
       "desc": "Copie o JSON do chatbot padrão e cole no chatbot da sua conta.",
-      "tips": ["Depois de colar, confira as equipes e etiquetas usadas no chatbot."],
+      "tips": [
+        "Depois de colar, confira as equipes e etiquetas usadas no chatbot."
+      ],
       "video": "",
-      "blocks": ["chatbotsPadrao", "chatbots"]
+      "blocks": [
+        "chatbotsPadrao",
+        "chatbots"
+      ]
     },
     {
       "id": "sequencias",
       "title": "Sequências",
       "desc": "Crie as sequências de mensagens automáticas.",
-      "tips": ["Veja o vídeo e monte cada sequência seguindo o modelo."],
+      "tips": [
+        "Veja o vídeo e monte cada sequência seguindo o modelo."
+      ],
       "video": "",
-      "blocks": ["sequences"]
+      "blocks": [
+        "sequences"
+      ]
     },
     {
       "id": "horario",
@@ -79,7 +118,9 @@
       "desc": "Confira os dias e horários e a mensagem fora do horário.",
       "tips": [],
       "video": "",
-      "blocks": ["officeHours"]
+      "blocks": [
+        "officeHours"
+      ]
     },
     {
       "id": "contatos",
@@ -87,15 +128,21 @@
       "desc": "Suba sua lista de clientes por planilha, já com etiquetas.",
       "tips": [],
       "video": "",
-      "blocks": ["importContacts"]
+      "blocks": [
+        "importContacts"
+      ]
     },
     {
       "id": "rotativo",
       "title": "Rotativo de atendentes",
       "desc": "Escolha quem recebe os atendimentos novos e em que ordem.",
-      "tips": ["O rotativo é ativado pela equipe Frédy; depois você liga e desliga as pessoas aqui."],
+      "tips": [
+        "O rotativo é ativado pela equipe Frédy; depois você liga e desliga as pessoas aqui."
+      ],
       "video": "",
-      "blocks": ["rotativo"]
+      "blocks": [
+        "rotativo"
+      ]
     }
   ]
 }

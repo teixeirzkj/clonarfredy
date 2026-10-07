@@ -1787,6 +1787,7 @@ async function renderGuideBlock(view) {
           ...step.blocks.map((id) => BLOCK_BY_ID[id]).filter(Boolean)
             .filter((b) => PORTAL !== 'cliente' || CLIENT_BLOCK_IDS.includes(b.id))
             .map((b) => button(`Abrir ${b.title}`, () => openBlock(b), { icon: b.icon })),
+          step.link ? h('a', { class: 'btn btn-primary', href: step.link.url, target: '_blank', rel: 'noopener' }, svg('arrow'), h('span', {}, step.link.label)) : null,
           h('span', { class: 'spacer' }),
           h('label', { class: 'guide-done' }, check, 'Concluído'))));
     const paint = () => {
@@ -1961,13 +1962,26 @@ function renderSignupPage() {
     try {
       const result = await api('portal', { action: 'signup', data });
       if (result.created) {
-        setHeader('Conta criada!', 'Tudo pronto para começar a configuração.', false);
+        // Conta criada: leva o cliente direto para o sistema Frédy.
+        const appUrl = result.appUrl || 'https://fredy.wts.chat/';
+        const countdown = h('strong', {}, '10');
+        setHeader('Conta criada!', 'Sua conta Frédy já está pronta para entrar.', false);
         swap(view, h('div', { class: 'signup-done' },
           h('span', { class: 'signup-done-icon', 'aria-hidden': 'true' }, svg('check')),
           h('h2', {}, 'Sua conta Frédy foi criada'),
-          h('p', {}, `Entre no portal com o e-mail ${result.email} e a senha que você acabou de criar. Lá tem o passo a passo para deixar a conta pronta.`),
-          h('a', { class: 'btn btn-primary', href: '/cliente' }, svg('arrow'), h('span', {}, 'Entrar no portal')),
-          h('p', { class: 'hint' }, 'Os usuários que você cadastrou recebem o convite no e-mail de cada um.')));
+          h('p', {}, `Ela já vem com seus usuários, equipes e etiquetas. Entre com o e-mail ${result.email}. No primeiro acesso, siga o e-mail de boas-vindas ou use "Esqueci minha senha".`),
+          h('a', { class: 'btn btn-primary', href: appUrl }, svg('arrow'), h('span', {}, 'Entrar na Frédy agora')),
+          h('p', { class: 'hint' }, 'Abrindo a Frédy em ', countdown, ' segundos...'),
+          h('div', { class: 'signup-next' },
+            h('strong', {}, 'Depois: o passo a passo'),
+            h('p', {}, `O que não dá para criar sozinho (painéis, modelos de mensagem, chatbots, sequências) fica no portal, com vídeos. Entre em ${location.origin}/cliente com o mesmo e-mail e a senha que você criou aqui.`),
+            h('a', { class: 'btn btn-small', href: '/cliente', target: '_blank', rel: 'noopener' }, svg('arrow'), h('span', {}, 'Abrir o passo a passo')))));
+        let left = 10;
+        const tick = setInterval(() => {
+          left -= 1;
+          countdown.textContent = String(left);
+          if (left <= 0) { clearInterval(tick); location.href = appUrl; }
+        }, 1000);
       } else {
         setHeader('Cadastro recebido!', 'Sua conta está sendo criada.', false);
         swap(view, h('div', { class: 'signup-done' },

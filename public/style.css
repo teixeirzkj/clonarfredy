@@ -1229,3 +1229,5 @@ details.advanced .field { margin-top: 10px; max-width: 420px; }
   .guide-body { padding: 0 14px 14px; }
   .guide-step > summary { gap: 10px; padding: 12px; }
 }
+.signup-next { display: grid; justify-items: center; gap: 6px; max-width: 480px; margin-top: 14px; padding: 14px 16px; border: 1px solid var(--line); border-radius: 14px; background: var(--surface-2); }
+.signup-next p { font-size: 13.5px; }

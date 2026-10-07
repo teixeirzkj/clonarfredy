@@ -63,6 +63,7 @@ própria tela). Veja `templates/n8n/LEIA-ME.md`. O prompt padrão da IA fica em
 | `DATA_SECRET` | Opcional: chave para criptografar os tokens dos clientes (sem ela, usa o `SESSION_SECRET`; trocar qualquer uma invalida os tokens guardados) |
 | `HELENA_PARTNER_TOKEN` | Token de Parceiro (Admin → Personalizar → Integração): liga a criação automática da conta pelo cadastro |
 | `HELENA_API_BASE` | Opcional: base da API de parceiro (padrão `https://api.helena.run`) |
+| `FREDY_APP_URL` | Opcional: sistema para onde o cliente vai depois de criar a conta (padrão `https://fredy.wts.chat/`) |
 | `PORTAL_AUTO_CREATE` | Opcional: `off` desliga a criação automática (o cadastro só chega para a equipe) |
 | `SIGNUP_WEBHOOK_URL` | Opcional: recebe cada cadastro novo (ex.: fluxo do n8n que avisa a equipe no WhatsApp) |
 | `N8N_WEBHOOK_BASE` | Opcional: base das URLs de webhook mostradas (padrão `https://webhooks.tedyleads.com.br/webhook/`) |
