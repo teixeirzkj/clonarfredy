@@ -2143,7 +2143,12 @@ function provisionBox(s, body) {
         btn.disabled = true;
         try { await api('portal', { action: 'clients', op: 'provision', id: s.id }); } catch (err) { alert(err.message); }
         loadClients(body, 'signups');
-      }, { variant: 'btn-small btn-primary', icon: 'refresh' })) : null);
+      }, { variant: 'btn-small btn-primary', icon: 'refresh' })) : null,
+    // O que foi enviado e o que a API respondeu (para mandar ao suporte ou ao Claude).
+    p.debug ? h('details', { class: 'advanced provision-debug' },
+      h('summary', {}, 'Detalhes técnicos do erro'),
+      h('pre', { class: 'detail-text' }, JSON.stringify(p.debug, null, 2)),
+      h('div', { class: 'toolbar' }, h('span', { class: 'spacer' }), button('Copiar detalhes', (e) => flashOnCopy(e.currentTarget, JSON.stringify(p.debug, null, 2)), { variant: 'btn-small', icon: 'copy' }))) : null);
 }
 
 function signupsView(data, body) {
