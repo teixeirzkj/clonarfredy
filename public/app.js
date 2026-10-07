@@ -356,7 +356,7 @@ async function api(path, body) {
     data = await res.json();
   } catch { /* resposta sem JSON */ }
 
-  if (res.status === 401 && !['login', 'portal-login'].includes(path)) throw expireSession();
+  if (res.status === 401 && path !== 'login' && !(path === 'portal' && body?.action === 'login')) throw expireSession();
   if (!res.ok) {
     const error = new ApiError(data.error || `Erro ${res.status}`);
     if (/conta (do )?cliente|própria conta modelo/i.test(error.message)) setTokenStatus('error');
@@ -424,7 +424,7 @@ function showLogin(message = '') {
 async function loadConfig() {
   if (state.config) return;
   try {
-    state.config = await api('config');
+    state.config = await api('portal', { action: 'config' });
   } catch { /* a tela funciona sem; o servidor aplica o padrão */ }
 }
 
@@ -1690,7 +1690,7 @@ async function renderChatbotsBlock(view) {
   swap(body, loading('Carregando chatbots padrão...'));
   let chatbots;
   try {
-    ({ chatbots } = await api('chatbots', {}));
+    ({ chatbots } = await api('portal', { action: 'chatbots' }));
   } catch (err) {
     retry(body, err, () => { view.replaceChildren(); renderChatbotsBlock(view); });
     return;
@@ -1897,7 +1897,7 @@ function renderSignupPage() {
     if (d.length !== 8) return;
     cepStatus.textContent = 'Buscando endereço...';
     try {
-      const a = await api('signup', { action: 'cep', cep: d });
+      const a = await api('portal', { action: 'cep', cep: d });
       f.street.value = a.street || f.street.value;
       f.district.value = a.district || f.district.value;
       f.city.value = a.city || f.city.value;
@@ -1951,7 +1951,7 @@ function renderSignupPage() {
     };
     sendBtn.disabled = true;
     try {
-      await api('signup', { action: 'send', data });
+      await api('portal', { action: 'signup', data });
       setHeader('Cadastro recebido!', 'Sua conta está sendo criada.', false);
       swap(view, h('div', { class: 'signup-done' },
         h('span', { class: 'signup-done-icon', 'aria-hidden': 'true' }, svg('check')),
@@ -2014,7 +2014,7 @@ async function loadClients(body, tab = 'signups') {
   swap(body, loading('Carregando clientes...'));
   let data;
   try {
-    data = await api('clients', { action: 'list' });
+    data = await api('portal', { action: 'clients', op: 'list' });
   } catch (err) {
     retry(body, err, () => loadClients(body, tab));
     return;
@@ -2080,10 +2080,10 @@ function signupsView(data, body) {
         h('div', { class: 'toolbar' },
           button('Copiar dados', (e) => flashOnCopy(e.currentTarget, text), { variant: 'btn-small', icon: 'copy' }),
           segmented(SIGNUP_STATUS, s.status, async (v) => {
-            try { await api('clients', { action: 'signupStatus', id: s.id, status: v }); s.status = v; statusBadgeEl.textContent = SIGNUP_STATUS.find(([x]) => x === v)[1]; } catch (err) { alert(err.message); }
+            try { await api('portal', { action: 'clients', op: 'signupStatus', id: s.id, status: v }); s.status = v; statusBadgeEl.textContent = SIGNUP_STATUS.find(([x]) => x === v)[1]; } catch (err) { alert(err.message); }
           }, 'Situação'),
           h('span', { class: 'spacer' }),
-          button('Excluir', async () => { if (!confirm('Excluir este cadastro?')) return; await api('clients', { action: 'signupDelete', id: s.id }); loadClients(body, 'signups'); }, { variant: 'btn-ghost btn-small', icon: 'x' }),
+          button('Excluir', async () => { if (!confirm('Excluir este cadastro?')) return; await api('portal', { action: 'clients', op: 'signupDelete', id: s.id }); loadClients(body, 'signups'); }, { variant: 'btn-ghost btn-small', icon: 'x' }),
           button('Criar acesso ao portal', () => createAccessForm(body, { company: s.company.tradeName || s.company.legalName, email: s.owner.email, signupId: s.id }), { variant: 'btn-primary btn-small', icon: 'plus' })),
         howTo('Como criar a conta deste cliente',
           'Crie a conta da empresa no WTS com os dados acima (a API pública não cria contas).',
@@ -2119,7 +2119,7 @@ function createAccessForm(body, prefill = {}) {
     status.replaceChildren();
     saveBtn.disabled = true;
     try {
-      const r = await api('clients', { action: 'create', company: company.value, email: email.value, wtsToken: token.value, signupId: prefill.signupId });
+      const r = await api('portal', { action: 'clients', op: 'create', company: company.value, email: email.value, wtsToken: token.value, signupId: prefill.signupId });
       swap(box, credentialsBox(r.client.email, r.password),
         h('div', { class: 'toolbar' }, button('Voltar para a lista', () => loadClients(body, 'clients'), { icon: 'back' })));
     } catch (err) {
@@ -2148,7 +2148,7 @@ function clientsView(data, body) {
     sw.onclick = async () => {
       sw.disabled = true;
       try {
-        const r = await api('clients', { action: 'update', id: c.id, changes: { active: !c.active } });
+        const r = await api('portal', { action: 'clients', op: 'update', id: c.id, changes: { active: !c.active } });
         c.active = r.client.active;
         sw.setAttribute('aria-checked', String(c.active));
         row.classList.toggle('is-off', !c.active);
@@ -2162,18 +2162,18 @@ function clientsView(data, body) {
       h('div', { class: 'row-actions' },
         button('Nova senha', async () => {
           if (!confirm(`Gerar uma senha nova para ${c.email}? A atual deixa de funcionar.`)) return;
-          const r = await api('clients', { action: 'update', id: c.id, changes: { resetPassword: true } });
+          const r = await api('portal', { action: 'clients', op: 'update', id: c.id, changes: { resetPassword: true } });
           swap(out, credentialsBox(c.email, r.password));
           out.scrollIntoView({ behavior: 'smooth', block: 'center' });
         }, { variant: 'btn-small', icon: 'refresh' }),
         button('Trocar token', async () => {
           const t = prompt(`Novo token da conta WTS de ${c.company}:`);
           if (!t) return;
-          try { await api('clients', { action: 'update', id: c.id, changes: { wtsToken: t } }); swap(out, notice('Token trocado.', 'ok')); } catch (err) { swap(out, notice(err.message)); }
+          try { await api('portal', { action: 'clients', op: 'update', id: c.id, changes: { wtsToken: t } }); swap(out, notice('Token trocado.', 'ok')); } catch (err) { swap(out, notice(err.message)); }
         }, { variant: 'btn-small' }),
         button('Excluir', async () => {
           if (!confirm(`Excluir o acesso de ${c.company}? O cliente não consegue mais entrar.`)) return;
-          await api('clients', { action: 'delete', id: c.id });
+          await api('portal', { action: 'clients', op: 'delete', id: c.id });
           loadClients(body, 'clients');
         }, { variant: 'btn-ghost btn-small', icon: 'x' }),
         sw));
@@ -3404,7 +3404,7 @@ function init() {
     $('login-error').textContent = '';
     try {
       const session = PORTAL === 'cliente'
-        ? await api('portal-login', { email: $('login-email').value, password: $('password').value })
+        ? await api('portal', { action: 'login', email: $('login-email').value, password: $('password').value })
         : await api('login', { password: $('password').value });
       saveSession(session);
       showGrid();
