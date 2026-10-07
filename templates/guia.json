@@ -1,0 +1,101 @@
+{
+  "_leia": "Passo a passo do portal do cliente. Em 'video', cole o link do vídeo (YouTube, Loom, Drive). Em 'blocks', as telas que o passo abre (ids das telas da página).",
+  "steps": [
+    {
+      "id": "boas-vindas",
+      "title": "Boas-vindas",
+      "desc": "Veja como funciona a implantação da sua conta, passo a passo.",
+      "tips": ["Siga os passos na ordem e marque cada um como concluído.", "Qualquer dúvida, fale com a equipe Frédy pelo WhatsApp."],
+      "video": "",
+      "blocks": []
+    },
+    {
+      "id": "whatsapp",
+      "title": "Conecte seu WhatsApp",
+      "desc": "Ligue o número da empresa à sua conta para começar a atender.",
+      "tips": ["No sistema, vá em Ajustes → Canais e conecte o número.", "Use o celular com o WhatsApp da empresa por perto para ler o QR code."],
+      "video": "",
+      "blocks": []
+    },
+    {
+      "id": "equipe",
+      "title": "Cadastre sua equipe",
+      "desc": "Crie os usuários de quem vai atender e coloque cada um na equipe certa.",
+      "tips": ["Cada pessoa recebe um e-mail para criar a senha dela."],
+      "video": "",
+      "blocks": ["departments", "agents"]
+    },
+    {
+      "id": "etiquetas",
+      "title": "Etiquetas",
+      "desc": "Traga as etiquetas padrão, usadas para organizar os contatos.",
+      "tips": [],
+      "video": "",
+      "blocks": ["tags"]
+    },
+    {
+      "id": "paineis",
+      "title": "Painéis e etapas (CRM)",
+      "desc": "Monte o funil de vendas com as mesmas etapas do modelo.",
+      "tips": ["Abra cada painel, copie as etapas na ordem e crie no sistema em CRM → Painéis."],
+      "video": "",
+      "blocks": ["panels"]
+    },
+    {
+      "id": "campos",
+      "title": "Campos personalizados",
+      "desc": "Crie os campos extras dos contatos e dos cards.",
+      "tips": [],
+      "video": "",
+      "blocks": ["fields"]
+    },
+    {
+      "id": "modelos",
+      "title": "Modelos de mensagem",
+      "desc": "Copie os modelos de mensagem (texto, variáveis e botões) e cadastre na sua conta.",
+      "tips": ["Os modelos do WhatsApp oficial passam por aprovação antes de poder usar."],
+      "video": "",
+      "blocks": ["templates"]
+    },
+    {
+      "id": "chatbots",
+      "title": "Chatbots",
+      "desc": "Copie o JSON do chatbot padrão e cole no chatbot da sua conta.",
+      "tips": ["Depois de colar, confira as equipes e etiquetas usadas no chatbot."],
+      "video": "",
+      "blocks": ["chatbotsPadrao", "chatbots"]
+    },
+    {
+      "id": "sequencias",
+      "title": "Sequências",
+      "desc": "Crie as sequências de mensagens automáticas.",
+      "tips": ["Veja o vídeo e monte cada sequência seguindo o modelo."],
+      "video": "",
+      "blocks": ["sequences"]
+    },
+    {
+      "id": "horario",
+      "title": "Horário de atendimento",
+      "desc": "Confira os dias e horários e a mensagem fora do horário.",
+      "tips": [],
+      "video": "",
+      "blocks": ["officeHours"]
+    },
+    {
+      "id": "contatos",
+      "title": "Importe seus contatos",
+      "desc": "Suba sua lista de clientes por planilha, já com etiquetas.",
+      "tips": [],
+      "video": "",
+      "blocks": ["importContacts"]
+    },
+    {
+      "id": "rotativo",
+      "title": "Rotativo de atendentes",
+      "desc": "Escolha quem recebe os atendimentos novos e em que ordem.",
+      "tips": ["O rotativo é ativado pela equipe Frédy; depois você liga e desliga as pessoas aqui."],
+      "video": "",
+      "blocks": ["rotativo"]
+    }
+  ]
+}

@@ -99,11 +99,27 @@ const LOOKUPS = [
   { id: 'webhooks', icon: 'webhook', title: 'Webhooks', desc: 'Assinaturas ativas' },
 ];
 
+// A mesma página tem três modos, pelo endereço: / (equipe), /cliente (portal do
+// cliente, login por e-mail) e /cadastro (cliente novo pede a conta, sem login).
+const PORTAL = /^\/cliente\/?$/.test(location.pathname) ? 'cliente' : /^\/cadastro\/?$/.test(location.pathname) ? 'cadastro' : null;
+
+// O que o cliente vê no portal (Montar prompt, Fluxos do n8n, webhooks e
+// "Configurar tudo" ficam só com a equipe; o servidor também bloqueia).
+const CLIENT_BLOCK_IDS = ['tags', 'departments', 'agents', 'rotativo', 'archiveCards', 'importContacts', 'chatbotsPadrao', 'templates', 'panels', 'chatbots', 'sequences', 'fields', 'officeHours'];
+const GUIDE = { id: 'guide', kind: 'guide', title: 'Passo a passo da implantação', desc: 'Siga os passos com vídeos e deixe sua conta pronta.' };
+const ACCOUNT = { id: 'account', kind: 'account', icon: 'user', title: 'Minha conta', desc: 'Trocar a senha e sair.' };
+if (!PORTAL) {
+  SECTIONS.unshift({
+    title: 'Portal do cliente',
+    blocks: [{ id: 'clientsAdmin', kind: 'clients', icon: 'team', title: 'Clientes', desc: 'Cadastros recebidos e acessos dos clientes ao portal.' }],
+  });
+}
+
 const BLOCK_BY_ID = Object.fromEntries(SECTIONS.flatMap((s) => s.blocks).map((b) => [b.id, b]));
 const SETUP_ALL = { id: 'setupAll', kind: 'setupAll', title: 'Configurar tudo', desc: 'Implantação completa: etiquetas, equipes, webhooks, prompt da IA e fluxos do n8n.' };
 
 const APPLY_BATCH = 8;
-const SESSION_KEY = 'setup-session';
+const SESSION_KEY_BASE = 'setup-session';
 const PROMPT_KEY = 'setup-prompt-padrao';
 const PROFILES = [['Agent', 'Atendente'], ['Admin', 'Administrador'], ['RestrictedAgent', 'Atendente restrito']];
 const TOKEN_STATUS = { empty: 'Não informado', pending: 'Não verificado', ok: 'Conta verificada', error: 'Token com problema' };
@@ -299,9 +315,11 @@ const slug = (text) => String(text || 'cliente').normalize('NFD').replace(/[̀-�
 
 // ---------- Sessão e API ----------
 
+const sessionKey = () => `${SESSION_KEY_BASE}-${PORTAL || 'equipe'}`;
+
 function loadSession() {
   try {
-    const saved = JSON.parse(sessionStorage.getItem(SESSION_KEY) ?? 'null');
+    const saved = JSON.parse(sessionStorage.getItem(sessionKey()) ?? 'null');
     if (saved?.token && saved.expiresAt > Date.now()) return saved;
   } catch { /* storage indisponível: pede a senha de novo */ }
   return null;
@@ -310,8 +328,8 @@ function loadSession() {
 function saveSession(session) {
   state.session = session;
   try {
-    if (session) sessionStorage.setItem(SESSION_KEY, JSON.stringify(session));
-    else sessionStorage.removeItem(SESSION_KEY);
+    if (session) sessionStorage.setItem(sessionKey(), JSON.stringify(session));
+    else sessionStorage.removeItem(sessionKey());
   } catch { /* segue só em memória */ }
 }
 
@@ -338,7 +356,7 @@ async function api(path, body) {
     data = await res.json();
   } catch { /* resposta sem JSON */ }
 
-  if (res.status === 401 && path !== 'login') throw expireSession();
+  if (res.status === 401 && !['login', 'portal-login'].includes(path)) throw expireSession();
   if (!res.ok) {
     const error = new ApiError(data.error || `Erro ${res.status}`);
     if (/conta (do )?cliente|própria conta modelo/i.test(error.message)) setTokenStatus('error');
@@ -348,6 +366,8 @@ async function api(path, body) {
 }
 
 function clientToken() {
+  // No portal o servidor usa o token da conta do cliente logado.
+  if (PORTAL === 'cliente') return 'portal';
   return $('client-token').value.trim();
 }
 
@@ -382,18 +402,22 @@ function setHeader(title, subtitle, withBack) {
 function showView(name) {
   state.view = name;
   for (const view of ['login', 'grid', 'block']) $(`view-${view}`).hidden = view !== name;
-  $('token-bar').hidden = name === 'login';
+  $('token-bar').hidden = name === 'login' || Boolean(PORTAL);
   $('modal').classList.toggle('is-login', name === 'login');
   $('modal-scroll').scrollTop = 0;
   enter($(`view-${name}`), { y: 8, duration: 300 });
 }
 
 function showLogin(message = '') {
-  setHeader('Entrar', 'Acesso restrito à equipe Frédy', false);
+  const client = PORTAL === 'cliente';
+  setHeader(client ? 'Portal do cliente' : 'Entrar', client ? 'Entre com o e-mail e a senha que a equipe Frédy enviou' : 'Acesso restrito à equipe Frédy', false);
   showView('login');
+  $('email-field').hidden = !client;
+  $('login-email').required = client;
+  $('password-label').textContent = client ? 'Senha' : 'Senha de acesso';
   $('login-error').textContent = message;
   $('password').value = '';
-  $('password').focus();
+  (client && !$('login-email').value ? $('login-email') : $('password')).focus();
 }
 
 // Configuração da tela (identificador da conta modelo etc.), carregada uma vez.
@@ -407,7 +431,8 @@ async function loadConfig() {
 function showGrid() {
   if (state.busy) return;
   loadConfig();
-  setHeader('Setup da Conta', 'Escolha o que configurar na conta do cliente', false);
+  if (PORTAL === 'cliente') setHeader(state.session?.company ? `Olá, ${state.session.company}` : 'Portal do cliente', 'Configure sua conta passo a passo', false);
+  else setHeader('Setup da Conta', 'Escolha o que configurar na conta do cliente', false);
   showView('grid');
   renderGrid({ animate: true });
 }
@@ -436,6 +461,9 @@ function openBlock(block) {
     archive: renderArchiveBlock,
     contacts: renderContactsBlock,
     chatbots: renderChatbotsBlock,
+    guide: renderGuideBlock,
+    account: renderAccountBlock,
+    clients: renderClientsBlock,
   };
   renderers[block.kind]?.(view, block);
 }
@@ -454,18 +482,23 @@ function renderGrid({ animate = false } = {}) {
   container.replaceChildren();
   let visible = 0;
 
-  if (matches(SETUP_ALL)) {
+  const hero = PORTAL === 'cliente' ? { ...GUIDE, heroTitle: 'Passo a passo da implantação', heroDesc: 'Vídeos e instruções para deixar sua conta pronta, na ordem certa.' }
+    : { ...SETUP_ALL, heroTitle: 'Configurar tudo de uma vez', heroDesc: 'Etiquetas, equipes e webhooks, prompt da IA e fluxos do n8n (agente, mover card, rotativo) numa tela só.' };
+  if (matches(hero)) {
     visible += 1;
-    container.append(h('button', { type: 'button', class: 'hero', onclick: () => openBlock(SETUP_ALL) },
+    container.append(h('button', { type: 'button', class: 'hero', onclick: () => openBlock(hero) },
       h('span', { class: 'hero-icon', 'aria-hidden': 'true' }, svg('rocket')),
       h('span', { class: 'hero-body' },
-        h('span', { class: 'hero-title' }, 'Configurar tudo de uma vez'),
-        h('span', { class: 'hero-desc' }, 'Etiquetas, equipes e webhooks, prompt da IA e fluxos do n8n (agente, mover card, rotativo) numa tela só.')),
-      state.status.setupAll ? badge(state.status.setupAll.tone, state.status.setupAll.text) : null,
+        h('span', { class: 'hero-title' }, hero.heroTitle),
+        h('span', { class: 'hero-desc' }, hero.heroDesc)),
+      !PORTAL && state.status.setupAll ? badge(state.status.setupAll.tone, state.status.setupAll.text) : null,
       h('span', { class: 'hero-arrow', 'aria-hidden': 'true' }, svg('arrow'))));
   }
 
-  for (const sec of SECTIONS) {
+  const sections = PORTAL === 'cliente'
+    ? [...SECTIONS.map((sec) => ({ ...sec, title: sec.title === 'n8n e IA' ? 'Chatbots' : sec.title, blocks: sec.blocks.filter((b) => CLIENT_BLOCK_IDS.includes(b.id)) })), { title: 'Sua conta', blocks: [ACCOUNT] }]
+    : SECTIONS;
+  for (const sec of sections) {
     const blocks = sec.blocks.filter(matches);
     if (!blocks.length) continue;
     visible += blocks.length;
@@ -481,7 +514,8 @@ function renderGrid({ animate = false } = {}) {
     );
   }
 
-  const lookups = LOOKUPS.filter(matches);
+  // Webhooks apontam para o n8n da equipe: fora do portal do cliente.
+  const lookups = LOOKUPS.filter((l) => PORTAL !== 'cliente' || l.id !== 'webhooks').filter(matches);
   if (lookups.length) {
     visible += lookups.length;
     container.append(
@@ -1694,6 +1728,457 @@ async function renderChatbotsBlock(view) {
   }, true);
   swap(body, list);
   stagger(list.querySelectorAll('.compare-item'), { step: 25, y: 6 });
+}
+
+// ---------- Portal do cliente: passo a passo, minha conta ----------
+
+// Link de vídeo → endereço para mostrar dentro da página (YouTube, Loom, Drive, Vimeo).
+function embedUrl(url) {
+  try {
+    const u = new URL(url);
+    const host = u.hostname.replace(/^www\./, '');
+    if (host === 'youtu.be') return `https://www.youtube-nocookie.com/embed/${u.pathname.slice(1)}`;
+    if (host.endsWith('youtube.com')) {
+      const id = u.searchParams.get('v') || u.pathname.match(/\/(?:embed|shorts|live)\/([\w-]+)/)?.[1];
+      return id ? `https://www.youtube-nocookie.com/embed/${id}` : null;
+    }
+    if (host === 'loom.com') return `https://www.loom.com/embed/${u.pathname.split('/').pop()}`;
+    if (host === 'drive.google.com') return url.replace(/\/view.*$/, '/preview');
+    if (host === 'vimeo.com') return `https://player.vimeo.com/video/${u.pathname.split('/').filter(Boolean)[0]}`;
+  } catch { /* link inválido */ }
+  return null;
+}
+
+async function renderGuideBlock(view) {
+  const body = h('div');
+  view.append(body);
+  swap(body, loading('Carregando o passo a passo...'));
+  let data;
+  try {
+    data = await api('portal', { action: 'guide' });
+  } catch (err) {
+    retry(body, err, () => { view.replaceChildren(); renderGuideBlock(view); });
+    return;
+  }
+  const done = new Set(data.done);
+  const total = data.steps.length;
+  const bar = h('div', { class: 'progress' }, h('span'));
+  const counter = h('strong');
+  const paintProgress = () => {
+    counter.textContent = `${done.size} de ${total} passos concluídos`;
+    bar.firstChild.style.transform = `scaleX(${total ? done.size / total : 0})`;
+  };
+  const save = () => (PORTAL === 'cliente' ? api('portal', { action: 'guideDone', done: [...done] }).catch(() => {}) : null);
+
+  const list = h('div', { class: 'guide' }, ...data.steps.map((step, i) => {
+    const check = h('button', { type: 'button', class: 'guide-check', 'aria-pressed': String(done.has(step.id)), 'aria-label': `Marcar "${step.title}" como concluído` }, svg('check'));
+    const item = h('details', { class: `guide-step${done.has(step.id) ? ' is-done' : ''}`, open: !done.has(step.id) && i === data.steps.findIndex((s) => !done.has(s.id)) },
+      h('summary', {},
+        h('span', { class: 'guide-num' }, String(i + 1)),
+        h('span', { class: 'guide-title' }, step.title, h('span', { class: 'guide-desc' }, step.desc)),
+        h('span', { class: 'chevron', 'aria-hidden': 'true' }, svg('arrow'))),
+      h('div', { class: 'guide-body' },
+        step.video && embedUrl(step.video)
+          ? h('div', { class: 'guide-video' }, h('iframe', { src: embedUrl(step.video), title: `Vídeo: ${step.title}`, loading: 'lazy', allow: 'fullscreen; picture-in-picture', allowFullscreen: true }))
+          : step.video ? h('a', { class: 'btn btn-small', href: step.video, target: '_blank', rel: 'noopener' }, svg('play'), h('span', {}, 'Assistir vídeo'))
+            : h('p', { class: 'hint guide-novideo' }, svg('play'), ' Vídeo em breve.'),
+        step.tips.length ? h('ul', { class: 'guide-tips' }, ...step.tips.map((t) => h('li', {}, t))) : null,
+        h('div', { class: 'toolbar' },
+          ...step.blocks.map((id) => BLOCK_BY_ID[id]).filter(Boolean)
+            .filter((b) => PORTAL !== 'cliente' || CLIENT_BLOCK_IDS.includes(b.id))
+            .map((b) => button(`Abrir ${b.title}`, () => openBlock(b), { icon: b.icon })),
+          h('span', { class: 'spacer' }),
+          h('label', { class: 'guide-done' }, check, 'Concluído'))));
+    const paint = () => {
+      const on = done.has(step.id);
+      check.setAttribute('aria-pressed', String(on));
+      item.classList.toggle('is-done', on);
+    };
+    check.onclick = () => {
+      done.has(step.id) ? done.delete(step.id) : done.add(step.id);
+      paint();
+      pop(check);
+      paintProgress();
+      save();
+      // Concluiu: abre o próximo que falta.
+      if (done.has(step.id)) {
+        item.open = false;
+        const next = [...list.querySelectorAll('.guide-step')].find((el) => !el.classList.contains('is-done'));
+        if (next) { next.open = true; spotlight(next); }
+      }
+    };
+    return item;
+  }));
+  list.addEventListener('toggle', (e) => {
+    if (!e.target.matches?.('.guide-step') || !e.target.open) return;
+    for (const other of list.querySelectorAll('.guide-step[open]')) if (other !== e.target) other.open = false;
+  }, true);
+  paintProgress();
+  swap(body,
+    h('div', { class: 'guide-head' }, counter, bar),
+    data.steps.length ? list : notice('O passo a passo ainda não foi configurado.', 'info'),
+    h('p', { class: 'hint' }, 'Dúvidas? Fale com a equipe Frédy pelo WhatsApp.'));
+  stagger(list.querySelectorAll('.guide-step'), { step: 30, y: 8 });
+}
+
+function renderAccountBlock(view) {
+  const current = h('input', { type: 'password', autocomplete: 'current-password' });
+  const next = h('input', { type: 'password', autocomplete: 'new-password', minLength: 8 });
+  const repeat = h('input', { type: 'password', autocomplete: 'new-password', minLength: 8 });
+  const status = h('div');
+  const saveBtn = button('Trocar senha', async () => {
+    status.replaceChildren();
+    if (next.value.length < 8) return status.replaceChildren(notice('A senha nova precisa de pelo menos 8 caracteres.', 'warn'));
+    if (next.value !== repeat.value) return status.replaceChildren(notice('As duas senhas novas não são iguais.', 'warn'));
+    saveBtn.disabled = true;
+    try {
+      await api('portal', { action: 'changePassword', current: current.value, next: next.value });
+      current.value = next.value = repeat.value = '';
+      status.replaceChildren(notice('Senha trocada.', 'ok'));
+    } catch (err) {
+      status.replaceChildren(notice(err.message));
+    } finally {
+      saveBtn.disabled = false;
+    }
+  }, { variant: 'btn-primary', icon: 'check' });
+  view.append(
+    section('', 'Sua empresa', h('p', { class: 'panel-desc' }, state.session?.company ?? '')),
+    section('', 'Trocar senha',
+      h('div', { class: 'form-stack' },
+        field('Senha atual', current, ''),
+        field('Senha nova', next, 'Pelo menos 8 caracteres.'),
+        field('Repita a senha nova', repeat, '')),
+      h('div', { class: 'toolbar' }, h('span', { class: 'spacer' }), saveBtn),
+      status),
+    section('', 'Sair',
+      h('div', { class: 'toolbar' }, button('Sair do portal', () => { saveSession(null); showLogin('Você saiu.'); }, { icon: 'back' }))));
+}
+
+// ---------- Cadastro de cliente novo (/cadastro, sem login) ----------
+
+function renderSignupPage() {
+  document.title = 'Cadastro · Frédy';
+  setHeader('Crie sua conta Frédy', 'Preencha os dados da empresa e da equipe. A gente cria a conta e te avisa.', false);
+  showView('block');
+  $('reopen').lastChild.textContent = ' Abrir cadastro';
+  const view = $('view-block');
+  view.replaceChildren();
+
+  const input = (attrs = {}) => h('input', { type: 'text', ...attrs });
+  const f = {
+    cnpj: input({ inputMode: 'numeric', placeholder: '00.000.000/0000-00', maxLength: 18 }),
+    legalName: input({ placeholder: 'Empresa Exemplo LTDA' }),
+    tradeName: input({ placeholder: 'Empresa Exemplo' }),
+    segment: input({ placeholder: 'Clínica, loja, agência de viagens...' }),
+    companyPhone: input({ type: 'tel', placeholder: '(47) 3333-0000' }),
+    site: input({ placeholder: 'www.empresa.com.br' }),
+    cep: input({ inputMode: 'numeric', placeholder: '00000-000', maxLength: 9 }),
+    street: input({ placeholder: 'Rua das Flores' }),
+    number: input({ placeholder: '123' }),
+    complement: input({ placeholder: 'Sala 2' }),
+    district: input({ placeholder: 'Centro' }),
+    city: input({ placeholder: 'Joinville' }),
+    uf: input({ placeholder: 'SC', maxLength: 2 }),
+    ownerName: input({ placeholder: 'Maria Souza', autocomplete: 'name' }),
+    ownerEmail: input({ type: 'email', placeholder: 'maria@empresa.com.br', autocomplete: 'email' }),
+    ownerPhone: input({ type: 'tel', placeholder: '(47) 99999-0000', autocomplete: 'tel' }),
+    notes: h('textarea', { rows: 3, placeholder: 'Algo que a equipe precise saber (opcional)' }),
+    website: input({ tabIndex: -1, autocomplete: 'off', 'aria-hidden': 'true' }), // armadilha para robôs
+  };
+  // Máscaras simples.
+  f.cnpj.oninput = () => {
+    const d = f.cnpj.value.replace(/\D/g, '').slice(0, 14);
+    f.cnpj.value = d.replace(/^(\d{2})(\d)/, '$1.$2').replace(/^(\d{2})\.(\d{3})(\d)/, '$1.$2.$3').replace(/\.(\d{3})(\d)/, '.$1/$2').replace(/(\d{4})(\d)/, '$1-$2');
+  };
+  const cepStatus = h('span', { class: 'field-example' }, 'Preenche o endereço sozinho.');
+  f.cep.oninput = async () => {
+    const d = f.cep.value.replace(/\D/g, '').slice(0, 8);
+    f.cep.value = d.length > 5 ? `${d.slice(0, 5)}-${d.slice(5)}` : d;
+    if (d.length !== 8) return;
+    cepStatus.textContent = 'Buscando endereço...';
+    try {
+      const a = await api('signup', { action: 'cep', cep: d });
+      f.street.value = a.street || f.street.value;
+      f.district.value = a.district || f.district.value;
+      f.city.value = a.city || f.city.value;
+      f.uf.value = a.uf || f.uf.value;
+      cepStatus.textContent = 'Endereço encontrado. Confira e preencha o número.';
+      f.number.focus();
+    } catch (err) {
+      cepStatus.textContent = err.message;
+    }
+  };
+  f.uf.oninput = () => { f.uf.value = f.uf.value.toUpperCase().replace(/[^A-Z]/g, ''); };
+
+  // Usuários: quantos + os dados de cada um.
+  const usersBox = h('div', { class: 'signup-users' });
+  const count = input({ type: 'number', min: 1, max: 100, value: 2, inputMode: 'numeric' });
+  const userRow = (i) => {
+    const profile = h('input', { type: 'hidden', value: i === 0 ? 'Admin' : 'Agent' });
+    return h('div', { class: 'signup-user' },
+      h('div', { class: 'signup-user-head' }, h('span', { class: 'step-num' }, String(i + 1)), h('strong', {}, `Usuário ${i + 1}`)),
+      h('div', { class: 'form-grid' },
+        field('Nome completo', input({ 'data-u': 'name', placeholder: 'Ana Lima' }), ''),
+        field('Apelido (como aparece no atendimento)', input({ 'data-u': 'nickname', placeholder: 'Ana' }), ''),
+        field('E-mail', input({ type: 'email', 'data-u': 'email', placeholder: 'ana@empresa.com.br' }), 'Recebe o convite para criar a senha.'),
+        field('Telefone (opcional)', input({ type: 'tel', 'data-u': 'phone', placeholder: '(47) 98888-7777' }), ''),
+        field('Perfil', h('div', {}, profile, segmented([['Agent', 'Atendente'], ['Admin', 'Administrador']], profile.value, (v) => { profile.value = v; }, 'Perfil')), '')),
+      profile);
+  };
+  const syncUsers = () => {
+    const n = Math.max(1, Math.min(100, Number(count.value) || 1));
+    const rows = [...usersBox.children];
+    for (let i = rows.length; i < n; i++) { const row = userRow(i); usersBox.append(row); enter(row, { y: 6 }); }
+    rows.slice(n).forEach((r) => r.remove());
+  };
+  count.oninput = syncUsers;
+  syncUsers();
+
+  const consent = h('input', { type: 'checkbox' });
+  const status = h('div');
+  const sendBtn = button('Enviar cadastro', async () => {
+    status.replaceChildren();
+    const users = [...usersBox.querySelectorAll('.signup-user')].map((row) => ({
+      ...Object.fromEntries([...row.querySelectorAll('[data-u]')].map((el) => [el.dataset.u, el.value.trim()])),
+      profile: row.querySelector('input[type=hidden]').value,
+    }));
+    const data = {
+      cnpj: f.cnpj.value, legalName: f.legalName.value, tradeName: f.tradeName.value, segment: f.segment.value,
+      companyPhone: f.companyPhone.value, site: f.site.value,
+      address: { cep: f.cep.value, street: f.street.value, number: f.number.value, complement: f.complement.value, district: f.district.value, city: f.city.value, uf: f.uf.value },
+      owner: { name: f.ownerName.value, email: f.ownerEmail.value, phone: f.ownerPhone.value },
+      users, notes: f.notes.value, consent: consent.checked, website: f.website.value,
+    };
+    sendBtn.disabled = true;
+    try {
+      await api('signup', { action: 'send', data });
+      setHeader('Cadastro recebido!', 'Sua conta está sendo criada.', false);
+      swap(view, h('div', { class: 'signup-done' },
+        h('span', { class: 'signup-done-icon', 'aria-hidden': 'true' }, svg('check')),
+        h('h2', {}, 'Recebemos seu cadastro'),
+        h('p', {}, `A equipe Frédy vai criar sua conta e enviar o acesso para ${data.owner.email}. Os usuários recebem um convite no e-mail de cada um.`),
+        h('p', { class: 'hint' }, 'Pode fechar esta página.')));
+      pop(view.querySelector('.signup-done-icon'));
+    } catch (err) {
+      status.replaceChildren(notice(err.message));
+      status.scrollIntoView({ behavior: reducedMotion.matches ? 'auto' : 'smooth', block: 'center' });
+    } finally {
+      sendBtn.disabled = false;
+    }
+  }, { variant: 'btn-primary', icon: 'arrow' });
+
+  view.append(
+    section('1', 'Empresa',
+      h('div', { class: 'form-grid' },
+        field('CNPJ', f.cnpj, 'Ex.: 12.345.678/0001-90'),
+        field('Razão social', f.legalName, 'Como está no cartão do CNPJ.'),
+        field('Nome fantasia', f.tradeName, 'Nome que os clientes conhecem.'),
+        field('Segmento', f.segment, 'Ex.: Clínica odontológica'),
+        field('Telefone da empresa', f.companyPhone, 'Opcional.'),
+        field('Site ou Instagram', f.site, 'Opcional.'))),
+    section('2', 'Endereço',
+      h('div', { class: 'form-grid' },
+        h('label', { class: 'field field-ex' }, h('span', { class: 'field-label' }, 'CEP'), f.cep, cepStatus),
+        field('Rua', f.street, ''),
+        field('Número', f.number, ''),
+        field('Complemento', f.complement, 'Opcional.'),
+        field('Bairro', f.district, ''),
+        field('Cidade', f.city, ''),
+        field('Estado (UF)', f.uf, 'Ex.: SC'))),
+    section('3', 'Responsável pela conta',
+      h('div', { class: 'form-grid' },
+        field('Nome', f.ownerName, ''),
+        field('E-mail', f.ownerEmail, 'Este será o seu login no portal.'),
+        field('WhatsApp', f.ownerPhone, 'Ex.: (47) 99999-0000'))),
+    section('4', 'Usuários da conta',
+      h('div', { class: 'form-stack' }, field('Quantos usuários vão usar o sistema?', count, 'Inclua você, se for atender.')),
+      usersBox),
+    section('5', 'Observações', f.notes),
+    h('label', { class: 'signup-trap', 'aria-hidden': 'true' }, 'Não preencha', f.website),
+    h('label', { class: 'check-toggle signup-consent' }, consent, 'Autorizo a Frédy a usar estes dados para criar e configurar minha conta.'),
+    status,
+    h('div', { class: 'toolbar' }, h('span', { class: 'spacer' }), sendBtn));
+}
+
+// ---------- Tela "Clientes" (equipe): cadastros e acessos ----------
+
+const SIGNUP_STATUS = [['novo', 'Novo'], ['em criação', 'Em criação'], ['concluído', 'Concluído'], ['arquivado', 'Arquivado']];
+
+async function renderClientsBlock(view) {
+  const body = h('div');
+  view.append(body);
+  await loadClients(body);
+}
+
+async function loadClients(body, tab = 'signups') {
+  swap(body, loading('Carregando clientes...'));
+  let data;
+  try {
+    data = await api('clients', { action: 'list' });
+  } catch (err) {
+    retry(body, err, () => loadClients(body, tab));
+    return;
+  }
+  if (!data.configured) {
+    swap(body, notice('O banco de dados ainda não foi ligado na Vercel. Sem ele, o portal e o cadastro não guardam nada.', 'warn'),
+      howTo('Como ligar (uma vez só)',
+        'Na Vercel, abra o projeto e vá em Storage → Create Database → Upstash (Redis) → plano Free.',
+        'Clique em Connect Project e escolha este projeto.',
+        'Vá em Deployments → ⋯ no último deploy → Redeploy.'));
+    return;
+  }
+  const origin = location.origin;
+  const links = h('div', { class: 'portal-links' },
+    h('div', {}, h('span', { class: 'field-label' }, 'Link do cadastro (cliente novo)'), h('code', {}, `${origin}/cadastro`), copyButton(`${origin}/cadastro`)),
+    h('div', {}, h('span', { class: 'field-label' }, 'Link do portal (quem já é cliente)'), h('code', {}, `${origin}/cliente`), copyButton(`${origin}/cliente`)));
+  const content = h('div');
+  const newCount = data.signups.filter((s) => s.status === 'novo').length;
+  const tabs = h('div', { class: 'tabs', role: 'tablist' },
+    ...[['signups', `Cadastros recebidos${newCount ? ` (${newCount} novo${newCount > 1 ? 's' : ''})` : ''}`], ['clients', `Clientes com acesso (${data.clients.length})`]].map(([id, text]) =>
+      h('button', { type: 'button', class: `tab${tab === id ? ' is-active' : ''}`, role: 'tab', 'aria-selected': String(tab === id), onclick: () => { tab = id; draw(); } }, text)));
+  const draw = () => {
+    tabs.querySelectorAll('.tab').forEach((t, i) => { const on = (i === 0 ? 'signups' : 'clients') === tab; t.classList.toggle('is-active', on); t.setAttribute('aria-selected', String(on)); });
+    swap(content, tab === 'signups' ? signupsView(data, body) : clientsView(data, body));
+  };
+  swap(body, links, tabs, content);
+  draw();
+}
+
+function signupText(s) {
+  const a = s.address;
+  return [
+    `Empresa: ${s.company.legalName}${s.company.tradeName ? ` (${s.company.tradeName})` : ''}`,
+    `CNPJ: ${s.company.cnpj.replace(/^(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})$/, '$1.$2.$3/$4-$5')}`,
+    s.company.segment ? `Segmento: ${s.company.segment}` : null,
+    s.company.phone ? `Telefone: ${s.company.phone}` : null,
+    s.company.site ? `Site: ${s.company.site}` : null,
+    `Endereço: ${a.street}, ${a.number}${a.complement ? ` - ${a.complement}` : ''} - ${a.district}, ${a.city}/${a.uf} - CEP ${a.cep}`,
+    `Responsável: ${s.owner.name} · ${s.owner.email} · ${s.owner.phone}`,
+    '',
+    `Usuários (${s.users.length}):`,
+    ...s.users.map((u, i) => `${i + 1}. ${u.name}${u.nickname ? ` (${u.nickname})` : ''} · ${u.email}${u.phone ? ` · ${u.phone}` : ''} · ${u.profile === 'Admin' ? 'Administrador' : 'Atendente'}`),
+    s.notes ? `\nObservações: ${s.notes}` : null,
+  ].filter((l) => l !== null).join('\n');
+}
+
+function signupsView(data, body) {
+  if (!data.signups.length) return notice('Nenhum cadastro ainda. Mande o link do cadastro para o cliente novo.', 'info');
+  const list = h('div', { class: 'list' }, ...data.signups.map((s) => {
+    const statusBadgeEl = badge(s.status === 'novo' ? 'warn' : s.status === 'concluído' ? 'ok' : '', SIGNUP_STATUS.find(([v]) => v === s.status)?.[1] ?? s.status);
+    const text = signupText(s);
+    return h('details', { class: 'compare-item' },
+      h('summary', { class: 'compare-row bot-row' },
+        h('div', { class: 'compare-name' },
+          h('span', { class: 'chevron', 'aria-hidden': 'true' }, svg('arrow')),
+          h('div', {},
+            h('div', { class: 'row-title' }, s.company.tradeName || s.company.legalName, ' ', statusBadgeEl),
+            h('div', { class: 'row-detail' }, `${s.owner.name} · ${s.users.length} usuário(s) · ${new Date(s.createdAt).toLocaleString('pt-BR')}`))),
+        h('span'), h('span')),
+      h('div', { class: 'compare-detail' },
+        h('pre', { class: 'detail-text' }, text),
+        h('div', { class: 'toolbar' },
+          button('Copiar dados', (e) => flashOnCopy(e.currentTarget, text), { variant: 'btn-small', icon: 'copy' }),
+          segmented(SIGNUP_STATUS, s.status, async (v) => {
+            try { await api('clients', { action: 'signupStatus', id: s.id, status: v }); s.status = v; statusBadgeEl.textContent = SIGNUP_STATUS.find(([x]) => x === v)[1]; } catch (err) { alert(err.message); }
+          }, 'Situação'),
+          h('span', { class: 'spacer' }),
+          button('Excluir', async () => { if (!confirm('Excluir este cadastro?')) return; await api('clients', { action: 'signupDelete', id: s.id }); loadClients(body, 'signups'); }, { variant: 'btn-ghost btn-small', icon: 'x' }),
+          button('Criar acesso ao portal', () => createAccessForm(body, { company: s.company.tradeName || s.company.legalName, email: s.owner.email, signupId: s.id }), { variant: 'btn-primary btn-small', icon: 'plus' })),
+        howTo('Como criar a conta deste cliente',
+          'Crie a conta da empresa no WTS com os dados acima (a API pública não cria contas).',
+          'Use "Configurar tudo" na página da equipe para copiar o padrão para a conta nova.',
+          'No WTS da conta nova, gere o token em Ajustes → Integrações → API.',
+          'Clique em "Criar acesso ao portal", cole o token e envie o login para o cliente.')));
+  }));
+  list.addEventListener('toggle', (e) => {
+    if (!e.target.matches?.('.compare-item') || !e.target.open) return;
+    for (const other of list.querySelectorAll('.compare-item[open]')) if (other !== e.target) other.open = false;
+  }, true);
+  return list;
+}
+
+function accessMessage(email, password) {
+  return `Seu acesso ao portal Frédy está pronto!\n\nEndereço: ${location.origin}/cliente\nE-mail: ${email}\nSenha: ${password}\n\nNo primeiro acesso, troque a senha em "Minha conta".`;
+}
+
+function credentialsBox(email, password) {
+  const msg = accessMessage(email, password);
+  return h('div', { class: 'credentials' },
+    notice('Acesso pronto. Copie a mensagem e mande para o cliente (a senha só aparece agora).', 'ok'),
+    h('pre', { class: 'detail-text' }, msg),
+    h('div', { class: 'toolbar' }, h('span', { class: 'spacer' }), button('Copiar mensagem', (e) => flashOnCopy(e.currentTarget, msg), { variant: 'btn-primary', icon: 'copy' })));
+}
+
+function createAccessForm(body, prefill = {}) {
+  const company = h('input', { type: 'text', value: prefill.company ?? '', placeholder: 'Clínica Exemplo' });
+  const email = h('input', { type: 'email', value: prefill.email ?? '', placeholder: 'maria@empresa.com.br' });
+  const token = h('input', { type: 'password', placeholder: 'pn_...', autocomplete: 'off', spellcheck: false });
+  const status = h('div');
+  const saveBtn = button('Criar acesso', async () => {
+    status.replaceChildren();
+    saveBtn.disabled = true;
+    try {
+      const r = await api('clients', { action: 'create', company: company.value, email: email.value, wtsToken: token.value, signupId: prefill.signupId });
+      swap(box, credentialsBox(r.client.email, r.password),
+        h('div', { class: 'toolbar' }, button('Voltar para a lista', () => loadClients(body, 'clients'), { icon: 'back' })));
+    } catch (err) {
+      status.replaceChildren(notice(err.message));
+    } finally {
+      saveBtn.disabled = false;
+    }
+  }, { variant: 'btn-primary', icon: 'check' });
+  const box = section('', 'Criar acesso ao portal',
+    h('div', { class: 'form-stack' },
+      field('Empresa', company, 'Nome que aparece no portal.'),
+      field('E-mail de login', email, 'O cliente entra com este e-mail.'),
+      field('Token da conta WTS do cliente', token, 'No WTS do cliente: Ajustes → Integrações → API. Fica guardado criptografado; o cliente não vê.')),
+    status,
+    h('div', { class: 'toolbar' }, button('Cancelar', () => loadClients(body, prefill.signupId ? 'signups' : 'clients'), { variant: 'btn-ghost' }), h('span', { class: 'spacer' }), saveBtn));
+  swap(body, box);
+  company.focus();
+}
+
+function clientsView(data, body) {
+  const addBtn = h('div', { class: 'toolbar' }, h('span', { class: 'spacer' }), button('Novo acesso', () => createAccessForm(body), { variant: 'btn-primary', icon: 'plus' }));
+  if (!data.clients.length) return h('div', {}, notice('Nenhum cliente com acesso ainda.', 'info'), addBtn);
+  const out = h('div');
+  const list = h('div', { class: 'list' }, ...data.clients.map((c) => {
+    const sw = h('button', { type: 'button', class: 'switch', role: 'switch', 'aria-checked': String(c.active), 'aria-label': `Acesso de ${c.company}` }, h('span', { class: 'switch-knob' }));
+    sw.onclick = async () => {
+      sw.disabled = true;
+      try {
+        const r = await api('clients', { action: 'update', id: c.id, changes: { active: !c.active } });
+        c.active = r.client.active;
+        sw.setAttribute('aria-checked', String(c.active));
+        row.classList.toggle('is-off', !c.active);
+      } catch (err) { alert(err.message); } finally { sw.disabled = false; }
+    };
+    const row = h('div', { class: `row rot-row${c.active ? '' : ' is-off'}` },
+      h('span', { class: 'row-dot ok' }, svg('user')),
+      h('div', {},
+        h('div', { class: 'row-title' }, c.company),
+        h('div', { class: 'row-detail' }, `${c.email} · ${c.lastLoginAt ? `último acesso ${new Date(c.lastLoginAt).toLocaleDateString('pt-BR')}` : 'ainda não entrou'} · ${c.guideDone.length} passo(s) concluído(s)`)),
+      h('div', { class: 'row-actions' },
+        button('Nova senha', async () => {
+          if (!confirm(`Gerar uma senha nova para ${c.email}? A atual deixa de funcionar.`)) return;
+          const r = await api('clients', { action: 'update', id: c.id, changes: { resetPassword: true } });
+          swap(out, credentialsBox(c.email, r.password));
+          out.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }, { variant: 'btn-small', icon: 'refresh' }),
+        button('Trocar token', async () => {
+          const t = prompt(`Novo token da conta WTS de ${c.company}:`);
+          if (!t) return;
+          try { await api('clients', { action: 'update', id: c.id, changes: { wtsToken: t } }); swap(out, notice('Token trocado.', 'ok')); } catch (err) { swap(out, notice(err.message)); }
+        }, { variant: 'btn-small' }),
+        button('Excluir', async () => {
+          if (!confirm(`Excluir o acesso de ${c.company}? O cliente não consegue mais entrar.`)) return;
+          await api('clients', { action: 'delete', id: c.id });
+          loadClients(body, 'clients');
+        }, { variant: 'btn-ghost btn-small', icon: 'x' }),
+        sw));
+    return row;
+  }));
+  return h('div', {}, addBtn, out, list);
 }
 
 // ---------- Usuários (formulário → mesmo fluxo de prévia) ----------
@@ -2917,7 +3402,10 @@ function init() {
     submit.disabled = true;
     $('login-error').textContent = '';
     try {
-      saveSession(await api('login', { password: $('password').value }));
+      const session = PORTAL === 'cliente'
+        ? await api('portal-login', { email: $('login-email').value, password: $('password').value })
+        : await api('login', { password: $('password').value });
+      saveSession(session);
       showGrid();
     } catch (err) {
       $('login-error').textContent = err.message;
@@ -2968,6 +3456,15 @@ function init() {
   });
 
   enter($('modal'), { y: 20, scale: 0.97, duration: 480, easing: SPRING });
+  if (PORTAL === 'cadastro') {
+    renderSignupPage();
+    return;
+  }
+  if (PORTAL === 'cliente') {
+    document.title = 'Portal do cliente · Frédy';
+    $('reopen').lastChild.textContent = ' Abrir portal';
+    $('search').placeholder = 'Procurar...';
+  }
   state.session = loadSession();
   if (state.session) showGrid();
   else showLogin();

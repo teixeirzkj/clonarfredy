@@ -32,7 +32,9 @@ createServer(async (req, res) => {
     return handler(req, res);
   }
 
-  const relative = normalize(pathname === '/' ? 'index.html' : pathname.slice(1));
+  // Mesmos rewrites do vercel.json (/cliente e /cadastro abrem a página principal).
+  const rewrite = (vercel.rewrites ?? []).find((r) => r.source === pathname);
+  const relative = normalize(rewrite ? rewrite.destination.slice(1) : pathname === '/' ? 'index.html' : pathname.slice(1));
   if (relative.startsWith('..')) return res.writeHead(400).end();
   try {
     const body = await readFile(join(root, 'public', relative));

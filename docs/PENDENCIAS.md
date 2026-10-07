@@ -3,6 +3,13 @@
 Lista única do que falta fazer, decidir ou mandar. Atualizada em 05/10/2026.
 Quando algo for resolvido, risque aqui (ou peça para o Claude atualizar).
 
+## 0. Portal do cliente (para funcionar na Vercel)
+
+- [ ] Ligar o banco: Vercel → projeto → **Storage → Create Database → Upstash (Redis)** → Free → **Connect Project** → Redeploy.
+- [ ] (Opcional) `SIGNUP_WEBHOOK_URL`: fluxo do n8n que avisa a equipe no WhatsApp quando chega cadastro novo.
+- [ ] Colocar os links dos vídeos em `templates/guia.json` (campo "video" de cada passo) ou mandar para o Claude colocar.
+- [ ] Testar com um cliente real: mandar o link `/cadastro`, criar a conta no WTS, criar o acesso em Clientes e mandar o login.
+
 ## 1. Segurança (fazer logo)
 
 - [ ] **Trocar o token da Belini** no WTS (Ajustes → Integrações → API) e desativar o antigo: apareceu inteiro em prints na conversa.
@@ -38,14 +45,12 @@ Quando algo for resolvido, risque aqui (ou peça para o Claude atualizar).
 - [ ] **Créditos na API da Anthropic** para o "Montar prompt" automático (hoje usa o botão "Copiar para o Claude.ai").
 - [ ] **Perguntas para o suporte do WTS**: criar conta/empresa pela API, gerar token, criar painel/etapa, campos, chatbots, sequências, modelos, ler conteúdo de chatbots/sequências, botões dos modelos, conectar WhatsApp, alterar horário, criar carteira. Lista completa em `docs/AUTOATENDIMENTO.md`.
 
-## 6. Decisões nossas (para começar a construir)
+## 6. Decisões nossas
 
-- [ ] **Acesso do cliente (perfil cliente × admin)**: como o cliente entra (link + senha por cliente?), quais telas vê (Rotativo, Importar contatos, Chatbots padrão, vídeos...). Precisa de banco de dados (dá para usar o da Vercel).
-- [ ] **Página de cadastro do cliente** (CNPJ, nome, apelido, e-mail, endereço): para onde vão os dados (n8n, e-mail ou planilha). A conta no WTS não é criada pela API; senha não é pedida no formulário.
+- [ ] Vários logins por empresa no portal (hoje: um e-mail por empresa; dá para criar outro acesso com o mesmo token).
 
 ## 7. Próximas funcionalidades (ideias já combinadas)
 
-- [ ] Perfis cliente/admin (ver item 6).
 - [ ] Fluxo de **aniversário** como fluxo padrão.
 - [ ] **Painel completo da Marité** montado com um clique (já existe o modelo; falta mandar).
 - [ ] Mais automações e fluxos do dia a dia como padrão.
@@ -57,4 +62,4 @@ Configurar tudo em passo a passo · Fluxos do n8n (agente + tools, mover card,
 rotativo) · Rotativo sem planilha (lista no fluxo, liga/desliga pela página) ·
 Montar prompt (Claude.ai) · Conferências com conteúdo completo e copiar ·
 Arquivar cards · Importar contatos · Usuários com equipes · Chatbots padrão ·
-Horário de atendimento.
+Horário de atendimento · Portal do cliente (/cliente) e cadastro (/cadastro) com tela Clientes para a equipe.

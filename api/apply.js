@@ -6,7 +6,11 @@ import { HttpError, route } from '../lib/http.js';
 // passar do timeout da função.
 const MAX_KEYS_PER_CALL = 10;
 
-export default route(async ({ body }) => {
+// Portal do cliente: só etiquetas, equipes e usuários (webhooks são da equipe).
+const CLIENT_BLOCKS = ['tags', 'departments', 'agents'];
+
+export default route(async ({ body, session }) => {
+  if (session.role === 'client' && !CLIENT_BLOCKS.includes(body.block)) throw new HttpError(403, 'Sem permissão para esta função');
   const block = getBlock(body.block);
   const keys = Array.isArray(body.keys) ? body.keys.filter((k) => typeof k === 'string') : [];
   if (!keys.length) throw new HttpError(400, 'Nenhum item selecionado');
@@ -34,4 +38,4 @@ export default route(async ({ body }) => {
     }
   }
   return { results };
-});
+}, { roles: ['admin', 'client'] });

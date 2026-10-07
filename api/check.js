@@ -6,4 +6,4 @@ import { route } from '../lib/http.js';
 export default route(async ({ body }) => {
   const accounts = await openAccounts(body.clientToken);
   return runCheck(body.check, accounts);
-});
+}, { roles: ['admin', 'client'] });

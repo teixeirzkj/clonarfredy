@@ -3,6 +3,16 @@
 Página aberta pelo menu personalizado do WTS para implantar a conta de um cliente
 copiando o padrão da **conta modelo**, só com a API pública do WTS.
 
+## Três páginas
+
+| Endereço | Quem usa | O que faz |
+|---|---|---|
+| `/` | Equipe Frédy (senha `APP_PASSWORD`) | Tudo, inclusive Fluxos do n8n, Montar prompt e a tela **Clientes** |
+| `/cadastro` | Cliente novo (sem login) | Envia CNPJ, empresa, endereço (CEP preenche), responsável e usuários; a equipe recebe em **Clientes** (e no `SIGNUP_WEBHOOK_URL`, se houver) |
+| `/cliente` | Cliente que já tem acesso (e-mail + senha) | Passo a passo com vídeos (`templates/guia.json`), Rotativo, consultas, conferências, chatbots padrão, importar contatos, arquivar cards, etiquetas/equipes/usuários. Sem n8n, prompt e webhooks |
+
+No portal o token do WTS nunca aparece: fica guardado criptografado (AES-256-GCM) e o servidor usa o da conta do cliente logado. As rotas são só da equipe por padrão; as liberadas para o cliente declaram `roles: ['admin', 'client']`.
+
 ## O que a página faz
 
 | Área | O que faz |
@@ -48,6 +58,9 @@ própria tela). Veja `templates/n8n/LEIA-ME.md`. O prompt padrão da IA fica em
 | `ANTHROPIC_API_KEY` | Montar prompt da IA |
 | `WEBHOOK_MODEL_SLUG` | Opcional: trecho da conta modelo no fim das URLs dos webhooks (padrão `embarque22palmitos`), trocado pelo identificador do cliente |
 | `N8N_BASE_URL`, `N8N_API_KEY` | Opcional: botão "Criar no n8n" |
+| `KV_REST_API_URL`, `KV_REST_API_TOKEN` | Banco do portal (Vercel → Storage → Upstash Redis). Sem ele, o portal e o cadastro não funcionam na Vercel |
+| `DATA_SECRET` | Opcional: chave para criptografar os tokens dos clientes (sem ela, usa o `SESSION_SECRET`; trocar qualquer uma invalida os tokens guardados) |
+| `SIGNUP_WEBHOOK_URL` | Opcional: recebe cada cadastro novo (ex.: fluxo do n8n que avisa a equipe no WhatsApp) |
 | `N8N_WEBHOOK_BASE` | Opcional: base das URLs de webhook mostradas (padrão `https://webhooks.tedyleads.com.br/webhook/`) |
 
 ## Rodar localmente

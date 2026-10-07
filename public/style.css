@@ -171,7 +171,7 @@ svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width:
 .field { display: flex; flex-direction: column; gap: 6px; font-size: 13px; font-weight: 700; color: var(--navy-900); }
 .field-hint { font-weight: 500; color: var(--faint); font-size: 12px; }
 
-input[type="text"], input[type="url"], input[type="email"], input[type="tel"], input[type="password"], input[type="search"], select, textarea {
+input[type="text"], input[type="url"], input[type="number"], input[type="email"], input[type="tel"], input[type="password"], input[type="search"], select, textarea {
   width: 100%;
   min-height: 44px;
   padding: 10px 12px;
@@ -1177,3 +1177,55 @@ details.advanced .field { margin-top: 10px; max-width: 420px; }
 .tag-pick { display: grid; gap: 10px; }
 .tag-create { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
 .tag-create input { flex: 0 1 280px; min-height: 36px; }
+
+/* ---------- Portal do cliente ---------- */
+.guide-head { display: grid; gap: 8px; margin-bottom: 14px; }
+.guide-head strong { font-size: 14px; color: var(--navy-900); }
+.guide-head .progress { margin: 0; height: 8px; }
+.guide { display: grid; gap: 10px; }
+.guide-step { border: 1px solid var(--line); border-radius: 16px; background: var(--surface); overflow: hidden; transition: border-color 0.2s; }
+.guide-step[open] { border-color: var(--blue-200); box-shadow: 0 10px 30px -22px rgba(16, 52, 120, 0.5); }
+.guide-step > summary { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 14px; padding: 14px 16px; cursor: pointer; list-style: none; }
+.guide-step > summary::-webkit-details-marker { display: none; }
+.guide-step > summary:focus-visible { outline: none; box-shadow: var(--ring) inset; }
+.guide-step[open] .chevron { transform: rotate(90deg); }
+.guide-num { display: inline-flex; align-items: center; justify-content: center; width: 32px; height: 32px; border-radius: 50%; background: var(--blue-50); color: var(--blue-700); font-weight: 800; }
+.guide-step.is-done .guide-num { background: var(--ok); color: #fff; }
+.guide-title { display: grid; gap: 2px; font-weight: 800; color: var(--navy-900); }
+.guide-desc { font-size: 13px; font-weight: 500; color: var(--muted); }
+.guide-step.is-done .guide-title { color: var(--muted); }
+.guide-body { display: grid; gap: 12px; padding: 0 16px 16px 62px; }
+.guide-video { position: relative; aspect-ratio: 16 / 9; border-radius: 12px; overflow: hidden; background: var(--navy-900); }
+.guide-video iframe { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; }
+.guide-novideo { display: inline-flex; align-items: center; gap: 6px; }
+.guide-novideo svg { width: 14px; height: 14px; fill: none; stroke: currentColor; stroke-width: 2; }
+.guide-tips { margin: 0; padding-left: 18px; color: var(--muted); font-size: 13.5px; line-height: 1.6; }
+.guide-body .toolbar { margin: 0; }
+.guide-done { display: inline-flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 700; color: var(--muted); cursor: pointer; }
+.guide-check { display: inline-flex; align-items: center; justify-content: center; width: 30px; height: 30px; border: 2px solid var(--line-strong); border-radius: 9px; background: var(--surface); color: transparent; cursor: pointer; transition: background-color 0.2s, border-color 0.2s, color 0.2s; }
+.guide-check svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 3; }
+.guide-check[aria-pressed="true"] { background: var(--ok); border-color: var(--ok); color: #fff; }
+.guide-check:focus-visible { outline: none; box-shadow: var(--ring); }
+
+/* Cadastro */
+.signup-users { display: grid; gap: 12px; margin-top: 14px; }
+.signup-user { padding: 14px; border: 1px solid var(--line); border-radius: 14px; background: var(--surface-2); }
+.signup-user-head { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; color: var(--navy-900); }
+.signup-trap { position: absolute; left: -9999px; width: 1px; height: 1px; overflow: hidden; }
+.signup-consent { margin: 16px 0 6px; font-size: 13.5px; }
+.signup-done { display: grid; justify-items: center; gap: 10px; padding: 30px 10px; text-align: center; }
+.signup-done h2 { margin: 6px 0 0; color: var(--navy-900); }
+.signup-done p { max-width: 460px; margin: 0; color: var(--muted); }
+.signup-done-icon { display: inline-flex; align-items: center; justify-content: center; width: 64px; height: 64px; border-radius: 50%; background: var(--ok-soft); color: var(--ok); }
+.signup-done-icon svg { width: 32px; height: 32px; fill: none; stroke: currentColor; stroke-width: 2.6; }
+
+/* Clientes (equipe) */
+.portal-links { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 10px; margin-bottom: 14px; }
+.portal-links > div { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 12px 14px; border: 1px solid var(--line); border-radius: 14px; background: var(--surface-2); }
+.portal-links .field-label { flex-basis: 100%; }
+.portal-links code { font-size: 13px; color: var(--blue-700); overflow-wrap: anywhere; }
+.credentials { display: grid; gap: 10px; }
+@media (max-width: 767px) {
+  .guide-body { padding: 0 14px 14px; }
+  .guide-step > summary { gap: 10px; padding: 12px; }
+}

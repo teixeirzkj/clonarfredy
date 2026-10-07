@@ -6,4 +6,4 @@ import { resolveModelSlug } from '../lib/slug.js';
 export default route(async () => ({
   modelSlug: resolveModelSlug(''),
   n8nConfigured: n8nConfigured(),
-}));
+}), { roles: ['admin', 'client'] });

@@ -13,4 +13,4 @@ export default route(async ({ body }) => {
     default:
       throw new HttpError(400, 'Ação desconhecida');
   }
-});
+}, { roles: ['admin', 'client'] });

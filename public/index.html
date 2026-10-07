@@ -45,8 +45,12 @@
 
         <!-- Login -->
         <form class="view login" id="view-login" hidden>
+          <label class="field" id="email-field" hidden>
+            <span>E-mail</span>
+            <input type="email" id="login-email" autocomplete="username">
+          </label>
           <label class="field">
-            <span>Senha de acesso</span>
+            <span id="password-label">Senha de acesso</span>
             <input type="password" id="password" autocomplete="current-password" required>
           </label>
           <p class="form-error" id="login-error" role="alert"></p>
