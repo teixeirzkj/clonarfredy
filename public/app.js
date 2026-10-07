@@ -410,7 +410,7 @@ function showView(name) {
 
 function showLogin(message = '') {
   const client = PORTAL === 'cliente';
-  setHeader(client ? 'Portal do cliente' : 'Entrar', client ? 'Entre com o e-mail e a senha que a equipe Frédy enviou' : 'Acesso restrito à equipe Frédy', false);
+  setHeader(client ? 'Portal do cliente' : 'Entrar', client ? 'Entre com o e-mail e a senha que você criou no cadastro' : 'Acesso restrito à equipe Frédy', false);
   showView('login');
   $('email-field').hidden = !client;
   $('login-email').required = client;
