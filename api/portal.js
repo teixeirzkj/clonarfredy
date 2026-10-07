@@ -4,7 +4,8 @@ import { authenticate, changePassword, createClient, deleteClient, listClients, 
 import { readGuide } from '../lib/guide.js';
 import { authorize, clientIp, HttpError, route } from '../lib/http.js';
 import { n8nConfigured } from '../lib/n8n.js';
-import { createSignup, deleteSignup, listSignups, lookupCep, retryProvision, setSignupStatus, signupPasswordHash } from '../lib/signups.js';
+import { planNames } from '../lib/plans.js';
+import { createSignup, deleteSignup, listSignups, lookupCep, retryProvision, setSignupPlan, setSignupStatus, signupPasswordHash } from '../lib/signups.js';
 import { autoCreateEnabled } from '../lib/provision.js';
 import { resolveModelSlug } from '../lib/slug.js';
 import { storeConfigured } from '../lib/store.js';
@@ -12,16 +13,16 @@ import { storeConfigured } from '../lib/store.js';
 // Uma função só para o portal, o cadastro, a tela Clientes, os chatbots padrão e a
 // configuração da tela (o plano Hobby da Vercel aceita no máximo 12 funções).
 // Cada ação diz quem pode usar:
-//   aberta: login do portal, CEP e envio do cadastro
+//   aberta: login do portal, CEP, planos (nomes) e envio do cadastro
 //   equipe ou cliente: config, chatbots, me, guide, guideDone, changePassword
-//   só equipe: clients (op: list, provision, create, update, delete, signupStatus, signupDelete)
+//   só equipe: clients (op: list, provision, create, update, delete, signupStatus, signupPlan, signupDelete)
 const BOTH = ['admin', 'client'];
 
 async function clientsOp(body) {
   switch (body.op) {
     case 'list':
       if (!storeConfigured()) return { configured: false, clients: [], signups: [] };
-      return { configured: true, autoCreate: autoCreateEnabled(), clients: await listClients(), signups: await listSignups() };
+      return { configured: true, autoCreate: autoCreateEnabled(), plans: await planNames(), clients: await listClients(), signups: await listSignups() };
     case 'provision':
       return { signup: await retryProvision(body.id, { force: body.force !== false }) };
     case 'create': {
@@ -38,6 +39,8 @@ async function clientsOp(body) {
       return { ok: true };
     case 'signupStatus':
       return { signup: await setSignupStatus(body.id, body.status) };
+    case 'signupPlan':
+      return { signup: await setSignupPlan(body.id, body.plan) };
     case 'signupDelete':
       await deleteSignup(body.id);
       return { ok: true };
@@ -55,6 +58,8 @@ export default route(async ({ req, body }) => {
     }
     case 'cep':
       return lookupCep(body.cep);
+    case 'plans':
+      return planNames();
     case 'signup':
       return createSignup(body.data, clientIp(req));
     default:

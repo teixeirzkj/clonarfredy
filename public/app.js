@@ -1864,6 +1864,13 @@ function renderSignupPage() {
   $('reopen').lastChild.textContent = ' Abrir cadastro';
   const view = $('view-block');
   view.replaceChildren();
+  // Plano pelo link (/cadastro?plano=...): vai junto no envio e aparece no topo.
+  const planId = new URLSearchParams(location.search).get('plano') || '';
+  const planLine = h('p', { class: 'hint signup-plan' });
+  api('portal', { action: 'plans' }).then((r) => {
+    const plan = r.planos.find((p) => p.id === (planId || r.padrao));
+    if (plan && r.planos.length > 1) planLine.textContent = `Plano: ${plan.nome}`;
+  }).catch(() => {});
 
   const input = (attrs = {}) => h('input', { type: 'text', ...attrs });
   const f = {
@@ -1950,7 +1957,7 @@ function renderSignupPage() {
       companyPhone: f.companyPhone.value, site: f.site.value,
       address: { cep: f.cep.value, street: f.street.value, number: f.number.value, complement: f.complement.value, district: f.district.value, city: f.city.value, uf: f.uf.value },
       owner: { name: f.ownerName.value, email: f.ownerEmail.value, phone: f.ownerPhone.value },
-      users, notes: f.notes.value, consent: consent.checked, website: f.website.value,
+      users, notes: f.notes.value, consent: consent.checked, website: f.website.value, plan: planId,
     };
     if (f.password.value !== f.password2.value) {
       status.replaceChildren(notice('As duas senhas não são iguais.'));
@@ -2008,6 +2015,7 @@ function renderSignupPage() {
   }, { variant: 'btn-primary', icon: 'arrow' });
 
   view.append(
+    planLine,
     section('1', 'Empresa',
       h('div', { class: 'form-grid' },
         field('CNPJ', f.cnpj, 'Ex.: 12.345.678/0001-90'),
@@ -2071,8 +2079,11 @@ async function loadClients(body, tab = 'signups') {
     return;
   }
   const origin = location.origin;
+  const plans = data.plans?.planos ?? [];
+  const signupLink = (p) => `${origin}/cadastro${p.id === data.plans.padrao ? '' : `?plano=${encodeURIComponent(p.id)}`}`;
   const links = h('div', { class: 'portal-links' },
-    h('div', {}, h('span', { class: 'field-label' }, 'Link do cadastro (cliente novo)'), h('code', {}, `${origin}/cadastro`), copyButton(`${origin}/cadastro`)),
+    ...(plans.length ? plans.map((p) => h('div', {}, h('span', { class: 'field-label' }, `Link do cadastro: plano ${p.nome}`), h('code', {}, signupLink(p)), copyButton(signupLink(p))))
+      : [h('div', {}, h('span', { class: 'field-label' }, 'Link do cadastro (cliente novo)'), h('code', {}, `${origin}/cadastro`), copyButton(`${origin}/cadastro`))]),
     h('div', {}, h('span', { class: 'field-label' }, 'Link do portal (quem já é cliente)'), h('code', {}, `${origin}/cliente`), copyButton(`${origin}/cliente`)));
   const content = h('div');
   const newCount = data.signups.filter((s) => s.status === 'novo').length;
@@ -2091,9 +2102,10 @@ async function loadClients(body, tab = 'signups') {
   draw();
 }
 
-function signupText(s) {
+function signupText(s, plans = []) {
   const a = s.address;
   return [
+    s.plan ? `Plano: ${plans.find((p) => p.id === s.plan)?.nome ?? s.plan}` : null,
     `Empresa: ${s.company.legalName}${s.company.tradeName ? ` (${s.company.tradeName})` : ''}`,
     `CNPJ: ${s.company.cnpj.replace(/^(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})$/, '$1.$2.$3/$4-$5')}`,
     s.company.segment ? `Segmento: ${s.company.segment}` : null,
@@ -2155,7 +2167,13 @@ function signupsView(data, body) {
   if (!data.signups.length) return notice('Nenhum cadastro ainda. Mande o link do cadastro para o cliente novo.', 'info');
   const list = h('div', { class: 'list' }, ...data.signups.map((s) => {
     const statusBadgeEl = badge(s.status === 'novo' ? 'warn' : s.status === 'concluído' ? 'ok' : '', SIGNUP_STATUS.find(([v]) => v === s.status)?.[1] ?? s.status);
-    const text = signupText(s);
+    const plans = data.plans?.planos ?? [];
+    const text = signupText(s, plans);
+    // Plano: dá para trocar até a conta ser criada.
+    const planPicker = plans.length > 1 && !s.provision?.companyId ? h('div', { class: 'toolbar' }, h('span', { class: 'field-label' }, 'Plano da conta'),
+      segmented(plans.map((p) => [p.id, p.nome]), s.plan ?? data.plans.padrao, async (v) => {
+        try { await api('portal', { action: 'clients', op: 'signupPlan', id: s.id, plan: v }); s.plan = v; } catch (err) { alert(err.message); loadClients(body, 'signups'); }
+      }, 'Plano da conta')) : null;
     return h('details', { class: 'compare-item' },
       h('summary', { class: 'compare-row bot-row' },
         h('div', { class: 'compare-name' },
@@ -2165,6 +2183,7 @@ function signupsView(data, body) {
             h('div', { class: 'row-detail' }, `${s.owner.name} · ${s.users.length} usuário(s) · ${new Date(s.createdAt).toLocaleString('pt-BR')}`))),
         h('span'), h('span')),
       h('div', { class: 'compare-detail' },
+        planPicker,
         provisionBox(s, body),
         h('pre', { class: 'detail-text' }, text),
         h('div', { class: 'toolbar' },

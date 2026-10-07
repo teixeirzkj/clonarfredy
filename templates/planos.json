@@ -1,0 +1,45 @@
+{
+  "_leia": "Planos das contas criadas pelo cadastro. Cada plano tem um link: /cadastro?plano=<id> (sem ?plano usa o 'padrao'). A equipe pode trocar o plano na tela Clientes antes de criar. A Helena exige apps e limites (config). Painéis, chatbots, automações de chatbot, sequências e agentes de IA: 0 a 10, ou 999 = ilimitado. agents = usuários (se o cliente cadastrar mais, usa a quantidade dele). Apps: AI_AGENT (Agentes Inteligentes), CAMPAIGN (Campanhas), CALLING (Chamada de voz), SESSION_REASON (Classificação de atendimento), SESSION_DISTRIBUTION (Distribuição de atendimentos), SCHEDULED_MESSAGE (Mensagens agendadas), SEQUENCE (Sequências), TRANSCRIPTION (Transcrição de áudio), PAYMENT (Asaas), CONTACT_PORTFOLIO (Carteirização de contatos), DIALOG (Chat interno), PANEL (CRM), GROUP (Grupos), CSAT (Pesquisa CSAT), MESSAGE_DELAY (Tempo de segurança), WEBHOOK. Recursos: CUSTOM_FIELDS (Campos personalizados), WEBHOOK_API (Webhook+API), UNOFFICIAL_CHANNELS_ENABLED (Canal não oficial), INSTA_MESSENGER_CHANNELS.",
+  "padrao": "padrao",
+  "copiarPadrao": ["tags", "departments"],
+  "planos": [
+    {
+      "id": "padrao",
+      "nome": "Padrão",
+      "status": "ONBOARDING",
+      "apps": ["AI_AGENT", "CAMPAIGN", "SESSION_REASON", "SESSION_DISTRIBUTION", "SCHEDULED_MESSAGE", "SEQUENCE", "TRANSCRIPTION", "CONTACT_PORTFOLIO", "DIALOG", "PANEL", "MESSAGE_DELAY"],
+      "resourcers": ["CUSTOM_FIELDS", "WEBHOOK_API"],
+      "config": {
+        "agents": 3,
+        "chatBots": 999,
+        "chatbotAutomations": 999,
+        "panels": 999,
+        "sequences": 999,
+        "aiAgents": 999,
+        "whatsAppChannels": 1,
+        "instagramChannels": 1,
+        "messengerChannels": 1,
+        "webchatChannels": 0
+      }
+    },
+    {
+      "id": "teste",
+      "nome": "Teste (tudo liberado)",
+      "status": "ONBOARDING",
+      "apps": ["AI_AGENT", "CAMPAIGN", "CALLING", "SESSION_REASON", "SESSION_DISTRIBUTION", "SCHEDULED_MESSAGE", "SEQUENCE", "TRANSCRIPTION", "PAYMENT", "CONTACT_PORTFOLIO", "DIALOG", "PANEL", "GROUP", "CSAT", "MESSAGE_DELAY", "WEBHOOK"],
+      "resourcers": ["CUSTOM_FIELDS", "WEBHOOK_API", "UNOFFICIAL_CHANNELS_ENABLED", "INSTA_MESSENGER_CHANNELS"],
+      "config": {
+        "agents": 10,
+        "chatBots": 999,
+        "chatbotAutomations": 999,
+        "panels": 999,
+        "sequences": 999,
+        "aiAgents": 999,
+        "whatsAppChannels": 1,
+        "instagramChannels": 1,
+        "messengerChannels": 1,
+        "webchatChannels": 1
+      }
+    }
+  ]
+}

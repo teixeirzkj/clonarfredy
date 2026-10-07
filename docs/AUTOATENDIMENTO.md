@@ -36,6 +36,8 @@ Conferido na documentação pública da API do WTS (109 endpoints, out/2026).
 
 Criar a conta da empresa e gerar o token dela: `POST /v1/company` e `POST /v1/company/{id}/tokens` com o Token de Parceiro (helena.readme.io → Contas). Já está ligado ao `/cadastro`.
 
+**Resolvido (07/out/2026):** o erro 500 `ERROR_UNEXPECTED` no `POST /v1/company` era falta de `apps` e `config` (limites de usuários e canais). O suporte confirmou; os planos ficam em `templates/planos.json`.
+
 ## Não dá pela API pública (perguntar ao suporte do WTS)
 
 | O que queremos | Situação na API pública | Pergunta para o suporte |

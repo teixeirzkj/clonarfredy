@@ -6,7 +6,9 @@ Quando algo for resolvido, risque aqui (ou peça para o Claude atualizar).
 ## 0. Portal do cliente (para funcionar na Vercel)
 
 - [ ] Ligar o banco no **Supabase**: rodar `docs/supabase.sql` no SQL Editor; criar na Vercel `SUPABASE_URL` e `SUPABASE_SERVICE_ROLE_KEY` (Project Settings → API) e dar Redeploy.
-- [ ] Criação automática da conta: criar `HELENA_PARTNER_TOKEN` na Vercel (Token de Parceiro: Admin → Personalizar → Integração) + Redeploy, e preencher os limites do plano em `templates/plano-padrao.json`.
+- [x] Criação automática da conta: `HELENA_PARTNER_TOKEN` na Vercel. A Helena exige apps e limites: planos em `templates/planos.json` (Padrão = print da equipe; Teste = tudo liberado).
+- [ ] Trocar o Token de Parceiro: o suporte da Helena colou o token na conversa (07/out/2026). Gerar outro em Admin → Personalizar → Integração e atualizar `HELENA_PARTNER_TOKEN` na Vercel.
+- [ ] Criar os outros planos de venda em `templates/planos.json` (cada um ganha seu link de cadastro).
 - [ ] Testar o cadastro com um CNPJ real de teste e conferir a conta criada (status ONBOARDING) no painel de parceiro.
 - [ ] (Opcional) `SIGNUP_WEBHOOK_URL`: fluxo do n8n que avisa a equipe no WhatsApp quando chega cadastro novo.
 - [ ] Colocar os links dos vídeos em `templates/guia.json` (campo "video" de cada passo) ou mandar para o Claude colocar.
