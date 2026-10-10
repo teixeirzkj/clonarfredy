@@ -1,15 +1,17 @@
 # Pendências do Setup da Conta (Frédy)
 
-Lista única do que falta fazer, decidir ou mandar. Atualizada em 05/10/2026.
+Lista única do que falta fazer, decidir ou mandar. Atualizada em 10/10/2026.
 Quando algo for resolvido, risque aqui (ou peça para o Claude atualizar).
 
 ## 0. Portal do cliente (para funcionar na Vercel)
 
-- [ ] Ligar o banco no **Supabase**: rodar `docs/supabase.sql` no SQL Editor; criar na Vercel `SUPABASE_URL` e `SUPABASE_SERVICE_ROLE_KEY` (Project Settings → API) e dar Redeploy.
+- [x] Banco no **Supabase** ligado (portal e cadastro gravando em produção).
+- [x] Cadastro preenche razão social, nome fantasia, CNAE, telefone e endereço pelo CNPJ (Receita). Feito em 10/10, falta publicar.
 - [x] Criação automática da conta: `HELENA_PARTNER_TOKEN` na Vercel. A Helena exige apps e limites: planos em `templates/planos.json` (Padrão = print da equipe; Teste = tudo liberado).
 - [ ] Trocar o Token de Parceiro: o suporte da Helena colou o token na conversa (07/out/2026). Gerar outro em Admin → Personalizar → Integração e atualizar `HELENA_PARTNER_TOKEN` na Vercel.
 - [ ] Criar os outros planos de venda em `templates/planos.json` (cada um ganha seu link de cadastro).
-- [ ] Testar o cadastro com um CNPJ real de teste e conferir a conta criada (status ONBOARDING) no painel de parceiro.
+- [ ] Testar o cadastro com um CNPJ da Frédy (ou autorizado) pelo link do plano Teste e conferir a conta criada (status ONBOARDING) no painel de parceiro. Atenção: a conta é criada de verdade na Helena.
+- [ ] Cadastro "Seu Mobile": clicar "Tentar de novo" em Clientes (a conta já existe, criada pelo suporte) e conferir o acesso ao portal; depois arquivar ou excluir, porque o CNPJ é de uma loja real.
 - [ ] (Opcional) `SIGNUP_WEBHOOK_URL`: fluxo do n8n que avisa a equipe no WhatsApp quando chega cadastro novo.
 - [ ] Colocar os links dos vídeos em `templates/guia.json` (campo "video" de cada passo) ou mandar para o Claude colocar.
 - [ ] Testar com um cliente real: mandar o link `/cadastro`, criar a conta no WTS, criar o acesso em Clientes e mandar o login.
@@ -30,7 +32,10 @@ Quando algo for resolvido, risque aqui (ou peça para o Claude atualizar).
 
 - [ ] Fluxo **"Alteração em painel"** (.json do n8n) para virar fluxo padrão.
 - [ ] Fluxo de **arquivar cards** que vocês usam hoje (.json): conferir se filtra por data de criação ou de atualização e como arquiva.
-- [ ] **JSON de cada chatbot padrão** da conta modelo (e link de vídeo, se tiver) para a tela "Chatbots padrão" (pasta `templates/chatbots`).
+- [x] Chatbots padrão recebidos (10/10): Pergunta IA (atendimento); Resposta IA, Follow up 1, 2 e 3 dias, Checkin e Feedback (automação). Faltam só os vídeos (`<nome>.video.txt`).
+- [ ] Checkin e Feedback têm textos da Berg Viagens (nome, Instagram, link de avaliação no Google). A tela avisa para trocar; ver se vale deixar um texto neutro na versão padrão.
+- [ ] Chatbot "Pergunta IA": a condição de entrada é "última mensagem = #teste-157" (parece sobra de teste). Confirmar se é isso mesmo ou mandar a versão de produção.
+- [ ] Follow-ups: os modelos "FollowUp Orçamento Após 1/2/3 dias" e as sequências "Follow 48 horas", "Follow 72 horas" e "Follow 7 dias" precisam existir na conta do cliente. Ver se entram no passo a passo.
 - [ ] Outros modelos de mensagem com **botões fixos** (além de checkin e feedback): nome do modelo + botões.
 - [ ] **Links dos vídeos** explicativos e em qual tela cada um entra.
 
@@ -46,12 +51,13 @@ Quando algo for resolvido, risque aqui (ou peça para o Claude atualizar).
 
 ## 5. Esperando algo de fora
 
-- [ ] **Créditos na API da Anthropic** para o "Montar prompt" automático (hoje usa o botão "Copiar para o Claude.ai").
+- [ ] **Chave e créditos na API da Anthropic** para o "Montar prompt" automático: criar a chave em console.anthropic.com, colocar `ANTHROPIC_API_KEY` na Vercel + Redeploy (hoje usa o botão "Copiar para o Claude.ai").
 - [ ] **Perguntas para o suporte do WTS**: criar conta/empresa pela API, gerar token, criar painel/etapa, campos, chatbots, sequências, modelos, ler conteúdo de chatbots/sequências, botões dos modelos, conectar WhatsApp, alterar horário, criar carteira. Lista completa em `docs/AUTOATENDIMENTO.md`.
 
 ## 6. Decisões nossas
 
 - [ ] Vários logins por empresa no portal (hoje: um e-mail por empresa; dá para criar outro acesso com o mesmo token).
+- [ ] Botão "Redefinir senha" na tela Clientes (gera senha nova para o acesso do cliente). Oferecido, não construído.
 
 ## 7. Próximas funcionalidades (ideias já combinadas)
 
@@ -66,4 +72,5 @@ Configurar tudo em passo a passo · Fluxos do n8n (agente + tools, mover card,
 rotativo) · Rotativo sem planilha (lista no fluxo, liga/desliga pela página) ·
 Montar prompt (Claude.ai) · Conferências com conteúdo completo e copiar ·
 Arquivar cards · Importar contatos · Usuários com equipes · Chatbots padrão ·
-Horário de atendimento · Portal do cliente (/cliente) e cadastro (/cadastro) com tela Clientes para a equipe.
+Horário de atendimento · Portal do cliente (/cliente) e cadastro (/cadastro) com tela Clientes para a equipe ·
+Criação automática da conta na Helena com planos (Padrão e Teste, um link por plano) · Cadastro preenchido pelo CNPJ.

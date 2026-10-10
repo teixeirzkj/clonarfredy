@@ -58,7 +58,7 @@ const SECTIONS = [
     blocks: [
       { id: 'n8n', kind: 'n8n', icon: 'flow', title: 'Fluxos do n8n', desc: 'Gera os fluxos padrão já com painel, etapas, bot key e campos do cliente.' },
       { id: 'prompt', kind: 'prompt', icon: 'sparkle', title: 'Montar prompt da IA', desc: 'Adapta o prompt padrão com as respostas do cliente.' },
-      { id: 'chatbotsPadrao', kind: 'chatbots', icon: 'bot', title: 'Chatbots padrão', desc: 'JSON dos chatbots padrão para copiar e colar no WTS.' },
+      { id: 'chatbotsPadrao', kind: 'chatbots', icon: 'bot', title: 'Chatbots padrão', desc: 'Chatbots prontos para copiar e colar no WTS.' },
     ],
   },
   {
@@ -1686,7 +1686,7 @@ async function loadContactsImport(body) {
 
 async function renderChatbotsBlock(view) {
   const body = h('div');
-  view.append(h('p', { class: 'panel-desc' }, 'A API do WTS não cria chatbots. Copie o JSON do chatbot padrão e cole no chatbot da conta do cliente.'), body);
+  view.append(h('p', { class: 'panel-desc' }, 'A API do WTS não cria chatbots. Copie o chatbot padrão e cole no editor de chatbot da conta do cliente.'), body);
   swap(body, loading('Carregando chatbots padrão...'));
   let chatbots;
   try {
@@ -1706,22 +1706,26 @@ async function renderChatbotsBlock(view) {
         h('div', { class: 'compare-name' },
           h('span', { class: 'chevron', 'aria-hidden': 'true' }, svg('arrow')),
           h('div', {},
-            h('div', { class: 'row-title' }, bot.name),
-            h('div', { class: 'row-detail' }, bot.valid ? `${Math.max(1, Math.round(bot.size / 1024))} KB` : 'JSON com erro: confira o arquivo'))),
+            h('div', { class: 'row-title' }, bot.name, ' ', badge(bot.kind === 'automacao' ? 'warn' : '', bot.kindLabel)),
+            h('div', { class: 'row-detail' }, bot.valid ? `${Math.max(1, Math.round(bot.size / 1024))} KB` : 'Arquivo com erro: confira o conteúdo'))),
         h('span'),
         h('span')),
       h('div', { class: 'compare-detail' },
         h('div', { class: 'toolbar' },
           bot.video ? h('a', { class: 'btn btn-small', href: bot.video, target: '_blank', rel: 'noopener' }, svg('play'), h('span', {}, 'Ver vídeo')) : null,
           h('span', { class: 'spacer' }),
-          button('Baixar', () => download(bot.id, bot.content, 'application/json'), { variant: 'btn-small', icon: 'download' }),
-          button('Copiar JSON', (e) => flashOnCopy(e.currentTarget, bot.content), { variant: 'btn-primary btn-small', icon: 'copy' })),
-        h('pre', { class: 'detail-text' }, bot.content),
+          button('Baixar', () => download(bot.id.split('/').pop().replace(/\.json$/, '.txt'), bot.content, 'text/plain'), { variant: 'btn-small', icon: 'download' }),
+          button('Copiar chatbot', (e) => flashOnCopy(e.currentTarget, bot.content), { variant: 'btn-primary btn-small', icon: 'copy' })),
+        // O que vem com ID da conta de origem e precisa ser escolhido de novo depois de colar.
+        bot.checks.length ? h('div', { class: 'list bot-checks' },
+          h('div', { class: 'list-title' }, 'Depois de colar, confira'),
+          ...bot.checks.map((c) => h('div', { class: 'row' }, h('span', { class: 'row-dot warn' }, svg('minus')), h('div', { class: 'row-detail' }, c), h('span')))) : null,
         howTo('Como colar no WTS',
-          'Clique em "Copiar JSON".',
-          'No WTS do cliente, abra Chatbots e crie (ou abra) o chatbot.',
-          'Use a opção de importar/colar JSON do editor e cole (Ctrl+V).',
-          'Confira equipes, etiquetas e campos usados no chatbot: os nomes vêm da conta modelo.')))));
+          'Clique em "Copiar chatbot".',
+          `No WTS do cliente, abra Chatbots → ${bot.kindLabel} e crie um chatbot novo (ou abra um vazio).`,
+          'Clique numa área vazia do editor e cole (Ctrl+V). Os grupos aparecem no quadro.',
+          'Ajuste os itens da lista "Depois de colar, confira" e salve.'),
+        h('details', { class: 'advanced' }, h('summary', {}, 'Ver o conteúdo'), h('pre', { class: 'detail-text' }, bot.content))))));
   list.addEventListener('toggle', (e) => {
     if (!e.target.matches?.('.compare-item') || !e.target.open) return;
     for (const other of list.querySelectorAll('.compare-item[open]')) if (other !== e.target) other.open = false;
@@ -1878,6 +1882,7 @@ function renderSignupPage() {
     legalName: input({ placeholder: 'Empresa Exemplo LTDA' }),
     tradeName: input({ placeholder: 'Empresa Exemplo' }),
     segment: input({ placeholder: 'Clínica, loja, agência de viagens...' }),
+    cnae: input({ placeholder: 'Preenchido pelo CNPJ' }),
     companyPhone: input({ type: 'tel', placeholder: '(47) 3333-0000' }),
     site: input({ placeholder: 'www.empresa.com.br' }),
     cep: input({ inputMode: 'numeric', placeholder: '00000-000', maxLength: 9 }),
@@ -1895,10 +1900,41 @@ function renderSignupPage() {
     notes: h('textarea', { rows: 3, placeholder: 'Algo que a equipe precise saber (opcional)' }),
     website: input({ tabIndex: -1, autocomplete: 'off', 'aria-hidden': 'true' }), // armadilha para robôs
   };
-  // Máscaras simples.
-  f.cnpj.oninput = () => {
+  // CNPJ completo: busca na Receita e preenche o que estiver vazio (ou o que ela mesma
+  // preencheu antes, se o CNPJ mudar). O que o cliente digitou não é apagado.
+  const cnpjStatus = h('span', { class: 'field-example' }, 'Preenche os dados da empresa sozinho.');
+  const autoFilled = new Map();
+  const fill = (el, value) => {
+    if (!value || (el.value.trim() && autoFilled.get(el) !== el.value)) return;
+    el.value = value;
+    autoFilled.set(el, value);
+  };
+  let cnpjAsked = '';
+  f.cnpj.oninput = async () => {
     const d = f.cnpj.value.replace(/\D/g, '').slice(0, 14);
     f.cnpj.value = d.replace(/^(\d{2})(\d)/, '$1.$2').replace(/^(\d{2})\.(\d{3})(\d)/, '$1.$2.$3').replace(/\.(\d{3})(\d)/, '.$1/$2').replace(/(\d{4})(\d)/, '$1-$2');
+    if (d.length !== 14 || d === cnpjAsked) return;
+    cnpjAsked = d;
+    cnpjStatus.textContent = 'Buscando na Receita...';
+    try {
+      const r = await api('portal', { action: 'cnpj', cnpj: d });
+      if (cnpjAsked !== d) return; // o CNPJ mudou enquanto buscava
+      const a = r.address ?? {};
+      fill(f.legalName, r.legalName);
+      fill(f.tradeName, r.tradeName);
+      fill(f.cnae, r.cnae ? `${r.cnae.code} - ${r.cnae.desc}` : '');
+      fill(f.companyPhone, r.phone);
+      fill(f.cep, a.cep ? `${a.cep.slice(0, 5)}-${a.cep.slice(5)}` : '');
+      fill(f.street, a.street);
+      fill(f.number, a.number);
+      fill(f.complement, a.complement);
+      fill(f.district, a.district);
+      fill(f.city, a.city);
+      fill(f.uf, a.uf);
+      cnpjStatus.textContent = r.active ? 'Dados da Receita preenchidos. Confira e ajuste se precisar.' : `Atenção: este CNPJ está com situação "${r.situation}" na Receita.`;
+    } catch (err) {
+      if (cnpjAsked === d) cnpjStatus.textContent = err.message;
+    }
   };
   const cepStatus = h('span', { class: 'field-example' }, 'Preenche o endereço sozinho.');
   f.cep.oninput = async () => {
@@ -1953,7 +1989,7 @@ function renderSignupPage() {
       profile: row.querySelector('input[type=hidden]').value,
     }));
     const data = {
-      cnpj: f.cnpj.value, legalName: f.legalName.value, tradeName: f.tradeName.value, segment: f.segment.value,
+      cnpj: f.cnpj.value, legalName: f.legalName.value, tradeName: f.tradeName.value, segment: f.segment.value, cnae: f.cnae.value,
       companyPhone: f.companyPhone.value, site: f.site.value,
       address: { cep: f.cep.value, street: f.street.value, number: f.number.value, complement: f.complement.value, district: f.district.value, city: f.city.value, uf: f.uf.value },
       owner: { name: f.ownerName.value, email: f.ownerEmail.value, phone: f.ownerPhone.value },
@@ -2018,10 +2054,11 @@ function renderSignupPage() {
     planLine,
     section('1', 'Empresa',
       h('div', { class: 'form-grid' },
-        field('CNPJ', f.cnpj, 'Ex.: 12.345.678/0001-90'),
+        h('label', { class: 'field field-ex' }, h('span', { class: 'field-label' }, 'CNPJ'), f.cnpj, cnpjStatus),
         field('Razão social', f.legalName, 'Como está no cartão do CNPJ.'),
         field('Nome fantasia', f.tradeName, 'Nome que os clientes conhecem.'),
         field('Segmento', f.segment, 'Ex.: Clínica odontológica'),
+        field('Atividade principal (CNAE)', f.cnae, 'Vem da Receita.'),
         field('Telefone da empresa', f.companyPhone, 'Opcional.'),
         field('Site ou Instagram', f.site, 'Opcional.'))),
     section('2', 'Endereço',
@@ -2109,6 +2146,7 @@ function signupText(s, plans = []) {
     `Empresa: ${s.company.legalName}${s.company.tradeName ? ` (${s.company.tradeName})` : ''}`,
     `CNPJ: ${s.company.cnpj.replace(/^(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})$/, '$1.$2.$3/$4-$5')}`,
     s.company.segment ? `Segmento: ${s.company.segment}` : null,
+    s.company.cnae ? `CNAE: ${s.company.cnae}` : null,
     s.company.phone ? `Telefone: ${s.company.phone}` : null,
     s.company.site ? `Site: ${s.company.site}` : null,
     `Endereço: ${a.street}, ${a.number}${a.complement ? ` - ${a.complement}` : ''} - ${a.district}, ${a.city}/${a.uf} - CEP ${a.cep}`,

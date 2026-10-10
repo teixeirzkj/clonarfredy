@@ -5,7 +5,7 @@ import { readGuide } from '../lib/guide.js';
 import { authorize, clientIp, HttpError, route } from '../lib/http.js';
 import { n8nConfigured } from '../lib/n8n.js';
 import { planNames } from '../lib/plans.js';
-import { createSignup, deleteSignup, listSignups, lookupCep, retryProvision, setSignupPlan, setSignupStatus, signupPasswordHash } from '../lib/signups.js';
+import { createSignup, deleteSignup, listSignups, lookupCep, lookupCnpj, retryProvision, setSignupPlan, setSignupStatus, signupPasswordHash } from '../lib/signups.js';
 import { autoCreateEnabled } from '../lib/provision.js';
 import { resolveModelSlug } from '../lib/slug.js';
 import { storeConfigured } from '../lib/store.js';
@@ -13,7 +13,7 @@ import { storeConfigured } from '../lib/store.js';
 // Uma função só para o portal, o cadastro, a tela Clientes, os chatbots padrão e a
 // configuração da tela (o plano Hobby da Vercel aceita no máximo 12 funções).
 // Cada ação diz quem pode usar:
-//   aberta: login do portal, CEP, planos (nomes) e envio do cadastro
+//   aberta: login do portal, CEP, CNPJ (Receita), planos (nomes) e envio do cadastro
 //   equipe ou cliente: config, chatbots, me, guide, guideDone, changePassword
 //   só equipe: clients (op: list, provision, create, update, delete, signupStatus, signupPlan, signupDelete)
 const BOTH = ['admin', 'client'];
@@ -58,6 +58,8 @@ export default route(async ({ req, body }) => {
     }
     case 'cep':
       return lookupCep(body.cep);
+    case 'cnpj':
+      return lookupCnpj(body.cnpj, clientIp(req));
     case 'plans':
       return planNames();
     case 'signup':
