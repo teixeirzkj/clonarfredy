@@ -9,7 +9,7 @@ export default route(async ({ body }) => {
     case 'get':
       return readRotativo(wts);
     case 'save':
-      return saveRotativo(wts, body.list);
+      return saveRotativo(wts, body.list, body.transbordo);
     default:
       throw new HttpError(400, 'Ação desconhecida');
   }

@@ -3045,7 +3045,9 @@ async function loadRotativo(body) {
 
   const people = data.users;
   const status = h('div');
-  // Uma gravação por vez; cada mudança grava a lista inteira.
+  // Transbordo: sem ninguém assumir em X horas, a conversa vai para a próxima pessoa.
+  const tb = data.transbordo ?? { on: false, hours: 3 };
+  // Uma gravação por vez; cada mudança grava a lista inteira (e o transbordo, quando o fluxo tem).
   let queue = Promise.resolve();
   const save = (kind, person) => {
     status.replaceChildren();
@@ -3059,18 +3061,55 @@ async function loadRotativo(body) {
       return;
     }
     const list = rotativoList(people);
+    const payload = { action: 'save', clientToken: clientToken(), list, ...(data.transbordoSupported && { transbordo: { on: tb.on, hours: tb.hours } }) };
     queue = queue.then(async () => {
       try {
-        await api('rotativo', { action: 'save', clientToken: clientToken(), list });
-        status.replaceChildren(notice(kind === 'ligar' ? `${person.name} ${person.on ? 'ligado' : 'desligado'} no rodízio.` : 'Rodízio atualizado.', 'ok'));
+        await api('rotativo', payload);
+        status.replaceChildren(notice(kind === 'ligar' ? `${person.name} ${person.on ? 'ligado' : 'desligado'} no rodízio.`
+          : kind === 'transbordo' ? (tb.on ? `Transbordo ligado: troca de atendente após ${String(tb.hours).replace('.', ',')} h sem ninguém assumir.` : 'Transbordo desligado.')
+            : 'Rodízio atualizado.', 'ok'));
       } catch (err) {
         status.replaceChildren(notice(err.message));
         if (person) { person.on = !person.on; editor.render(); } // volta como estava
+        if (kind === 'transbordo') { tb.on = !tb.on; paintTb(); }
       }
     });
   };
   const editor = rotativoEditor(people, { teamNames: data.teamNames, onChange: save });
-  swap(body, people.length ? editor.el : notice('Nenhum usuário na conta.', 'info'), status);
+
+  const hoursInput = h('input', { type: 'number', class: 'rot-hours', min: 0.5, max: 168, step: 0.5, value: tb.hours, inputMode: 'decimal', 'aria-label': 'Horas sem ninguém assumir' });
+  const tbSwitch = h('button', { type: 'button', class: 'switch', role: 'switch', 'aria-label': 'Transbordo' }, h('span', { class: 'switch-knob' }));
+  const tbBadge = badge('', '');
+  const tbRow = h('div', { class: 'map-row rot-row rot-transbordo' },
+    tbSwitch,
+    h('div', { class: 'rot-name' },
+      h('div', { class: 'row-title' }, 'Trocar de atendente quando ninguém assumir'),
+      h('div', { class: 'row-detail' }, 'Se a conversa ficar ', hoursInput, ' horas sem ninguém assumir, vai para a próxima pessoa ligada (na equipe dela) e o "nome atendente" é trocado. Repete até alguém assumir. Só troca dentro do horário de atendimento.')));
+  const paintTb = () => {
+    tbSwitch.setAttribute('aria-checked', String(tb.on));
+    hoursInput.disabled = !tb.on;
+    tbRow.classList.toggle('is-off', !tb.on);
+    tbBadge.textContent = tb.on ? 'Ligado' : 'Desligado';
+    tbBadge.className = `badge ${tb.on ? 'ok' : ''}`;
+  };
+  const saveTb = () => {
+    const hours = Number(hoursInput.value);
+    if (!(hours >= 0.5 && hours <= 168)) {
+      hoursInput.value = tb.hours; // volta para o último valor válido
+      status.replaceChildren(notice('Transbordo: informe de 0,5 a 168 horas.', 'warn'));
+      return;
+    }
+    tb.hours = hours;
+    save('transbordo');
+  };
+  tbSwitch.onclick = () => { tb.on = !tb.on; paintTb(); saveTb(); };
+  hoursInput.onchange = saveTb;
+  paintTb();
+  const transbordo = data.transbordoSupported
+    ? h('div', { class: 'list' }, h('div', { class: 'list-title' }, 'Transbordo', tbBadge), tbRow)
+    : notice('Este fluxo Rotativo é de uma versão anterior, sem transbordo. Para ter transbordo, gere o fluxo Rotativo de novo em Fluxos do n8n e importe no lugar do atual (a lista atual entra no fluxo novo).', 'info');
+
+  swap(body, people.length ? editor.el : notice('Nenhum usuário na conta.', 'info'), transbordo, status);
   stagger(body.querySelectorAll('.rot-row'), { step: 25, y: 6 });
 }
 

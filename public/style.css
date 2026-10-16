@@ -1232,3 +1232,6 @@ details.advanced .field { margin-top: 10px; max-width: 420px; }
 .signup-next { display: grid; justify-items: center; gap: 6px; max-width: 480px; margin-top: 14px; padding: 14px 16px; border: 1px solid var(--line); border-radius: 14px; background: var(--surface-2); }
 .signup-next p { font-size: 13.5px; }
 .provision-debug { margin: 0; padding: 0 16px 12px; }
+.map-row.rot-transbordo { grid-template-columns: auto minmax(0, 1fr); gap: 14px; align-items: start; }
+.rot-transbordo .row-detail { line-height: 2; }
+.rot-name .rot-hours { display: inline-block; width: 76px; min-height: 30px; padding: 3px 8px; margin: 0 4px; font-size: 13px; }

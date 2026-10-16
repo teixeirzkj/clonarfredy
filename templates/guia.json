@@ -137,7 +137,8 @@
       "title": "Rotativo de atendentes",
       "desc": "Escolha quem recebe os atendimentos novos e em que ordem.",
       "tips": [
-        "O rotativo é ativado pela equipe Frédy; depois você liga e desliga as pessoas aqui."
+        "O rotativo é ativado pela equipe Frédy; depois você liga e desliga as pessoas aqui.",
+        "Transbordo: se ninguém assumir a conversa em X horas, ela passa para a próxima pessoa da lista. Ligue e escolha as horas aqui."
       ],
       "video": "",
       "blocks": [

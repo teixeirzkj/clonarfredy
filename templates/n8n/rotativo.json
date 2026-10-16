@@ -103,7 +103,7 @@
     },
     {
       "parameters": {
-        "jsCode": "// Usado pela tela Rotativo do Setup da Conta para ler e gravar a lista.\n// Só responde com a chave certa (gerada para esta conta).\nconst CHAVE = \"__ROTATIVO_CHAVE__\";\nconst INICIAL = [\"__ORDEM_ROTATIVO__\"];\n\nconst body = $('Webhook config').first().json.body || {};\nif (body.chave !== CHAVE) return [{ json: { ok: false, erro: 'chave inválida' } }];\n\nconst memoria = $getWorkflowStaticData('global');\nif (!Array.isArray(memoria.lista)) memoria.lista = INICIAL;\nif (body.acao === 'salvar' && Array.isArray(body.lista)) {\n  memoria.lista = body.lista\n    .filter((p) => p && typeof p.id === 'string')\n    .map((p) => ({ id: p.id, nome: String(p.nome || '').slice(0, 100), ligado: Boolean(p.ligado) }));\n}\nreturn [{ json: { ok: true, lista: memoria.lista, ultimo: memoria.ultimo || null } }];\n"
+        "jsCode": "// Usado pela tela Rotativo do Setup da Conta para ler e gravar a lista.\n// Só responde com a chave certa (gerada para esta conta).\nconst CHAVE = \"__ROTATIVO_CHAVE__\";\nconst INICIAL = [\"__ORDEM_ROTATIVO__\"];\n\nconst body = $('Webhook config').first().json.body || {};\nif (body.chave !== CHAVE) return [{ json: { ok: false, erro: 'chave inválida' } }];\n\nconst memoria = $getWorkflowStaticData('global');\nif (!Array.isArray(memoria.lista)) memoria.lista = INICIAL;\nif (body.acao === 'salvar' && Array.isArray(body.lista)) {\n  memoria.lista = body.lista\n    .filter((p) => p && typeof p.id === 'string')\n    .map((p) => ({ id: p.id, nome: String(p.nome || '').slice(0, 100), ligado: Boolean(p.ligado) }));\n}\n// Transbordo: { ligado, horas } (a tela só manda quando o fluxo tem transbordo).\nif (body.acao === 'salvar' && body.transbordo && typeof body.transbordo === 'object') {\n  const h = Number(body.transbordo.horas);\n  memoria.transbordo = { ligado: Boolean(body.transbordo.ligado), horas: h > 0 ? Math.min(h, 168) : 3 };\n}\nreturn [{ json: { ok: true, lista: memoria.lista, ultimo: memoria.ultimo || null, transbordo: memoria.transbordo || { ligado: false, horas: 3 } } }];\n"
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
@@ -128,6 +128,324 @@
       ],
       "id": "a1b2c3d4-0007-4000-8000-000000000007",
       "name": "Responder config"
+    },
+    {
+      "parameters": {
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "accept",
+              "value": "application/json"
+            }
+          ]
+        },
+        "options": {},
+        "method": "PUT",
+        "url": "=https://api.wts.chat/chat/v2/session/{{ $node[\"Webhook1\"].json[\"body\"][\"sessionId\"] }}/partial",
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/*+json",
+        "body": "={ \"fields\": [\"Metadata\"], \"metadata\": { \"rotativoUserId\": \"{{ $('Escolher atendente da vez').first().json.userId }}\", \"rotativoEm\": \"{{ $now.toISO() }}\", \"rotativoRodadas\": \"0\" } }"
+      },
+      "id": "ca5605ab-40f5-497d-ac67-19caea391a25",
+      "name": "Marcar conversa no rotativo",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1312,
+        384
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "credModeloWts01",
+          "name": "Embarque 22 Palmitos [Frédy]"
+        }
+      },
+      "onError": "continueRegularOutput",
+      "notes": "Anota na conversa quem recebeu e quando, para o transbordo. Se falhar, o rotativo segue normal."
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "minutes",
+              "minutesInterval": 15
+            }
+          ]
+        }
+      },
+      "id": "d209a58a-8ab3-49ac-839c-5e65f8f9bde1",
+      "name": "A cada 15 minutos",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        368,
+        900
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Transbordo do rotativo: ligar/desligar e as horas vêm da tela Rotativo do Setup da Conta.\nconst memoria = $getWorkflowStaticData('global');\nconst t = memoria.transbordo || {};\nif (!t.ligado) return [];\nreturn [{ json: { horas: Number(t.horas) > 0 ? Number(t.horas) : 3 } }];\n"
+      },
+      "id": "f17462cc-bdcb-4c8d-8f44-18209082620c",
+      "name": "Transbordo ligado?",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        592,
+        900
+      ]
+    },
+    {
+      "parameters": {
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "accept",
+              "value": "application/json"
+            }
+          ]
+        },
+        "options": {},
+        "method": "GET",
+        "url": "https://api.wts.chat/core/v1/company/officehours"
+      },
+      "id": "5b91fc5f-f3ed-47a9-bd60-d56d6ca08d4d",
+      "name": "Horário de atendimento",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        832,
+        900
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "credModeloWts01",
+          "name": "Embarque 22 Palmitos [Frédy]"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "accept",
+              "value": "application/json"
+            }
+          ]
+        },
+        "options": {},
+        "method": "GET",
+        "url": "https://api.wts.chat/chat/v2/session",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "Status",
+              "value": "PENDING"
+            },
+            {
+              "name": "Status",
+              "value": "STARTED"
+            },
+            {
+              "name": "PageSize",
+              "value": "100"
+            }
+          ]
+        }
+      },
+      "id": "6ba3615e-cec2-4ba8-a617-795a624dcc11",
+      "name": "Conversas aguardando",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1072,
+        900
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "credModeloWts01",
+          "name": "Embarque 22 Palmitos [Frédy]"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "accept",
+              "value": "application/json"
+            }
+          ]
+        },
+        "options": {
+          "response": {
+            "response": {
+              "fullResponse": true
+            }
+          }
+        },
+        "method": "GET",
+        "url": "https://api.wts.chat/core/v2/department"
+      },
+      "id": "d386d95f-3a8f-4a50-a14b-2666a3d26fa3",
+      "name": "Equipes",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1312,
+        900
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "credModeloWts01",
+          "name": "Embarque 22 Palmitos [Frédy]"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Transbordo: conversas que o rotativo distribuiu, ninguém assumiu e já passaram\n// as horas configuradas → vão para a próxima pessoa ligada da lista (na equipe\n// com o nome dela, como o chatbot faz). Só roda dentro do horário de atendimento.\nconst memoria = $getWorkflowStaticData('global');\nconst horas = $('Transbordo ligado?').first().json.horas;\nconst fila = (Array.isArray(memoria.lista) ? memoria.lista : []).filter((p) => p.ligado && p.nome);\nif (fila.length < 2) return [];\n\n// Horário de atendimento da conta (dias como MONDAY..SUNDAY ou 0..6, 0 = domingo).\nconst oh = $('Horário de atendimento').first().json || {};\nif (oh.limitHours && Array.isArray(oh.days) && oh.days.length) {\n  let diff = Number.isFinite(Number(oh.timezoneDiff)) ? Number(oh.timezoneDiff) : -3;\n  if (Math.abs(diff) > 14) diff = diff / 60; // veio em minutos\n  const local = new Date(Date.now() + diff * 3600000);\n  const NOMES = ['SUNDAY', 'MONDAY', 'TUESDAY', 'WEDNESDAY', 'THURSDAY', 'FRIDAY', 'SATURDAY'];\n  const d = local.getUTCDay();\n  const dia = oh.days.find((x) => { const k = String(x.dayWeek ?? '').toUpperCase(); return k === NOMES[d] || k === String(d); });\n  const hm = local.toISOString().slice(11, 16);\n  const aberto = !dia || (dia.active !== false && (dia.periods || []).some((p) => String(p.startTime).slice(0, 5) <= hm && hm < String(p.endTime).slice(0, 5)));\n  if (!aberto) return [];\n}\n\nconst agora = Date.now();\nconst sessoes = $('Conversas aguardando').first().json.items || [];\nconst equipes = $('Equipes').first().json.body || [];\nconst norm = (s) => String(s || '').normalize('NFD').replace(/[\\u0300-\\u036f]/g, '').trim().replace(/\\s+/g, ' ').toLowerCase();\nconst equipePorNome = new Map(equipes.map((e) => [norm(e.name), e.id]));\nconst ids = fila.map((p) => p.id);\nconst out = [];\nfor (const s of sessoes) {\n  const m = s.metadata || {};\n  if (!m.rotativoEm || s.userId) continue; // não veio do rotativo, ou alguém já assumiu\n  const em = Date.parse(m.rotativoEm);\n  if (!em || agora - em < horas * 3600000) continue;\n  const proximo = fila[(ids.indexOf(m.rotativoUserId) + 1) % fila.length];\n  if (!proximo || proximo.id === m.rotativoUserId) continue;\n  out.push({ json: {\n    sessionId: s.id, contactId: s.contactId, userId: proximo.id, nome: proximo.nome,\n    equipeId: equipePorNome.get(norm(proximo.nome)) || null,\n    rodadas: (Number(m.rotativoRodadas) || 0) + 1, em: new Date(agora).toISOString(),\n  } });\n}\nreturn out;\n"
+      },
+      "id": "aec2f1cb-f392-4a08-8f1a-939b00894b0e",
+      "name": "Quem transborda",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1552,
+        900
+      ]
+    },
+    {
+      "parameters": {
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "accept",
+              "value": "application/json"
+            }
+          ]
+        },
+        "options": {
+          "batching": {
+            "batch": {
+              "batchSize": 1,
+              "batchInterval": 500
+            }
+          }
+        },
+        "method": "PUT",
+        "url": "=https://api.wts.chat/core/v1/contact/{{ $json.contactId }}",
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/*+json",
+        "body": "={ \"fields\": [\"CustomFields\"], \"customFields\": { \"nomeatendente\": \"{{ $json.nome }}\" } }"
+      },
+      "id": "1ae1025f-671c-4d56-a0f2-683f26b7e242",
+      "name": "Trocar nome atendente",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1792,
+        900
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "credModeloWts01",
+          "name": "Embarque 22 Palmitos [Frédy]"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "accept",
+              "value": "application/json"
+            }
+          ]
+        },
+        "options": {},
+        "method": "PUT",
+        "url": "=https://api.wts.chat/chat/v1/session/{{ $('Quem transborda').item.json.sessionId }}/transfer",
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/*+json",
+        "body": "={{ JSON.stringify($('Quem transborda').item.json.equipeId ? { type: \"DEPARTMENT\", newDepartmentId: $('Quem transborda').item.json.equipeId } : { type: \"USER\", newUserId: $('Quem transborda').item.json.userId }) }}"
+      },
+      "id": "bb254c4e-0c10-42cc-80f7-337a1b0dd404",
+      "name": "Transferir conversa",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2032,
+        900
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "credModeloWts01",
+          "name": "Embarque 22 Palmitos [Frédy]"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "accept",
+              "value": "application/json"
+            }
+          ]
+        },
+        "options": {},
+        "method": "PUT",
+        "url": "=https://api.wts.chat/chat/v2/session/{{ $('Quem transborda').item.json.sessionId }}/partial",
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/*+json",
+        "body": "={ \"fields\": [\"Metadata\"], \"metadata\": { \"rotativoUserId\": \"{{ $('Quem transborda').item.json.userId }}\", \"rotativoEm\": \"{{ $('Quem transborda').item.json.em }}\", \"rotativoRodadas\": \"{{ $('Quem transborda').item.json.rodadas }}\" } }"
+      },
+      "id": "253b79d9-2c1b-40af-8b5a-c1c3382a9040",
+      "name": "Anotar rodada",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2272,
+        900
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "credModeloWts01",
+          "name": "Embarque 22 Palmitos [Frédy]"
+        }
+      }
     }
   ],
   "pinData": {},
@@ -181,6 +499,105 @@
         [
           {
             "node": "Responder config",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Respond to Webhook1": {
+      "main": [
+        [
+          {
+            "node": "Marcar conversa no rotativo",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "A cada 15 minutos": {
+      "main": [
+        [
+          {
+            "node": "Transbordo ligado?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Transbordo ligado?": {
+      "main": [
+        [
+          {
+            "node": "Horário de atendimento",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Horário de atendimento": {
+      "main": [
+        [
+          {
+            "node": "Conversas aguardando",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Conversas aguardando": {
+      "main": [
+        [
+          {
+            "node": "Equipes",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Equipes": {
+      "main": [
+        [
+          {
+            "node": "Quem transborda",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Quem transborda": {
+      "main": [
+        [
+          {
+            "node": "Trocar nome atendente",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Trocar nome atendente": {
+      "main": [
+        [
+          {
+            "node": "Transferir conversa",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Transferir conversa": {
+      "main": [
+        [
+          {
+            "node": "Anotar rodada",
             "type": "main",
             "index": 0
           }
