@@ -2944,6 +2944,18 @@ function rotativoEditor(people, { teamNames = [], onChange = () => {} } = {}) {
           onchange: () => { if (p.label.trim()) onChange('nome'); },
         });
         nameInput.setAttribute('list', listId);
+        // Peso: atendimentos por rodada (2 = o dobro de quem tem 1).
+        const weightInput = h('input', {
+          type: 'number', class: 'rot-weight', min: 1, max: 10, step: 1, value: p.weight ?? 1, disabled: !p.on, inputMode: 'numeric',
+          'aria-label': `Atendimentos por rodada de ${p.name}`,
+          onchange: (e) => {
+            const w = Math.round(Number(e.target.value));
+            if (!(w >= 1 && w <= 10)) { e.target.value = p.weight ?? 1; return; } // volta para o válido
+            p.weight = w;
+            e.target.value = w;
+            onChange('peso', p);
+          },
+        });
         const sw = h('button', { type: 'button', class: 'switch', role: 'switch', 'aria-checked': String(p.on), 'aria-label': `Rodízio: ${p.name}` }, h('span', { class: 'switch-knob' }));
         sw.onclick = () => {
           p.on = !p.on;
@@ -2955,7 +2967,7 @@ function rotativoEditor(people, { teamNames = [], onChange = () => {} } = {}) {
           sw,
           h('div', { class: 'rot-name' },
             h('div', { class: 'row-title' }, p.on ? `${on.indexOf(p) + 1}. ${p.name}` : `${p.name} (desligado)`),
-            nameInput),
+            h('div', { class: 'rot-fields' }, nameInput, h('label', { class: 'rot-weight-label' }, 'Recebe ', weightInput, ' por rodada'))),
           h('div', { class: 'row-actions' },
             button('↑', () => move(i - 1), { variant: 'btn-small', disabled: i === 0, 'aria-label': `Subir ${p.name}` }),
             button('↓', () => move(i + 1), { variant: 'btn-small', disabled: i === people.length - 1, 'aria-label': `Descer ${p.name}` })));
@@ -2966,7 +2978,8 @@ function rotativoEditor(people, { teamNames = [], onChange = () => {} } = {}) {
   return { el: h('div', {}, list, datalist), list, render };
 }
 
-const rotativoList = (people) => people.map((p) => ({ userId: p.userId, name: p.label.trim(), on: p.on }));
+const rotativoList = (people) => people.map((p) => ({ userId: p.userId, name: p.label.trim(), on: p.on, weight: p.weight ?? 1 }));
+const ROTATIVO_HINT = 'Ligue quem recebe atendimentos, use as setas para a ordem e confira o nome que vai no "nome atendente" (o mesmo que o chatbot usa). "Recebe 2 por rodada" dá o dobro de atendimentos de quem recebe 1, intercalado.';
 
 // Rotativo ao gerar o fluxo: a lista vai dentro do fluxo e depois é mudada pela tela Rotativo.
 function rotativoSection(scan) {
@@ -2987,7 +3000,7 @@ function rotativoSection(scan) {
   });
 
   const el = section('', 'Quem entra no rodízio',
-    h('p', { class: 'hint' }, 'Ligue quem recebe atendimentos, use as setas para a ordem e confira o nome que vai no "nome atendente" (o mesmo que o chatbot usa). Ex.: Rafael'),
+    h('p', { class: 'hint' }, ROTATIVO_HINT),
     scan.rotativoConnected ? notice('Este cliente já tem um rotativo ativo: esta é a lista atual dele.', 'info') : null,
     people.length ? editor.el : notice('Nenhum usuário na conta do cliente.', 'warn'),
     empty);
@@ -3004,7 +3017,7 @@ function rotativoSection(scan) {
 // Tela Rotativo: liga, desliga, ordena e renomeia. Grava na hora no fluxo do n8n.
 async function renderRotativoBlock(view) {
   const body = h('div');
-  view.append(h('p', { class: 'panel-desc' }, 'Ligue ou desligue quem recebe atendimentos no rodízio. Vale na hora, sem mexer no n8n.'), body);
+  view.append(h('p', { class: 'panel-desc' }, 'Ligue ou desligue quem recebe atendimentos no rodízio, a ordem e quantos cada um recebe por rodada. Vale na hora, sem mexer no n8n.'), body);
   // Carrega quando o token for colado ou trocado (enquanto a tela estiver aberta).
   const tokenInput = $('client-token');
   let timer = null;
@@ -3045,8 +3058,12 @@ async function loadRotativo(body) {
 
   const people = data.users;
   const status = h('div');
-  // Transbordo: sem ninguém assumir em X horas, a conversa vai para a próxima pessoa.
-  const tb = data.transbordo ?? { on: false, hours: 3 };
+  // Transbordo: sem ninguém assumir em X minutos, a conversa vai para a próxima pessoa.
+  const tb = data.transbordo ?? { on: false, minutes: 180 };
+  // Na tela, em minutos ou horas (o que ficar mais redondo).
+  let unit = tb.minutes % 60 === 0 || tb.minutes >= 120 ? 'h' : 'min';
+  const shown = () => (unit === 'h' ? tb.minutes / 60 : tb.minutes);
+  const fmt = () => (unit === 'h' ? `${String(shown()).replace('.', ',')} h` : `${tb.minutes} min`);
   // Uma gravação por vez; cada mudança grava a lista inteira (e o transbordo, quando o fluxo tem).
   let queue = Promise.resolve();
   const save = (kind, person) => {
@@ -3061,13 +3078,14 @@ async function loadRotativo(body) {
       return;
     }
     const list = rotativoList(people);
-    const payload = { action: 'save', clientToken: clientToken(), list, ...(data.transbordoSupported && { transbordo: { on: tb.on, hours: tb.hours } }) };
+    const payload = { action: 'save', clientToken: clientToken(), list, ...(data.transbordoSupported && { transbordo: { on: tb.on, minutes: tb.minutes } }) };
     queue = queue.then(async () => {
       try {
         await api('rotativo', payload);
         status.replaceChildren(notice(kind === 'ligar' ? `${person.name} ${person.on ? 'ligado' : 'desligado'} no rodízio.`
-          : kind === 'transbordo' ? (tb.on ? `Transbordo ligado: troca de atendente após ${String(tb.hours).replace('.', ',')} h sem ninguém assumir.` : 'Transbordo desligado.')
-            : 'Rodízio atualizado.', 'ok'));
+          : kind === 'peso' ? `${person.name} recebe ${person.weight} por rodada.`
+            : kind === 'transbordo' ? (tb.on ? `Transbordo ligado: troca de atendente após ${fmt()} sem ninguém assumir.` : 'Transbordo desligado.')
+              : 'Rodízio atualizado.', 'ok'));
       } catch (err) {
         status.replaceChildren(notice(err.message));
         if (person) { person.on = !person.on; editor.render(); } // volta como estava
@@ -3077,29 +3095,35 @@ async function loadRotativo(body) {
   };
   const editor = rotativoEditor(people, { teamNames: data.teamNames, onChange: save });
 
-  const hoursInput = h('input', { type: 'number', class: 'rot-hours', min: 0.5, max: 168, step: 0.5, value: tb.hours, inputMode: 'decimal', 'aria-label': 'Horas sem ninguém assumir' });
+  const hoursInput = h('input', { type: 'number', class: 'rot-hours', min: 5, max: 10080, step: 1, value: shown(), inputMode: 'decimal', 'aria-label': 'Tempo sem ninguém assumir' });
+  const unitSeg = segmented([['min', 'minutos'], ['h', 'horas']], unit, (v) => { unit = v; paintTb(); hoursInput.value = shown(); }, 'Unidade do tempo');
   const tbSwitch = h('button', { type: 'button', class: 'switch', role: 'switch', 'aria-label': 'Transbordo' }, h('span', { class: 'switch-knob' }));
   const tbBadge = badge('', '');
   const tbRow = h('div', { class: 'map-row rot-row rot-transbordo' },
     tbSwitch,
     h('div', { class: 'rot-name' },
       h('div', { class: 'row-title' }, 'Trocar de atendente quando ninguém assumir'),
-      h('div', { class: 'row-detail' }, 'Se a conversa ficar ', hoursInput, ' horas sem ninguém assumir, vai para a próxima pessoa ligada (na equipe dela) e o "nome atendente" é trocado. Repete até alguém assumir. Só troca dentro do horário de atendimento.')));
+      h('div', { class: 'row-detail' }, 'Se a conversa ficar ', hoursInput, ' ', unitSeg, ' sem ninguém assumir, vai para a próxima pessoa ligada (na equipe dela) e o "nome atendente" é trocado. Repete até alguém assumir. Só troca dentro do horário de atendimento. Mínimo: 5 minutos.')));
   const paintTb = () => {
     tbSwitch.setAttribute('aria-checked', String(tb.on));
     hoursInput.disabled = !tb.on;
+    hoursInput.min = unit === 'h' ? 0.25 : 5;
+    hoursInput.max = unit === 'h' ? 168 : 10080;
+    hoursInput.step = unit === 'h' ? 0.25 : 1;
+    unitSeg.querySelectorAll('.seg-btn').forEach((b) => { b.disabled = !tb.on; });
     tbRow.classList.toggle('is-off', !tb.on);
     tbBadge.textContent = tb.on ? 'Ligado' : 'Desligado';
     tbBadge.className = `badge ${tb.on ? 'ok' : ''}`;
   };
   const saveTb = () => {
-    const hours = Number(hoursInput.value);
-    if (!(hours >= 0.5 && hours <= 168)) {
-      hoursInput.value = tb.hours; // volta para o último valor válido
-      status.replaceChildren(notice('Transbordo: informe de 0,5 a 168 horas.', 'warn'));
+    const value = Number(String(hoursInput.value).replace(',', '.'));
+    const minutes = Math.round(unit === 'h' ? value * 60 : value);
+    if (!(minutes >= 5 && minutes <= 10080)) {
+      hoursInput.value = shown(); // volta para o último valor válido
+      status.replaceChildren(notice('Transbordo: informe de 5 minutos a 168 horas.', 'warn'));
       return;
     }
-    tb.hours = hours;
+    tb.minutes = minutes;
     save('transbordo');
   };
   tbSwitch.onclick = () => { tb.on = !tb.on; paintTb(); saveTb(); };

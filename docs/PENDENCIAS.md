@@ -62,6 +62,7 @@ Quando algo for resolvido, risque aqui (ou peça para o Claude atualizar).
 ## 7. Próximas funcionalidades (ideias já combinadas)
 
 - [x] **Transbordo do rotativo** (16/10): troca de atendente quando ninguém assume em X horas (tela Rotativo). Para a cliente que pediu: gerar o fluxo Rotativo de novo em Fluxos do n8n, importar no lugar do atual, ativar, e ligar o transbordo na tela Rotativo com 3 horas.
+- [x] Transbordo em minutos ou horas (mínimo 5 min) e peso por pessoa no rodízio (16/10). Fluxos gerados antes precisam ser gerados de novo.
 - [ ] Transbordo: confirmar numa conta real o formato de `timezoneDiff` e `dayWeek` do horário de atendimento (o fluxo aceita horas ou minutos, e nomes em inglês ou 0–6).
 
 - [ ] Fluxo de **aniversário** como fluxo padrão.

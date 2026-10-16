@@ -20,7 +20,7 @@
     },
     {
       "parameters": {
-        "jsCode": "// Rotativo sem planilha: a lista (quem está ligado, ordem e o nome que vai no\n// \"nome atendente\") fica na memória deste fluxo. Liga/desliga na tela Rotativo\n// do Setup da Conta. Esta é a lista de quando o fluxo foi gerado:\nconst INICIAL = [\"__ORDEM_ROTATIVO__\"];\n\nconst memoria = $getWorkflowStaticData('global');\nconst lista = Array.isArray(memoria.lista) ? memoria.lista : INICIAL;\nconst fila = lista.filter((p) => p.ligado && p.nome);\nif (!fila.length) throw new Error('Ninguém ligado no rotativo: ligue alguém na tela Rotativo do Setup da Conta.');\n\n// A vez fica guardada na memória do fluxo (só com o fluxo ativo; no teste manual começa do primeiro).\nconst ids = fila.map((p) => p.id);\nconst proximo = fila[(ids.indexOf(memoria.ultimo) + 1) % fila.length];\nmemoria.ultimo = proximo.id;\n\nreturn [{ json: { userId: proximo.id, nome: proximo.nome, posicao: ids.indexOf(proximo.id) + 1, total: fila.length } }];\n"
+        "jsCode": "// Rotativo sem planilha: a lista (quem está ligado, ordem, o nome que vai no\n// \"nome atendente\" e quantos atendimentos por rodada) fica na memória deste\n// fluxo. Liga/desliga na tela Rotativo do Setup da Conta. Esta é a lista de\n// quando o fluxo foi gerado:\nconst INICIAL = [\"__ORDEM_ROTATIVO__\"];\n\nconst memoria = $getWorkflowStaticData('global');\nconst lista = Array.isArray(memoria.lista) ? memoria.lista : INICIAL;\nconst fila = lista.filter((p) => p.ligado && p.nome);\nif (!fila.length) throw new Error('Ninguém ligado no rotativo: ligue alguém na tela Rotativo do Setup da Conta.');\n\n// Rodízio com peso, intercalado (peso 2 = o dobro de atendimentos): a cada\n// chamada soma o peso de cada um a um saldo, escolhe o maior saldo (empate: a\n// ordem da lista) e desconta o total. O saldo fica na memória do fluxo (só com\n// o fluxo ativo; no teste manual começa do primeiro).\nconst peso = (p) => Math.max(1, Math.min(10, Math.round(Number(p.peso) || 1)));\nconst total = fila.reduce((s, p) => s + peso(p), 0);\nconst saldo = memoria.saldo && typeof memoria.saldo === 'object' ? memoria.saldo : {};\nfor (const id of Object.keys(saldo)) if (!fila.some((p) => p.id === id)) delete saldo[id];\nfor (const p of fila) saldo[p.id] = (Number(saldo[p.id]) || 0) + peso(p);\nconst proximo = fila.reduce((melhor, p) => (saldo[p.id] > saldo[melhor.id] ? p : melhor), fila[0]);\nsaldo[proximo.id] -= total;\nmemoria.saldo = saldo;\nmemoria.ultimo = proximo.id;\n\nreturn [{ json: { userId: proximo.id, nome: proximo.nome, posicao: fila.indexOf(proximo) + 1, total: fila.length } }];\n"
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
@@ -103,7 +103,7 @@
     },
     {
       "parameters": {
-        "jsCode": "// Usado pela tela Rotativo do Setup da Conta para ler e gravar a lista.\n// Só responde com a chave certa (gerada para esta conta).\nconst CHAVE = \"__ROTATIVO_CHAVE__\";\nconst INICIAL = [\"__ORDEM_ROTATIVO__\"];\n\nconst body = $('Webhook config').first().json.body || {};\nif (body.chave !== CHAVE) return [{ json: { ok: false, erro: 'chave inválida' } }];\n\nconst memoria = $getWorkflowStaticData('global');\nif (!Array.isArray(memoria.lista)) memoria.lista = INICIAL;\nif (body.acao === 'salvar' && Array.isArray(body.lista)) {\n  memoria.lista = body.lista\n    .filter((p) => p && typeof p.id === 'string')\n    .map((p) => ({ id: p.id, nome: String(p.nome || '').slice(0, 100), ligado: Boolean(p.ligado) }));\n}\n// Transbordo: { ligado, horas } (a tela só manda quando o fluxo tem transbordo).\nif (body.acao === 'salvar' && body.transbordo && typeof body.transbordo === 'object') {\n  const h = Number(body.transbordo.horas);\n  memoria.transbordo = { ligado: Boolean(body.transbordo.ligado), horas: h > 0 ? Math.min(h, 168) : 3 };\n}\nreturn [{ json: { ok: true, lista: memoria.lista, ultimo: memoria.ultimo || null, transbordo: memoria.transbordo || { ligado: false, horas: 3 } } }];\n"
+        "jsCode": "// Usado pela tela Rotativo do Setup da Conta para ler e gravar a lista.\n// Só responde com a chave certa (gerada para esta conta).\nconst CHAVE = \"__ROTATIVO_CHAVE__\";\nconst INICIAL = [\"__ORDEM_ROTATIVO__\"];\n\nconst body = $('Webhook config').first().json.body || {};\nif (body.chave !== CHAVE) return [{ json: { ok: false, erro: 'chave inválida' } }];\n\nconst memoria = $getWorkflowStaticData('global');\nif (!Array.isArray(memoria.lista)) memoria.lista = INICIAL;\nif (body.acao === 'salvar' && Array.isArray(body.lista)) {\n  memoria.lista = body.lista\n    .filter((p) => p && typeof p.id === 'string')\n    .map((p) => ({ id: p.id, nome: String(p.nome || '').slice(0, 100), ligado: Boolean(p.ligado), peso: Math.max(1, Math.min(10, Math.round(Number(p.peso) || 1))) }));\n}\n// Transbordo: { ligado, minutos } (a tela só manda quando o fluxo tem transbordo).\nif (body.acao === 'salvar' && body.transbordo && typeof body.transbordo === 'object') {\n  const m = Number(body.transbordo.minutos) || Number(body.transbordo.horas) * 60;\n  memoria.transbordo = { ligado: Boolean(body.transbordo.ligado), minutos: m > 0 ? Math.min(Math.max(Math.round(m), 5), 10080) : 180 };\n}\nreturn [{ json: { ok: true, lista: memoria.lista, ultimo: memoria.ultimo || null, transbordo: memoria.transbordo || { ligado: false, minutos: 180 } } }];\n"
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
@@ -173,13 +173,13 @@
           "interval": [
             {
               "field": "minutes",
-              "minutesInterval": 15
+              "minutesInterval": 5
             }
           ]
         }
       },
       "id": "d209a58a-8ab3-49ac-839c-5e65f8f9bde1",
-      "name": "A cada 15 minutos",
+      "name": "A cada 5 minutos",
       "type": "n8n-nodes-base.scheduleTrigger",
       "typeVersion": 1.2,
       "position": [
@@ -189,7 +189,7 @@
     },
     {
       "parameters": {
-        "jsCode": "// Transbordo do rotativo: ligar/desligar e as horas vêm da tela Rotativo do Setup da Conta.\nconst memoria = $getWorkflowStaticData('global');\nconst t = memoria.transbordo || {};\nif (!t.ligado) return [];\nreturn [{ json: { horas: Number(t.horas) > 0 ? Number(t.horas) : 3 } }];\n"
+        "jsCode": "// Transbordo do rotativo: ligar/desligar e o tempo (em minutos) vêm da tela Rotativo do Setup da Conta.\nconst memoria = $getWorkflowStaticData('global');\nconst t = memoria.transbordo || {};\nif (!t.ligado) return [];\nconst minutos = Number(t.minutos) > 0 ? Number(t.minutos) : Number(t.horas) > 0 ? Number(t.horas) * 60 : 180;\nreturn [{ json: { minutos } }];\n"
       },
       "id": "f17462cc-bdcb-4c8d-8f44-18209082620c",
       "name": "Transbordo ligado?",
@@ -321,7 +321,7 @@
     },
     {
       "parameters": {
-        "jsCode": "// Transbordo: conversas que o rotativo distribuiu, ninguém assumiu e já passaram\n// as horas configuradas → vão para a próxima pessoa ligada da lista (na equipe\n// com o nome dela, como o chatbot faz). Só roda dentro do horário de atendimento.\nconst memoria = $getWorkflowStaticData('global');\nconst horas = $('Transbordo ligado?').first().json.horas;\nconst fila = (Array.isArray(memoria.lista) ? memoria.lista : []).filter((p) => p.ligado && p.nome);\nif (fila.length < 2) return [];\n\n// Horário de atendimento da conta (dias como MONDAY..SUNDAY ou 0..6, 0 = domingo).\nconst oh = $('Horário de atendimento').first().json || {};\nif (oh.limitHours && Array.isArray(oh.days) && oh.days.length) {\n  let diff = Number.isFinite(Number(oh.timezoneDiff)) ? Number(oh.timezoneDiff) : -3;\n  if (Math.abs(diff) > 14) diff = diff / 60; // veio em minutos\n  const local = new Date(Date.now() + diff * 3600000);\n  const NOMES = ['SUNDAY', 'MONDAY', 'TUESDAY', 'WEDNESDAY', 'THURSDAY', 'FRIDAY', 'SATURDAY'];\n  const d = local.getUTCDay();\n  const dia = oh.days.find((x) => { const k = String(x.dayWeek ?? '').toUpperCase(); return k === NOMES[d] || k === String(d); });\n  const hm = local.toISOString().slice(11, 16);\n  const aberto = !dia || (dia.active !== false && (dia.periods || []).some((p) => String(p.startTime).slice(0, 5) <= hm && hm < String(p.endTime).slice(0, 5)));\n  if (!aberto) return [];\n}\n\nconst agora = Date.now();\nconst sessoes = $('Conversas aguardando').first().json.items || [];\nconst equipes = $('Equipes').first().json.body || [];\nconst norm = (s) => String(s || '').normalize('NFD').replace(/[\\u0300-\\u036f]/g, '').trim().replace(/\\s+/g, ' ').toLowerCase();\nconst equipePorNome = new Map(equipes.map((e) => [norm(e.name), e.id]));\nconst ids = fila.map((p) => p.id);\nconst out = [];\nfor (const s of sessoes) {\n  const m = s.metadata || {};\n  if (!m.rotativoEm || s.userId) continue; // não veio do rotativo, ou alguém já assumiu\n  const em = Date.parse(m.rotativoEm);\n  if (!em || agora - em < horas * 3600000) continue;\n  const proximo = fila[(ids.indexOf(m.rotativoUserId) + 1) % fila.length];\n  if (!proximo || proximo.id === m.rotativoUserId) continue;\n  out.push({ json: {\n    sessionId: s.id, contactId: s.contactId, userId: proximo.id, nome: proximo.nome,\n    equipeId: equipePorNome.get(norm(proximo.nome)) || null,\n    rodadas: (Number(m.rotativoRodadas) || 0) + 1, em: new Date(agora).toISOString(),\n  } });\n}\nreturn out;\n"
+        "jsCode": "// Transbordo: conversas que o rotativo distribuiu, ninguém assumiu e já passaram\n// o tempo configurado → vão para a próxima pessoa ligada da lista (na equipe\n// com o nome dela, como o chatbot faz). Só roda dentro do horário de atendimento.\nconst memoria = $getWorkflowStaticData('global');\nconst minutos = $('Transbordo ligado?').first().json.minutos;\nconst fila = (Array.isArray(memoria.lista) ? memoria.lista : []).filter((p) => p.ligado && p.nome);\nif (fila.length < 2) return [];\n\n// Horário de atendimento da conta (dias como MONDAY..SUNDAY ou 0..6, 0 = domingo).\nconst oh = $('Horário de atendimento').first().json || {};\nif (oh.limitHours && Array.isArray(oh.days) && oh.days.length) {\n  let diff = Number.isFinite(Number(oh.timezoneDiff)) ? Number(oh.timezoneDiff) : -3;\n  if (Math.abs(diff) > 14) diff = diff / 60; // veio em minutos\n  const local = new Date(Date.now() + diff * 3600000);\n  const NOMES = ['SUNDAY', 'MONDAY', 'TUESDAY', 'WEDNESDAY', 'THURSDAY', 'FRIDAY', 'SATURDAY'];\n  const d = local.getUTCDay();\n  const dia = oh.days.find((x) => { const k = String(x.dayWeek ?? '').toUpperCase(); return k === NOMES[d] || k === String(d); });\n  const hm = local.toISOString().slice(11, 16);\n  const aberto = !dia || (dia.active !== false && (dia.periods || []).some((p) => String(p.startTime).slice(0, 5) <= hm && hm < String(p.endTime).slice(0, 5)));\n  if (!aberto) return [];\n}\n\nconst agora = Date.now();\nconst sessoes = $('Conversas aguardando').first().json.items || [];\nconst equipes = $('Equipes').first().json.body || [];\nconst norm = (s) => String(s || '').normalize('NFD').replace(/[\\u0300-\\u036f]/g, '').trim().replace(/\\s+/g, ' ').toLowerCase();\nconst equipePorNome = new Map(equipes.map((e) => [norm(e.name), e.id]));\nconst ids = fila.map((p) => p.id);\nconst out = [];\nfor (const s of sessoes) {\n  const m = s.metadata || {};\n  if (!m.rotativoEm || s.userId) continue; // não veio do rotativo, ou alguém já assumiu\n  const em = Date.parse(m.rotativoEm);\n  if (!em || agora - em < minutos * 60000) continue;\n  const proximo = fila[(ids.indexOf(m.rotativoUserId) + 1) % fila.length];\n  if (!proximo || proximo.id === m.rotativoUserId) continue;\n  out.push({ json: {\n    sessionId: s.id, contactId: s.contactId, userId: proximo.id, nome: proximo.nome,\n    equipeId: equipePorNome.get(norm(proximo.nome)) || null,\n    rodadas: (Number(m.rotativoRodadas) || 0) + 1, em: new Date(agora).toISOString(),\n  } });\n}\nreturn out;\n"
       },
       "id": "aec2f1cb-f392-4a08-8f1a-939b00894b0e",
       "name": "Quem transborda",
@@ -516,17 +516,6 @@
         ]
       ]
     },
-    "A cada 15 minutos": {
-      "main": [
-        [
-          {
-            "node": "Transbordo ligado?",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
     "Transbordo ligado?": {
       "main": [
         [
@@ -598,6 +587,17 @@
         [
           {
             "node": "Anotar rodada",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "A cada 5 minutos": {
+      "main": [
+        [
+          {
+            "node": "Transbordo ligado?",
             "type": "main",
             "index": 0
           }

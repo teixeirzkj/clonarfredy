@@ -1233,5 +1233,11 @@ details.advanced .field { margin-top: 10px; max-width: 420px; }
 .signup-next p { font-size: 13.5px; }
 .provision-debug { margin: 0; padding: 0 16px 12px; }
 .map-row.rot-transbordo { grid-template-columns: auto minmax(0, 1fr); gap: 14px; align-items: start; }
-.rot-transbordo .row-detail { line-height: 2; }
+.rot-transbordo .row-detail { line-height: 2.2; }
 .rot-name .rot-hours { display: inline-block; width: 76px; min-height: 30px; padding: 3px 8px; margin: 0 4px; font-size: 13px; }
+.rot-transbordo .seg { display: inline-flex; vertical-align: middle; margin: 0 4px; }
+.rot-fields { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; }
+.rot-fields input[type="text"] { flex: 1 1 200px; }
+.rot-weight-label { display: inline-flex; align-items: center; gap: 6px; font-size: 12.5px; color: var(--faint); white-space: nowrap; }
+.rot-name .rot-weight { width: 58px; min-height: 30px; padding: 3px 8px; font-size: 13px; }
+.rot-row.is-off .rot-weight-label { opacity: .5; }
