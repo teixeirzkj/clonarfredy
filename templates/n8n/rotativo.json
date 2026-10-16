@@ -20,7 +20,7 @@
     },
     {
       "parameters": {
-        "jsCode": "// Rotativo sem planilha: a lista (quem está ligado, ordem, o nome que vai no\n// \"nome atendente\" e quantos atendimentos por rodada) fica na memória deste\n// fluxo. Liga/desliga na tela Rotativo do Setup da Conta. Esta é a lista de\n// quando o fluxo foi gerado:\nconst INICIAL = [\"__ORDEM_ROTATIVO__\"];\n\nconst memoria = $getWorkflowStaticData('global');\nconst lista = Array.isArray(memoria.lista) ? memoria.lista : INICIAL;\nconst fila = lista.filter((p) => p.ligado && p.nome);\nif (!fila.length) throw new Error('Ninguém ligado no rotativo: ligue alguém na tela Rotativo do Setup da Conta.');\n\n// Rodízio com peso, intercalado (peso 2 = o dobro de atendimentos): a cada\n// chamada soma o peso de cada um a um saldo, escolhe o maior saldo (empate: a\n// ordem da lista) e desconta o total. O saldo fica na memória do fluxo (só com\n// o fluxo ativo; no teste manual começa do primeiro).\nconst peso = (p) => Math.max(1, Math.min(10, Math.round(Number(p.peso) || 1)));\nconst total = fila.reduce((s, p) => s + peso(p), 0);\nconst saldo = memoria.saldo && typeof memoria.saldo === 'object' ? memoria.saldo : {};\nfor (const id of Object.keys(saldo)) if (!fila.some((p) => p.id === id)) delete saldo[id];\nfor (const p of fila) saldo[p.id] = (Number(saldo[p.id]) || 0) + peso(p);\nconst proximo = fila.reduce((melhor, p) => (saldo[p.id] > saldo[melhor.id] ? p : melhor), fila[0]);\nsaldo[proximo.id] -= total;\nmemoria.saldo = saldo;\nmemoria.ultimo = proximo.id;\n\nreturn [{ json: { userId: proximo.id, nome: proximo.nome, posicao: fila.indexOf(proximo) + 1, total: fila.length } }];\n"
+        "jsCode": "// Rotativo sem planilha: a lista (quem está ligado, ordem, o nome que vai no\n// \"nome atendente\" e quantos atendimentos por rodada) fica na memória deste\n// fluxo. Liga/desliga na tela Rotativo do Setup da Conta. Esta é a lista de\n// quando o fluxo foi gerado:\nconst INICIAL = [\"__ORDEM_ROTATIVO__\"];\n\nconst memoria = $getWorkflowStaticData('global');\nconst lista = Array.isArray(memoria.lista) ? memoria.lista : INICIAL;\nconst fila = lista.filter((p) => p.ligado && p.nome);\nif (!fila.length) throw new Error('Ninguém ligado no rotativo: ligue alguém na tela Rotativo do Setup da Conta.');\n\n// Rodízio com peso, intercalado (peso 2 = o dobro de atendimentos): a cada\n// chamada soma o peso de cada um a um saldo, escolhe o maior saldo (empate: a\n// ordem da lista) e desconta o total. O saldo fica na memória do fluxo (só com\n// o fluxo ativo; no teste manual começa do primeiro).\nconst peso = (p) => Math.max(1, Math.min(10, Math.round(Number(p.peso) || 1)));\nconst total = fila.reduce((s, p) => s + peso(p), 0);\nconst saldo = memoria.saldo && typeof memoria.saldo === 'object' ? memoria.saldo : {};\nfor (const id of Object.keys(saldo)) if (!fila.some((p) => p.id === id)) delete saldo[id];\nfor (const p of fila) saldo[p.id] = (Number(saldo[p.id]) || 0) + peso(p);\nconst proximo = fila.reduce((melhor, p) => (saldo[p.id] > saldo[melhor.id] ? p : melhor), fila[0]);\nsaldo[proximo.id] -= total;\nmemoria.saldo = saldo;\nmemoria.ultimo = proximo.id;\n\n// O que veio do chatbot (contato, conversa e contador) segue junto, para os\n// próximos nós não dependerem do nome do nó de webhook.\nconst entrada = ($input.first().json || {}).body || {};\nconst contato = entrada.contact || {};\nconst qtdRotativo = (parseInt(entrada.metadata && entrada.metadata.qtdRotativo) || 0) + 1;\n\n// Registro da conversa para o transbordo (também vai no metadata da conversa, pela resposta ao chatbot).\nif (entrada.sessionId) {\n  const registros = memoria.rotativo && typeof memoria.rotativo === 'object' ? memoria.rotativo : {};\n  registros[entrada.sessionId] = { userId: proximo.id, em: new Date().toISOString(), rodadas: 0 };\n  memoria.rotativo = registros;\n}\n\nreturn [{ json: {\n  userId: proximo.id, nome: proximo.nome, posicao: fila.indexOf(proximo) + 1, total: fila.length,\n  contactId: contato.id || null, sessionId: entrada.sessionId || null, qtdRotativo,\n} }];\n"
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
@@ -34,7 +34,7 @@
     {
       "parameters": {
         "method": "PUT",
-        "url": "=https://api.wts.chat/core/v1/contact/{{ $node[\"Webhook1\"].json[\"body\"][\"contact\"][\"id\"] }}",
+        "url": "=https://api.wts.chat/core/v1/contact/{{ $json.contactId }}",
         "authentication": "genericCredentialType",
         "genericAuthType": "httpHeaderAuth",
         "sendHeaders": true,
@@ -49,7 +49,7 @@
         "sendBody": true,
         "contentType": "raw",
         "rawContentType": "application/*+json",
-        "body": "= { \"fields\": [ \"CustomFields\" ], \"customFields\": { \"nomeatendente\": \"{{ $('Escolher atendente da vez').first().json.nome }}\" } } ",
+        "body": "= { \"fields\": [ \"CustomFields\" ], \"customFields\": { \"nomeatendente\": \"{{ $json.nome }}\" } } ",
         "options": {}
       },
       "id": "4a3a41be-1aec-45f3-9fe6-3f1c082a5f71",
@@ -72,7 +72,7 @@
     {
       "parameters": {
         "respondWith": "json",
-        "responseBody": "={\n    \"response\": \"SUCESSO\",\n    \"contact\": {\n        \"nomeatendente\": \"{{ $('Escolher atendente da vez').first().json.nome }}\"\n    },\n    \"metadata\": {\n            \"nomeatendente\": \"{{ $('Escolher atendente da vez').first().json.nome }}\",\n\"qtdRotativo\": \"{{ parseInt($node[\"Webhook1\"].json[\"body\"][\"metadata\"][\"qtdRotativo\"]) +1 }}\"\n        }\n}",
+        "responseBody": "={\n    \"response\": \"SUCESSO\",\n    \"contact\": {\n        \"nomeatendente\": \"{{ $('Escolher atendente da vez').first().json.nome }}\"\n    },\n    \"metadata\": {\n            \"nomeatendente\": \"{{ $('Escolher atendente da vez').first().json.nome }}\",\n\"qtdRotativo\": \"{{ $('Escolher atendente da vez').first().json.qtdRotativo }}\",\n\"rotativoUserId\": \"{{ $('Escolher atendente da vez').first().json.userId }}\",\n\"rotativoEm\": \"{{ $now.toISO() }}\",\n\"rotativoRodadas\": \"0\"\n        }\n}",
         "options": {}
       },
       "type": "n8n-nodes-base.respondToWebhook",
@@ -103,7 +103,7 @@
     },
     {
       "parameters": {
-        "jsCode": "// Usado pela tela Rotativo do Setup da Conta para ler e gravar a lista.\n// Só responde com a chave certa (gerada para esta conta).\nconst CHAVE = \"__ROTATIVO_CHAVE__\";\nconst INICIAL = [\"__ORDEM_ROTATIVO__\"];\n\nconst body = $('Webhook config').first().json.body || {};\nif (body.chave !== CHAVE) return [{ json: { ok: false, erro: 'chave inválida' } }];\n\nconst memoria = $getWorkflowStaticData('global');\nif (!Array.isArray(memoria.lista)) memoria.lista = INICIAL;\nif (body.acao === 'salvar' && Array.isArray(body.lista)) {\n  memoria.lista = body.lista\n    .filter((p) => p && typeof p.id === 'string')\n    .map((p) => ({ id: p.id, nome: String(p.nome || '').slice(0, 100), ligado: Boolean(p.ligado), peso: Math.max(1, Math.min(10, Math.round(Number(p.peso) || 1))) }));\n}\n// Transbordo: { ligado, minutos } (a tela só manda quando o fluxo tem transbordo).\nif (body.acao === 'salvar' && body.transbordo && typeof body.transbordo === 'object') {\n  const m = Number(body.transbordo.minutos) || Number(body.transbordo.horas) * 60;\n  memoria.transbordo = { ligado: Boolean(body.transbordo.ligado), minutos: m > 0 ? Math.min(Math.max(Math.round(m), 1), 10080) : 180, criterio: body.transbordo.criterio === 'assumiu' ? 'assumiu' : 'resposta' };\n}\nreturn [{ json: { ok: true, lista: memoria.lista, ultimo: memoria.ultimo || null, versao: 3, transbordo: memoria.transbordo || { ligado: false, minutos: 180, criterio: 'resposta' } } }];\n"
+        "jsCode": "// Usado pela tela Rotativo do Setup da Conta para ler e gravar a lista.\n// Só responde com a chave certa (gerada para esta conta).\nconst CHAVE = \"__ROTATIVO_CHAVE__\";\nconst INICIAL = [\"__ORDEM_ROTATIVO__\"];\n\nconst body = $('Webhook config').first().json.body || {};\nif (body.chave !== CHAVE) return [{ json: { ok: false, erro: 'chave inválida' } }];\n\nconst memoria = $getWorkflowStaticData('global');\nif (!Array.isArray(memoria.lista)) memoria.lista = INICIAL;\nif (body.acao === 'salvar' && Array.isArray(body.lista)) {\n  memoria.lista = body.lista\n    .filter((p) => p && typeof p.id === 'string')\n    .map((p) => ({ id: p.id, nome: String(p.nome || '').slice(0, 100), ligado: Boolean(p.ligado), peso: Math.max(1, Math.min(10, Math.round(Number(p.peso) || 1))) }));\n}\n// Transbordo: { ligado, minutos } (a tela só manda quando o fluxo tem transbordo).\nif (body.acao === 'salvar' && body.transbordo && typeof body.transbordo === 'object') {\n  const m = Number(body.transbordo.minutos) || Number(body.transbordo.horas) * 60;\n  memoria.transbordo = { ligado: Boolean(body.transbordo.ligado), minutos: m > 0 ? Math.min(Math.max(Math.round(m), 1), 10080) : 180, criterio: body.transbordo.criterio === 'assumiu' ? 'assumiu' : 'resposta', soHorario: body.transbordo.soHorario !== false };\n}\nreturn [{ json: { ok: true, lista: memoria.lista, ultimo: memoria.ultimo || null, versao: 3, transbordo: memoria.transbordo || { ligado: false, minutos: 180, criterio: 'resposta', soHorario: true } } }];\n"
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
@@ -144,11 +144,11 @@
         },
         "options": {},
         "method": "PUT",
-        "url": "=https://api.wts.chat/chat/v2/session/{{ $node[\"Webhook1\"].json[\"body\"][\"sessionId\"] }}/partial",
+        "url": "=https://api.wts.chat/chat/v2/session/{{ $('Escolher atendente da vez').first().json.sessionId }}/partial",
         "sendBody": true,
         "contentType": "raw",
         "rawContentType": "application/*+json",
-        "body": "={ \"fields\": [\"Metadata\"], \"metadata\": { \"rotativoUserId\": \"{{ $('Escolher atendente da vez').first().json.userId }}\", \"rotativoEm\": \"{{ $now.toISO() }}\", \"rotativoRodadas\": \"0\" } }"
+        "body": "={ \"fields\": [\"Metadata\"], \"companyId\": \"__ROTATIVO_EMPRESA__\", \"metadata\": { \"rotativoUserId\": \"{{ $('Escolher atendente da vez').first().json.userId }}\", \"rotativoEm\": \"{{ $now.toISO() }}\", \"rotativoRodadas\": \"0\" } }"
       },
       "id": "ca5605ab-40f5-497d-ac67-19caea391a25",
       "name": "Marcar conversa no rotativo",
@@ -189,7 +189,7 @@
     },
     {
       "parameters": {
-        "jsCode": "// Transbordo do rotativo: ligar/desligar, o tempo (em minutos) e o critério de\n// \"atendida\" vêm da tela Rotativo do Setup da Conta.\nconst memoria = $getWorkflowStaticData('global');\nconst t = memoria.transbordo || {};\nif (!t.ligado) return [];\nconst minutos = Number(t.minutos) > 0 ? Number(t.minutos) : Number(t.horas) > 0 ? Number(t.horas) * 60 : 180;\n// 'resposta' = o atendente mandou mensagem; 'assumiu' = a conversa está com alguém.\nconst criterio = t.criterio === 'assumiu' ? 'assumiu' : 'resposta';\nreturn [{ json: { minutos, criterio } }];\n"
+        "jsCode": "// Transbordo do rotativo: ligar/desligar, o tempo (em minutos) e o critério de\n// \"atendida\" vêm da tela Rotativo do Setup da Conta.\nconst memoria = $getWorkflowStaticData('global');\nconst t = memoria.transbordo || {};\nif (!t.ligado) return [];\nconst minutos = Number(t.minutos) > 0 ? Number(t.minutos) : Number(t.horas) > 0 ? Number(t.horas) * 60 : 180;\n// 'resposta' = o atendente mandou mensagem; 'assumiu' = a conversa está com alguém.\nconst criterio = t.criterio === 'assumiu' ? 'assumiu' : 'resposta';\n// Só trocar dentro do horário de atendimento da conta (padrão: sim).\nconst soHorario = t.soHorario !== false;\nreturn [{ json: { minutos, criterio, soHorario } }];\n"
       },
       "id": "f17462cc-bdcb-4c8d-8f44-18209082620c",
       "name": "Transbordo ligado?",
@@ -247,28 +247,7 @@
         },
         "options": {},
         "method": "GET",
-        "url": "https://api.wts.chat/chat/v2/session",
-        "sendQuery": true,
-        "queryParameters": {
-          "parameters": [
-            {
-              "name": "Status",
-              "value": "PENDING"
-            },
-            {
-              "name": "Status",
-              "value": "STARTED"
-            },
-            {
-              "name": "Status",
-              "value": "IN_PROGRESS"
-            },
-            {
-              "name": "PageSize",
-              "value": "100"
-            }
-          ]
-        }
+        "url": "https://api.wts.chat/chat/v2/session?Status=PENDING&Status=STARTED&Status=IN_PROGRESS&PageSize=100"
       },
       "id": "6ba3615e-cec2-4ba8-a617-795a624dcc11",
       "name": "Conversas abertas",
@@ -325,7 +304,7 @@
     },
     {
       "parameters": {
-        "jsCode": "// Transbordo: conversas que o rotativo distribuiu, ninguém assumiu e já passaram\n// o tempo configurado → vão para a próxima pessoa ligada da lista (na equipe\n// com o nome dela, como o chatbot faz). Só roda dentro do horário de atendimento.\nconst memoria = $getWorkflowStaticData('global');\nconst { minutos, criterio } = $('Transbordo ligado?').first().json;\nconst fila = (Array.isArray(memoria.lista) ? memoria.lista : []).filter((p) => p.ligado && p.nome);\nif (fila.length < 2) return [];\n\n// Horário de atendimento da conta (dias como MONDAY..SUNDAY ou 0..6, 0 = domingo).\nconst oh = $('Horário de atendimento').first().json || {};\nif (oh.limitHours && Array.isArray(oh.days) && oh.days.length) {\n  let diff = Number.isFinite(Number(oh.timezoneDiff)) ? Number(oh.timezoneDiff) : -3;\n  if (Math.abs(diff) > 14) diff = diff / 60; // veio em minutos\n  const local = new Date(Date.now() + diff * 3600000);\n  const NOMES = ['SUNDAY', 'MONDAY', 'TUESDAY', 'WEDNESDAY', 'THURSDAY', 'FRIDAY', 'SATURDAY'];\n  const d = local.getUTCDay();\n  const dia = oh.days.find((x) => { const k = String(x.dayWeek ?? '').toUpperCase(); return k === NOMES[d] || k === String(d); });\n  const hm = local.toISOString().slice(11, 16);\n  const aberto = !dia || (dia.active !== false && (dia.periods || []).some((p) => String(p.startTime).slice(0, 5) <= hm && hm < String(p.endTime).slice(0, 5)));\n  if (!aberto) return [];\n}\n\nconst agora = Date.now();\nconst sessoes = $('Conversas abertas').first().json.items || [];\nconst equipes = $('Equipes').first().json.body || [];\nconst norm = (s) => String(s || '').normalize('NFD').replace(/[\\u0300-\\u036f]/g, '').trim().replace(/\\s+/g, ' ').toLowerCase();\nconst equipePorNome = new Map(equipes.map((e) => [norm(e.name), e.id]));\nconst ids = fila.map((p) => p.id);\nconst out = [];\nfor (const s of sessoes) {\n  const m = s.metadata || {};\n  if (!m.rotativoEm) continue; // não veio do rotativo\n  if (criterio === 'assumiu' && s.userId) continue; // alguém já assumiu\n  const em = Date.parse(m.rotativoEm);\n  if (!em || agora - em < minutos * 60000) continue;\n  const proximo = fila[(ids.indexOf(m.rotativoUserId) + 1) % fila.length];\n  if (!proximo || proximo.id === m.rotativoUserId) continue;\n  out.push({ json: {\n    sessionId: s.id, contactId: s.contactId, userId: proximo.id, nome: proximo.nome,\n    equipeId: equipePorNome.get(norm(proximo.nome)) || null,\n    rodadas: (Number(m.rotativoRodadas) || 0) + 1, em: new Date(agora).toISOString(), criterio,\n  } });\n}\nreturn out;\n"
+        "jsCode": "// Transbordo: conversas que o rotativo distribuiu, sem atendimento há mais tempo\n// que o configurado → vão para a próxima pessoa ligada da lista (na equipe com o\n// nome dela, como o chatbot faz). Só roda dentro do horário de atendimento.\n// Quando não há o que fazer, devolve um item com o motivo (aparece na execução).\nconst INICIAL = [\"__ORDEM_ROTATIVO__\"];\nconst memoria = $getWorkflowStaticData('global');\nconst { minutos, criterio, soHorario } = $('Transbordo ligado?').first().json;\nconst lista = Array.isArray(memoria.lista) ? memoria.lista : INICIAL;\nconst fila = lista.filter((p) => p.ligado && p.nome);\nconst motivo = (texto, extra) => [{ json: { motivo: texto, ...(extra || {}) } }];\nif (fila.length < 2) return motivo('Menos de 2 pessoas ligadas no rotativo: não há para quem passar', { ligadas: fila.length });\n\n// Horário de atendimento da conta (dias como MONDAY..SUNDAY ou 0..6, 0 = domingo).\nconst oh = $('Horário de atendimento').first().json || {};\nif (soHorario !== false && oh.limitHours && Array.isArray(oh.days) && oh.days.length) {\n  let diff = Number.isFinite(Number(oh.timezoneDiff)) ? Number(oh.timezoneDiff) : -3;\n  if (Math.abs(diff) > 14) diff = diff / 60; // veio em minutos\n  const local = new Date(Date.now() + diff * 3600000);\n  const NOMES = ['SUNDAY', 'MONDAY', 'TUESDAY', 'WEDNESDAY', 'THURSDAY', 'FRIDAY', 'SATURDAY'];\n  const d = local.getUTCDay();\n  const dia = oh.days.find((x) => { const k = String(x.dayWeek ?? '').toUpperCase(); return k === NOMES[d] || k === String(d); });\n  const hm = local.toISOString().slice(11, 16);\n  const aberto = !dia || (dia.active !== false && (dia.periods || []).some((p) => String(p.startTime).slice(0, 5) <= hm && hm < String(p.endTime).slice(0, 5)));\n  if (!aberto) return motivo('Fora do horário de atendimento (' + NOMES[d] + ' ' + hm + ' no fuso da conta)', { dia: NOMES[d], hora: hm });\n}\n\nconst agora = Date.now();\n// Conversas distribuídas pelo rotativo: memória do fluxo (gravada ao distribuir e ao\n// transbordar) e, como reserva, o metadata da conversa. Registros com mais de 7 dias saem.\nconst registros = memoria.rotativo && typeof memoria.rotativo === 'object' ? memoria.rotativo : {};\nfor (const [id, r] of Object.entries(registros)) if (!r || !r.em || agora - Date.parse(r.em) > 7 * 86400000) delete registros[id];\nmemoria.rotativo = registros;\n\nconst sessoes = $('Conversas abertas').first().json.items || [];\nconst equipes = $('Equipes').first().json.body || [];\nconst norm = (s) => String(s || '').normalize('NFD').replace(/[\\u0300-\\u036f]/g, '').trim().replace(/\\s+/g, ' ').toLowerCase();\nconst equipePorNome = new Map(equipes.map((e) => [norm(e.name), e.id]));\nconst ids = fila.map((p) => p.id);\nconst out = [];\nlet doRotativo = 0, comAtendente = 0, recentes = 0;\nfor (const s of sessoes) {\n  const m = s.metadata || {};\n  const reg = registros[s.id];\n  const emStr = (reg && reg.em) || m.rotativoEm;\n  if (!emStr) continue; // não veio do rotativo\n  doRotativo += 1;\n  if (criterio === 'assumiu' && s.userId) { comAtendente += 1; continue; } // alguém já assumiu\n  const em = Date.parse(emStr);\n  if (!em || agora - em < minutos * 60000) { recentes += 1; continue; }\n  const atualId = (reg && reg.userId) || m.rotativoUserId;\n  const proximo = fila[(ids.indexOf(atualId) + 1) % fila.length];\n  if (!proximo || proximo.id === atualId) continue;\n  const rodadas = (reg && Number(reg.rodadas)) || Number(m.rotativoRodadas) || 0;\n  out.push({ json: {\n    sessionId: s.id, contactId: s.contactId, companyId: s.companyId || null, userId: proximo.id, nome: proximo.nome,\n    equipeId: equipePorNome.get(norm(proximo.nome)) || null,\n    rodadas: rodadas + 1, em: new Date(agora).toISOString(), criterio,\n  } });\n}\nif (out.length) return out;\nif (!doRotativo) return motivo('Nenhuma das ' + sessoes.length + ' conversa(s) aberta(s) veio do rotativo', { abertas: sessoes.length });\nif (comAtendente === doRotativo) return motivo(doRotativo + ' conversa(s) do rotativo, todas já com atendente (critério: alguém assumir)', { doRotativo, comAtendente });\nreturn motivo(doRotativo + ' conversa(s) do rotativo, nenhuma parada há ' + minutos + ' min', { doRotativo, recentes });\n"
       },
       "id": "aec2f1cb-f392-4a08-8f1a-939b00894b0e",
       "name": "Quem transborda",
@@ -369,7 +348,7 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        2272,
+        2512,
         900
       ],
       "credentials": {
@@ -405,7 +384,7 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        2512,
+        2752,
         900
       ],
       "credentials": {
@@ -434,14 +413,14 @@
         "sendBody": true,
         "contentType": "raw",
         "rawContentType": "application/*+json",
-        "body": "={ \"fields\": [\"Metadata\"], \"metadata\": { \"rotativoUserId\": \"{{ $('Sem resposta do atendente').item.json.userId }}\", \"rotativoEm\": \"{{ $('Sem resposta do atendente').item.json.em }}\", \"rotativoRodadas\": \"{{ $('Sem resposta do atendente').item.json.rodadas }}\" } }"
+        "body": "={ \"fields\": [\"Metadata\"], \"companyId\": \"{{ $('Sem resposta do atendente').item.json.companyId }}\", \"metadata\": { \"rotativoUserId\": \"{{ $('Sem resposta do atendente').item.json.userId }}\", \"rotativoEm\": \"{{ $('Sem resposta do atendente').item.json.em }}\", \"rotativoRodadas\": \"{{ $('Sem resposta do atendente').item.json.rodadas }}\" } }"
       },
       "id": "253b79d9-2c1b-40af-8b5a-c1c3382a9040",
       "name": "Anotar rodada",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        2752,
+        2992,
         900
       ],
       "credentials": {
@@ -449,7 +428,8 @@
           "id": "credModeloWts01",
           "name": "Embarque 22 Palmitos [Frédy]"
         }
-      }
+      },
+      "onError": "continueRegularOutput"
     },
     {
       "parameters": {
@@ -488,7 +468,7 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        1792,
+        2032,
         900
       ],
       "credentials": {
@@ -502,16 +482,61 @@
     },
     {
       "parameters": {
-        "jsCode": "// Critério \"o atendente respondeu\": confere nas mensagens de cada conversa\n// candidata se uma pessoa já respondeu (mensagem enviada por usuário, não por\n// chatbot, API ou mensagem automática). Quem já teve resposta sai do transbordo.\nconst candidatas = $('Quem transborda').all();\nconst respostas = $input.all();\nconst out = [];\ncandidatas.forEach((c, i) => {\n  const cand = c.json;\n  if (cand.criterio === 'assumiu') { out.push({ json: cand, pairedItem: { item: i } }); return; }\n  const r = respostas[i] && respostas[i].json ? respostas[i].json : {};\n  if (r.error) return; // não conseguiu ler as mensagens: não mexe nesta conversa\n  const msgs = Array.isArray(r.items) ? r.items : Array.isArray(r) ? r : [];\n  const respondeu = msgs.some((m) => m.direction === 'FROM_HUB' && m.userId && (m.origin || 'DEFAULT') === 'DEFAULT' && !['TRANSITION', 'TRACK', 'NOTE'].includes(m.type));\n  if (!respondeu) out.push({ json: cand, pairedItem: { item: i } });\n});\nreturn out;\n"
+        "jsCode": "// Critério \"o atendente respondeu\": confere nas mensagens de cada conversa\n// candidata se uma pessoa já respondeu (mensagem enviada por usuário, não por\n// chatbot, API ou mensagem automática). Quem já teve resposta sai do transbordo.\nconst memoria = $getWorkflowStaticData('global');\nconst candidatas = $('Quem transborda').all();\nconst respostas = $input.all();\nconst out = [];\ncandidatas.forEach((c, i) => {\n  const cand = c.json;\n  if (cand.criterio === 'assumiu') { out.push({ json: cand, pairedItem: { item: i } }); return; }\n  const r = respostas[i] && respostas[i].json ? respostas[i].json : {};\n  if (r.error) return; // não conseguiu ler as mensagens: não mexe nesta conversa\n  const msgs = Array.isArray(r.items) ? r.items : Array.isArray(r) ? r : [];\n  const respondeu = msgs.some((m) => m.direction === 'FROM_HUB' && m.userId && (m.origin || 'DEFAULT') === 'DEFAULT' && !['TRANSITION', 'TRACK', 'NOTE'].includes(m.type));\n  if (!respondeu) out.push({ json: cand, pairedItem: { item: i } });\n});\n// Registra na memória do fluxo quem recebe agora (a transferência vem em seguida).\nconst registros = memoria.rotativo && typeof memoria.rotativo === 'object' ? memoria.rotativo : {};\nfor (const i of out) registros[i.json.sessionId] = { userId: i.json.userId, em: i.json.em, rodadas: i.json.rodadas };\nmemoria.rotativo = registros;\nreturn out;\n"
       },
       "id": "f308eb5d-a83c-407d-828c-ffcdfa7ef763",
       "name": "Sem resposta do atendente",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        2032,
+        2272,
         900
       ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose"
+          },
+          "conditions": [
+            {
+              "id": "6620ce66-3088-4193-9d07-375d619499e5",
+              "leftValue": "={{ $json.sessionId }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "fd3847f9-04ef-4c85-b075-284a42b842b4",
+      "name": "Tem conversa para transbordar?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        1792,
+        900
+      ]
+    },
+    {
+      "parameters": {},
+      "id": "643b12e5-ce71-46f2-9ed7-dc4b8d83a4cf",
+      "name": "Nada a transbordar",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [
+        2032,
+        1100
+      ],
+      "notes": "O item mostra o motivo."
     }
   ],
   "pinData": {},
@@ -619,7 +644,7 @@
       "main": [
         [
           {
-            "node": "Mensagens da conversa",
+            "node": "Tem conversa para transbordar?",
             "type": "main",
             "index": 0
           }
@@ -686,6 +711,24 @@
         [
           {
             "node": "Trocar nome atendente",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Tem conversa para transbordar?": {
+      "main": [
+        [
+          {
+            "node": "Mensagens da conversa",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Nada a transbordar",
             "type": "main",
             "index": 0
           }

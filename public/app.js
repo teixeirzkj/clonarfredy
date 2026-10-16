@@ -3059,7 +3059,7 @@ async function loadRotativo(body) {
   const people = data.users;
   const status = h('div');
   // Transbordo: sem ninguém assumir em X minutos, a conversa vai para a próxima pessoa.
-  const tb = { criterio: 'resposta', ...(data.transbordo ?? { on: false, minutes: 180 }) };
+  const tb = { criterio: 'resposta', onlyOfficeHours: true, ...(data.transbordo ?? { on: false, minutes: 180 }) };
   // Fluxo de versão anterior: a lista funciona, mas peso, minutos e critério só com o fluxo novo.
   const outdated = Boolean(data.outdated);
   // Na tela, em minutos ou horas (o que ficar mais redondo).
@@ -3080,18 +3080,20 @@ async function loadRotativo(body) {
       return;
     }
     const list = rotativoList(people);
-    const payload = { action: 'save', clientToken: clientToken(), list, ...(data.transbordoSupported && !outdated && { transbordo: { on: tb.on, minutes: tb.minutes, criterio: tb.criterio } }) };
+    const payload = { action: 'save', clientToken: clientToken(), list, ...(data.transbordoSupported && !outdated && { transbordo: { on: tb.on, minutes: tb.minutes, criterio: tb.criterio, onlyOfficeHours: tb.onlyOfficeHours } }) };
     queue = queue.then(async () => {
       try {
         await api('rotativo', payload);
         status.replaceChildren(notice(kind === 'ligar' ? `${person.name} ${person.on ? 'ligado' : 'desligado'} no rodízio.`
           : kind === 'peso' ? `${person.name} recebe ${person.weight} por rodada.`
             : kind === 'transbordo' ? (tb.on ? `Transbordo ligado: troca de atendente após ${fmt()} sem ninguém assumir.` : 'Transbordo desligado.')
-              : 'Rodízio atualizado.', 'ok'));
+              : kind === 'horario' ? (tb.onlyOfficeHours ? 'Transbordo só dentro do horário de atendimento.' : 'Transbordo a qualquer hora, inclusive fora do expediente.')
+                : 'Rodízio atualizado.', 'ok'));
       } catch (err) {
         status.replaceChildren(notice(err.message));
         if (person) { person.on = !person.on; editor.render(); } // volta como estava
         if (kind === 'transbordo') { tb.on = !tb.on; paintTb(); }
+        if (kind === 'horario') { tb.onlyOfficeHours = !tb.onlyOfficeHours; paintTb(); }
       }
     });
   };
@@ -3107,10 +3109,21 @@ async function loadRotativo(body) {
     tbSwitch,
     h('div', { class: 'rot-name' },
       h('div', { class: 'row-title' }, 'Trocar de atendente quando ninguém assumir'),
-      h('div', { class: 'row-detail' }, 'Se a conversa ficar ', hoursInput, ' ', unitSeg, ' sem atendimento, vai para a próxima pessoa ligada (na equipe dela) e o "nome atendente" é trocado. Repete até ser atendida. Só troca dentro do horário de atendimento. Mínimo: 1 minuto.'),
+      h('div', { class: 'row-detail' }, 'Se a conversa ficar ', hoursInput, ' ', unitSeg, ' sem atendimento, vai para a próxima pessoa ligada (na equipe dela) e o "nome atendente" é trocado. Repete até ser atendida. Mínimo: 1 minuto.'),
       h('div', { class: 'row-detail' }, 'Conta como atendida quando ', critSeg, '. Se as equipes têm distribuição automática, use "o atendente responder": a distribuição já coloca a conversa com alguém antes de qualquer resposta.')));
+  // Só trocar dentro do horário de atendimento cadastrado na conta (padrão: sim).
+  const ohSwitch = h('button', { type: 'button', class: 'switch', role: 'switch', 'aria-label': 'Só no horário de atendimento' }, h('span', { class: 'switch-knob' }));
+  const ohRow = h('div', { class: 'map-row rot-row rot-transbordo' },
+    ohSwitch,
+    h('div', { class: 'rot-name' },
+      h('div', { class: 'row-title' }, 'Só trocar dentro do horário de atendimento'),
+      h('div', { class: 'row-detail' }, 'Ligado: o tempo conta sempre, mas a troca espera o expediente cadastrado no WTS (Ajustes → Horário de atendimento). Desligado: troca a qualquer hora, inclusive de noite e no fim de semana.')));
+  ohSwitch.onclick = () => { tb.onlyOfficeHours = !tb.onlyOfficeHours; paintTb(); save('horario'); };
   const paintTb = () => {
     tbSwitch.setAttribute('aria-checked', String(tb.on));
+    ohSwitch.setAttribute('aria-checked', String(tb.onlyOfficeHours));
+    ohSwitch.disabled = !tb.on;
+    ohRow.classList.toggle('is-off', !tb.on);
     hoursInput.disabled = !tb.on;
     hoursInput.min = unit === 'h' ? 0.25 : 1;
     hoursInput.max = unit === 'h' ? 168 : 10080;
@@ -3137,7 +3150,7 @@ async function loadRotativo(body) {
   const regenerate = 'gere o fluxo Rotativo de novo em Fluxos do n8n e importe no lugar do atual (a lista atual entra no fluxo novo).';
   const transbordo = outdated
     ? notice(`Este fluxo Rotativo é de uma versão anterior: ligar e desligar pessoas funciona, mas "recebe X por rodada", o transbordo em minutos e o critério de atendida não. Para ter tudo, ${regenerate}`, 'warn')
-    : h('div', { class: 'list' }, h('div', { class: 'list-title' }, 'Transbordo', tbBadge), tbRow);
+    : h('div', { class: 'list' }, h('div', { class: 'list-title' }, 'Transbordo', tbBadge), tbRow, ohRow);
 
   swap(body, people.length ? editor.el : notice('Nenhum usuário na conta.', 'info'), transbordo, status);
   stagger(body.querySelectorAll('.rot-row'), { step: 25, y: 6 });
