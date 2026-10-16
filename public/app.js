@@ -2926,7 +2926,7 @@ function sheetSection(scan) {
 
 // Lista do rodízio: liga/desliga, ordem (setas) e o nome que vai no "nome
 // atendente" de cada pessoa. Usada ao gerar o fluxo e na tela Rotativo.
-function rotativoEditor(people, { teamNames = [], onChange = () => {} } = {}) {
+function rotativoEditor(people, { teamNames = [], onChange = () => {}, weights = true } = {}) {
   const listId = `equipes-${Math.random().toString(36).slice(2)}`;
   const datalist = h('datalist', { id: listId }, ...teamNames.map((t) => h('option', { value: t })));
   const list = h('div', { class: 'list' });
@@ -2967,7 +2967,7 @@ function rotativoEditor(people, { teamNames = [], onChange = () => {} } = {}) {
           sw,
           h('div', { class: 'rot-name' },
             h('div', { class: 'row-title' }, p.on ? `${on.indexOf(p) + 1}. ${p.name}` : `${p.name} (desligado)`),
-            h('div', { class: 'rot-fields' }, nameInput, h('label', { class: 'rot-weight-label' }, 'Recebe ', weightInput, ' por rodada'))),
+            h('div', { class: 'rot-fields' }, nameInput, weights ? h('label', { class: 'rot-weight-label' }, 'Recebe ', weightInput, ' por rodada') : null)),
           h('div', { class: 'row-actions' },
             button('↑', () => move(i - 1), { variant: 'btn-small', disabled: i === 0, 'aria-label': `Subir ${p.name}` }),
             button('↓', () => move(i + 1), { variant: 'btn-small', disabled: i === people.length - 1, 'aria-label': `Descer ${p.name}` })));
@@ -3059,7 +3059,9 @@ async function loadRotativo(body) {
   const people = data.users;
   const status = h('div');
   // Transbordo: sem ninguém assumir em X minutos, a conversa vai para a próxima pessoa.
-  const tb = data.transbordo ?? { on: false, minutes: 180 };
+  const tb = { criterio: 'resposta', ...(data.transbordo ?? { on: false, minutes: 180 }) };
+  // Fluxo de versão anterior: a lista funciona, mas peso, minutos e critério só com o fluxo novo.
+  const outdated = Boolean(data.outdated);
   // Na tela, em minutos ou horas (o que ficar mais redondo).
   let unit = tb.minutes % 60 === 0 || tb.minutes >= 120 ? 'h' : 'min';
   const shown = () => (unit === 'h' ? tb.minutes / 60 : tb.minutes);
@@ -3078,7 +3080,7 @@ async function loadRotativo(body) {
       return;
     }
     const list = rotativoList(people);
-    const payload = { action: 'save', clientToken: clientToken(), list, ...(data.transbordoSupported && { transbordo: { on: tb.on, minutes: tb.minutes } }) };
+    const payload = { action: 'save', clientToken: clientToken(), list, ...(data.transbordoSupported && !outdated && { transbordo: { on: tb.on, minutes: tb.minutes, criterio: tb.criterio } }) };
     queue = queue.then(async () => {
       try {
         await api('rotativo', payload);
@@ -3093,9 +3095,11 @@ async function loadRotativo(body) {
       }
     });
   };
-  const editor = rotativoEditor(people, { teamNames: data.teamNames, onChange: save });
+  const editor = rotativoEditor(people, { teamNames: data.teamNames, onChange: save, weights: !outdated });
 
-  const hoursInput = h('input', { type: 'number', class: 'rot-hours', min: 5, max: 10080, step: 1, value: shown(), inputMode: 'decimal', 'aria-label': 'Tempo sem ninguém assumir' });
+  const hoursInput = h('input', { type: 'number', class: 'rot-hours', min: 1, max: 10080, step: 1, value: shown(), inputMode: 'decimal', 'aria-label': 'Tempo sem atendimento' });
+  // Critério de "atendida": com distribuição automática a conversa já nasce com alguém, então o padrão é a resposta.
+  const critSeg = segmented([['resposta', 'o atendente responder'], ['assumiu', 'alguém assumir']], tb.criterio, (v) => { tb.criterio = v; save('transbordo'); }, 'Conta como atendida quando');
   const unitSeg = segmented([['min', 'minutos'], ['h', 'horas']], unit, (v) => { unit = v; paintTb(); hoursInput.value = shown(); }, 'Unidade do tempo');
   const tbSwitch = h('button', { type: 'button', class: 'switch', role: 'switch', 'aria-label': 'Transbordo' }, h('span', { class: 'switch-knob' }));
   const tbBadge = badge('', '');
@@ -3103,14 +3107,15 @@ async function loadRotativo(body) {
     tbSwitch,
     h('div', { class: 'rot-name' },
       h('div', { class: 'row-title' }, 'Trocar de atendente quando ninguém assumir'),
-      h('div', { class: 'row-detail' }, 'Se a conversa ficar ', hoursInput, ' ', unitSeg, ' sem ninguém assumir, vai para a próxima pessoa ligada (na equipe dela) e o "nome atendente" é trocado. Repete até alguém assumir. Só troca dentro do horário de atendimento. Mínimo: 5 minutos.')));
+      h('div', { class: 'row-detail' }, 'Se a conversa ficar ', hoursInput, ' ', unitSeg, ' sem atendimento, vai para a próxima pessoa ligada (na equipe dela) e o "nome atendente" é trocado. Repete até ser atendida. Só troca dentro do horário de atendimento. Mínimo: 1 minuto.'),
+      h('div', { class: 'row-detail' }, 'Conta como atendida quando ', critSeg, '. Se as equipes têm distribuição automática, use "o atendente responder": a distribuição já coloca a conversa com alguém antes de qualquer resposta.')));
   const paintTb = () => {
     tbSwitch.setAttribute('aria-checked', String(tb.on));
     hoursInput.disabled = !tb.on;
-    hoursInput.min = unit === 'h' ? 0.25 : 5;
+    hoursInput.min = unit === 'h' ? 0.25 : 1;
     hoursInput.max = unit === 'h' ? 168 : 10080;
     hoursInput.step = unit === 'h' ? 0.25 : 1;
-    unitSeg.querySelectorAll('.seg-btn').forEach((b) => { b.disabled = !tb.on; });
+    [...unitSeg.querySelectorAll('.seg-btn'), ...critSeg.querySelectorAll('.seg-btn')].forEach((b) => { b.disabled = !tb.on; });
     tbRow.classList.toggle('is-off', !tb.on);
     tbBadge.textContent = tb.on ? 'Ligado' : 'Desligado';
     tbBadge.className = `badge ${tb.on ? 'ok' : ''}`;
@@ -3118,9 +3123,9 @@ async function loadRotativo(body) {
   const saveTb = () => {
     const value = Number(String(hoursInput.value).replace(',', '.'));
     const minutes = Math.round(unit === 'h' ? value * 60 : value);
-    if (!(minutes >= 5 && minutes <= 10080)) {
+    if (!(minutes >= 1 && minutes <= 10080)) {
       hoursInput.value = shown(); // volta para o último valor válido
-      status.replaceChildren(notice('Transbordo: informe de 5 minutos a 168 horas.', 'warn'));
+      status.replaceChildren(notice('Transbordo: informe de 1 minuto a 168 horas.', 'warn'));
       return;
     }
     tb.minutes = minutes;
@@ -3129,9 +3134,10 @@ async function loadRotativo(body) {
   tbSwitch.onclick = () => { tb.on = !tb.on; paintTb(); saveTb(); };
   hoursInput.onchange = saveTb;
   paintTb();
-  const transbordo = data.transbordoSupported
-    ? h('div', { class: 'list' }, h('div', { class: 'list-title' }, 'Transbordo', tbBadge), tbRow)
-    : notice('Este fluxo Rotativo é de uma versão anterior, sem transbordo. Para ter transbordo, gere o fluxo Rotativo de novo em Fluxos do n8n e importe no lugar do atual (a lista atual entra no fluxo novo).', 'info');
+  const regenerate = 'gere o fluxo Rotativo de novo em Fluxos do n8n e importe no lugar do atual (a lista atual entra no fluxo novo).';
+  const transbordo = outdated
+    ? notice(`Este fluxo Rotativo é de uma versão anterior: ligar e desligar pessoas funciona, mas "recebe X por rodada", o transbordo em minutos e o critério de atendida não. Para ter tudo, ${regenerate}`, 'warn')
+    : h('div', { class: 'list' }, h('div', { class: 'list-title' }, 'Transbordo', tbBadge), tbRow);
 
   swap(body, people.length ? editor.el : notice('Nenhum usuário na conta.', 'info'), transbordo, status);
   stagger(body.querySelectorAll('.rot-row'), { step: 25, y: 6 });

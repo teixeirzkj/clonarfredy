@@ -19,6 +19,7 @@ Quando algo for resolvido, risque aqui (ou peça para o Claude atualizar).
 ## 1. Segurança (fazer logo)
 
 - [ ] **Trocar o token da Belini** no WTS (Ajustes → Integrações → API) e desativar o antigo: apareceu inteiro em prints na conversa.
+- [ ] **Trocar o token da América Viagens** no WTS (Ajustes → Integrações → API): o fluxo com o token foi colado na conversa (16/10). Depois gerar o fluxo Rotativo de novo com o token novo.
 - [ ] **Trocar o token da conta modelo** (`WTS_MODEL_TOKEN` na Vercel): também apareceu na conversa.
 - [ ] **Senha da página** (`APP_PASSWORD`): foi trocada para uma senha escrita na conversa; se quiser, use outra e passe para a equipe por outro canal. Depois de mudar na Vercel: Deployments → ⋯ → Redeploy.
 
@@ -63,6 +64,7 @@ Quando algo for resolvido, risque aqui (ou peça para o Claude atualizar).
 
 - [x] **Transbordo do rotativo** (16/10): troca de atendente quando ninguém assume em X horas (tela Rotativo). Para a cliente que pediu: gerar o fluxo Rotativo de novo em Fluxos do n8n, importar no lugar do atual, ativar, e ligar o transbordo na tela Rotativo com 3 horas.
 - [x] Transbordo em minutos ou horas (mínimo 5 min) e peso por pessoa no rodízio (16/10). Fluxos gerados antes precisam ser gerados de novo.
+- [x] Transbordo v3 (16/10): critério "o atendente respondeu" (funciona com distribuição automática), mínimo 1 min, tela avisa fluxo desatualizado. América Viagens: gerar o fluxo de novo e importar no lugar do atual.
 - [ ] Transbordo: confirmar numa conta real o formato de `timezoneDiff` e `dayWeek` do horário de atendimento (o fluxo aceita horas ou minutos, e nomes em inglês ou 0–6).
 
 - [ ] Fluxo de **aniversário** como fluxo padrão.
