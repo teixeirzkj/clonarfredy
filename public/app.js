@@ -105,7 +105,9 @@ const PORTAL = /^\/(cliente|portal)\/?$/.test(location.pathname) ? 'cliente' : /
 
 // O que o cliente vê no portal (Montar prompt, Fluxos do n8n, webhooks e
 // "Configurar tudo" ficam só com a equipe; o servidor também bloqueia).
-const CLIENT_BLOCK_IDS = ['tags', 'departments', 'agents', 'rotativo', 'archiveCards', 'importContacts', 'chatbotsPadrao', 'templates', 'panels', 'chatbots', 'sequences', 'fields', 'officeHours'];
+const CLIENT_BLOCK_IDS = ['setupChat', 'tags', 'departments', 'agents', 'rotativo', 'archiveCards', 'importContacts', 'chatbotsPadrao', 'templates', 'panels', 'chatbots', 'sequences', 'fields', 'officeHours'];
+// Só no portal: o cliente conversa com a Frédy e monta o agente de IA dele.
+const IA_CHAT = { id: 'setupChat', kind: 'setupChat', icon: 'sparkle', title: 'Montar minha IA', desc: 'Converse com a Frédy: ela pergunta sobre sua empresa, monta o agente e testa com você.' };
 const GUIDE = { id: 'guide', kind: 'guide', title: 'Passo a passo da implantação', desc: 'Siga os passos com vídeos e deixe sua conta pronta.' };
 const ACCOUNT = { id: 'account', kind: 'account', icon: 'user', title: 'Minha conta', desc: 'Trocar a senha e sair.' };
 if (!PORTAL) {
@@ -116,6 +118,7 @@ if (!PORTAL) {
 }
 
 const BLOCK_BY_ID = Object.fromEntries(SECTIONS.flatMap((s) => s.blocks).map((b) => [b.id, b]));
+BLOCK_BY_ID.setupChat = IA_CHAT;
 const SETUP_ALL = { id: 'setupAll', kind: 'setupAll', title: 'Configurar tudo', desc: 'Implantação completa: etiquetas, equipes, webhooks, prompt da IA e fluxos do n8n.' };
 
 const APPLY_BATCH = 8;
@@ -475,6 +478,7 @@ function openBlock(block) {
     chatbots: renderChatbotsBlock,
     guide: renderGuideBlock,
     account: renderAccountBlock,
+    setupChat: renderSetupChat,
     clients: renderClientsBlock,
   };
   renderers[block.kind]?.(view, block);
@@ -496,6 +500,7 @@ function sideNavItems() {
     return [
       { id: 'home', label: 'Início', icon: 'kanban', go: showGrid },
       { id: 'guide', label: 'Passo a passo', icon: 'play', go: () => openBlock(GUIDE) },
+      { id: 'setupChat', label: 'Montar minha IA', icon: 'sparkle', go: () => openBlock(IA_CHAT) },
       { id: 'app', label: 'Abrir a Frédy', icon: 'arrow', href: () => state.config?.appUrl || 'https://fredy.wts.chat/' },
       { id: 'chatbotsPadrao', label: 'Chatbots padrão', icon: 'bot', go: () => openBlock(block('chatbotsPadrao')) },
       { id: 'importContacts', label: 'Importar contatos', icon: 'upload', go: () => openBlock(block('importContacts')) },
@@ -604,7 +609,10 @@ function renderGrid({ animate = false } = {}) {
   const passes = (block) => filter === 'all' || stateOf(block) === filter;
 
   const sections = PORTAL === 'cliente'
-    ? [...SECTIONS.map((sec) => ({ ...sec, title: sec.title === 'n8n e IA' ? 'Chatbots' : sec.title, blocks: sec.blocks.filter((b) => CLIENT_BLOCK_IDS.includes(b.id)) })), { title: 'Sua conta', blocks: [ACCOUNT] }]
+    ? [...SECTIONS.map((sec) => {
+      const blocks = sec.blocks.filter((b) => CLIENT_BLOCK_IDS.includes(b.id));
+      return sec.title === 'n8n e IA' ? { ...sec, title: 'IA e chatbots', blocks: [IA_CHAT, ...blocks] } : { ...sec, blocks };
+    }), { title: 'Sua conta', blocks: [ACCOUNT] }]
     : SECTIONS;
   for (const sec of sections) {
     const blocks = sec.blocks.filter(matches).filter(passes);
@@ -1945,6 +1953,132 @@ async function renderGuideBlock(view) {
   stagger(list.querySelectorAll('.guide-step'), { step: 30, y: 8 });
 }
 
+// ---------- Montar minha IA (portal): conversa com a Frédy ----------
+
+const IA_STEPS = [['coleta', 'Conversa'], ['simulacao', 'Teste'], ['fim', 'Enviar']];
+
+async function renderSetupChat(view) {
+  const body = h('div', { class: 'chat' });
+  view.append(h('p', { class: 'panel-desc' }, 'A Frédy pergunta sobre a sua empresa, monta o agente de IA e testa com você. No fim, o resultado vai para a equipe Frédy terminar a configuração.'), body);
+  let chat;
+  try {
+    chat = await api('portal', { action: 'setupChat', op: 'get' });
+  } catch (err) {
+    retry(body, err, () => { view.replaceChildren(); renderSetupChat(view); });
+    return;
+  }
+  const steps = h('div', { class: 'chat-steps' });
+  const intro = h('div');
+  const doneBox = h('div');
+  const log = h('div', { class: 'chat-log', role: 'log', 'aria-live': 'polite' });
+  const status = h('div');
+  const typing = h('div', { class: 'bubble is-bot is-typing', hidden: true }, h('span', { class: 'bubble-who' }, 'Frédy'), h('span', { class: 'dots' }, h('i', {}), h('i', {}), h('i', {})));
+  const input = h('textarea', { rows: 2, placeholder: 'Escreva sua resposta... (Enter envia)', maxLength: 2000 });
+  const sendBtn = button('Enviar', () => send(), { variant: 'btn-primary', icon: 'arrow' });
+  const finishBtn = button('Finalizar e enviar para a equipe', () => finish(), { variant: 'btn-primary', icon: 'check' });
+  const resetBtn = button('Recomeçar', () => reset(), { variant: 'btn-ghost btn-small', icon: 'refresh' });
+  const composer = h('div', { class: 'chat-composer' }, input, sendBtn);
+
+  const bubble = (m) => h('div', { class: `bubble ${m.role === 'user' ? 'is-user' : m.sim ? 'is-sim' : 'is-bot'}` },
+    m.role !== 'user' ? h('span', { class: 'bubble-who' }, m.sim ? `${m.agentName || chat.agentName || 'Agente'} · teste` : 'Frédy') : null,
+    h('div', { class: 'bubble-text' }, ...String(m.text).split('\n').flatMap((line, i) => (i ? [h('br', {}), line] : [line]))));
+  const showDone = () => doneBox.replaceChildren(h('div', { class: 'signup-done chat-done' },
+    h('span', { class: 'signup-done-icon', 'aria-hidden': 'true' }, svg('check')),
+    h('h2', {}, `Pronto! A equipe Frédy recebeu a sua IA${chat.agentName ? ` (${chat.agentName})` : ''}.`),
+    h('p', {}, 'Eles terminam a configuração e avisam quando estiver no ar. Se quiser mudar algo, é só conversar de novo.'),
+    h('div', { class: 'toolbar' }, button('Conversar de novo', () => reset(), { icon: 'refresh' }))));
+  const paint = () => {
+    const idx = chat.status === 'finalizado' ? 3 : Math.max(0, IA_STEPS.findIndex(([s]) => s === chat.status));
+    steps.replaceChildren(...IA_STEPS.map(([s, label], i) => h('span', { class: `chat-step${i < idx ? ' is-done' : i === idx ? ' is-current' : ''}` }, h('span', { class: 'step-num' }, String(i + 1)), label)));
+    log.replaceChildren(...chat.messages.map(bubble), typing);
+    log.scrollTop = log.scrollHeight;
+    finishBtn.hidden = !chat.canFinish || chat.status === 'finalizado';
+    composer.hidden = chat.status === 'finalizado' || !chat.messages.length;
+    resetBtn.hidden = !chat.messages.length || chat.status === 'finalizado';
+    doneBox.replaceChildren();
+    if (chat.status === 'finalizado') showDone();
+    intro.replaceChildren(...(chat.messages.length || chat.status === 'finalizado' ? [] : [h('div', { class: 'chat-intro' },
+      h('strong', {}, 'Como funciona'),
+      h('p', {}, 'A Frédy faz uma pergunta de cada vez sobre a sua empresa e o jeito de atender. Quando tiver tudo, ela vira o seu agente para você testar. Gostou? Clique em "Finalizar e enviar para a equipe".'),
+      h('div', { class: 'toolbar' }, h('span', { class: 'spacer' }), button('Começar a conversa', () => call('start'), { variant: 'btn-primary', icon: 'play' })))]));
+  };
+  const busy = (on) => { sendBtn.disabled = on; input.disabled = on; finishBtn.disabled = on; typing.hidden = !on; if (on) log.scrollTop = log.scrollHeight; };
+  const call = async (op, extra = {}) => {
+    status.replaceChildren();
+    busy(true);
+    try { chat = await api('portal', { action: 'setupChat', op, ...extra }); paint(); } catch (err) { status.replaceChildren(notice(err.message)); } finally { busy(false); }
+  };
+  const send = async () => {
+    const text = input.value.trim();
+    if (!text || sendBtn.disabled) return;
+    input.value = '';
+    const mine = { role: 'user', text, at: new Date().toISOString() };
+    chat.messages.push(mine);
+    log.replaceChildren(...chat.messages.map(bubble), typing);
+    status.replaceChildren();
+    busy(true);
+    try {
+      chat = await api('portal', { action: 'setupChat', op: 'send', text });
+      paint();
+    } catch (err) {
+      // Não foi: tira a mensagem da tela e devolve o texto para tentar de novo.
+      chat.messages = chat.messages.filter((m) => m !== mine);
+      input.value = text;
+      paint();
+      status.replaceChildren(notice(err.message));
+    } finally {
+      busy(false);
+      input.focus();
+    }
+  };
+  input.addEventListener('keydown', (e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(); } });
+  const finish = async () => {
+    if (!confirm('Enviar a sua IA para a equipe Frédy? Depois disso a conversa é fechada (dá para começar outra depois).')) return;
+    status.replaceChildren(loading('Montando o prompt da sua IA... pode levar até 2 minutos.'));
+    busy(true);
+    try { chat = await api('portal', { action: 'setupChat', op: 'finish' }); status.replaceChildren(); paint(); } catch (err) { status.replaceChildren(notice(err.message)); } finally { busy(false); }
+  };
+  const reset = async () => { if (!confirm('Recomeçar a conversa do zero?')) return; await call('reset'); };
+
+  body.append(steps, intro, doneBox, log, status, composer, h('div', { class: 'toolbar' }, resetBtn, h('span', { class: 'spacer' }), finishBtn));
+  paint();
+}
+
+// IA montada pelo cliente no portal: resumo, prompt final e conversa, para a equipe gerar os fluxos.
+async function showClientIA(out, c) {
+  swap(out, loading('Carregando a IA do cliente...'));
+  let ia;
+  try {
+    ia = await api('portal', { action: 'clients', op: 'ia', id: c.id });
+  } catch (err) {
+    swap(out, notice(err.message));
+    return;
+  }
+  const file = `prompt-${slug(c.company)}.txt`;
+  swap(out, section('', `IA de ${c.company}${ia.agentName ? ` · ${ia.agentName}` : ''}`,
+    h('p', { class: 'hint' }, `Finalizada em ${new Date(ia.finishedAt).toLocaleString('pt-BR')} · ${ia.messages} mensagens · pendentes: ${ia.resumo?.pendentes || 'nenhum'}.`),
+    h('div', { class: 'list' }, h('div', { class: 'list-title' }, 'O que o cliente respondeu'),
+      ...ia.campos.map((f) => h('div', { class: 'row' },
+        h('span', { class: `row-dot ${f.value === 'PENDENTE' ? 'warn' : 'ok'}` }, svg(f.value === 'PENDENTE' ? 'minus' : 'check')),
+        h('div', {}, h('div', { class: 'row-title' }, f.label), h('div', { class: 'row-detail' }, f.value)), h('span')))),
+    ia.prompt
+      ? h('div', {},
+        h('div', { class: 'toolbar' },
+          button('Copiar prompt', (e) => flashOnCopy(e.currentTarget, ia.prompt), { icon: 'copy' }),
+          button('Baixar .txt', () => download(file, ia.prompt, 'text/plain;charset=utf-8'), { icon: 'download' }),
+          h('span', { class: 'spacer' }),
+          button('Gerar fluxo do n8n com este prompt', () => {
+            state.builtPrompt = ia.prompt;
+            state.clientName = c.company;
+            state.preferAgent = true;
+            openBlock(BLOCK_BY_ID.n8n);
+          }, { variant: 'btn-primary', icon: 'download' })),
+        h('details', { class: 'advanced' }, h('summary', {}, 'Ver o prompt'), h('pre', { class: 'detail-text' }, ia.prompt)))
+      : notice('O prompt final não foi montado (o prompt padrão não estava disponível). Use o resumo acima no Montar prompt.', 'warn'),
+    h('details', { class: 'advanced' }, h('summary', {}, 'Ver a conversa'), h('pre', { class: 'detail-text' }, ia.transcript))));
+  out.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
 function renderAccountBlock(view) {
   const current = h('input', { type: 'password', autocomplete: 'current-password' });
   const next = h('input', { type: 'password', autocomplete: 'new-password', minLength: 8 });
@@ -2561,9 +2695,10 @@ function clientsView(data, body) {
     const row = h('div', { class: `row rot-row${c.active ? '' : ' is-off'}` },
       h('span', { class: 'row-dot ok' }, svg('user')),
       h('div', {},
-        h('div', { class: 'row-title' }, c.company),
+        h('div', { class: 'row-title' }, c.company, ' ', c.ia?.status === 'finalizado' ? badge('ok', `IA pronta${c.ia.agentName ? `: ${c.ia.agentName}` : ''}`) : null),
         h('div', { class: 'row-detail' }, `${c.email} · ${c.lastLoginAt ? `último acesso ${new Date(c.lastLoginAt).toLocaleDateString('pt-BR')}` : 'ainda não entrou'} · ${c.guideDone.length} passo(s) concluído(s)`)),
       h('div', { class: 'row-actions' },
+        c.ia?.status === 'finalizado' ? button('Ver IA', () => showClientIA(out, c), { variant: 'btn-small btn-primary', icon: 'sparkle' }) : null,
         button('Nova senha', async () => {
           if (!confirm(`Gerar uma senha nova para ${c.email}? A atual deixa de funcionar.`)) return;
           const r = await api('portal', { action: 'clients', op: 'update', id: c.id, changes: { resetPassword: true } });

@@ -63,7 +63,7 @@ Quando algo for resolvido, risque aqui (ou peça para o Claude atualizar).
 
 ## 5. Esperando algo de fora
 
-- [ ] **Chave e créditos na API da Anthropic** para o "Montar prompt" automático: criar a chave em console.anthropic.com, colocar `ANTHROPIC_API_KEY` na Vercel + Redeploy (hoje usa o botão "Copiar para o Claude.ai").
+- [ ] **Chave e créditos na API da Anthropic** para o "Montar prompt" automático e para o **"Montar minha IA" do portal** (sem a chave, o cliente vê o aviso "a IA ainda não está ligada"): criar a chave em console.anthropic.com, colocar `ANTHROPIC_API_KEY` na Vercel + Redeploy (hoje usa o botão "Copiar para o Claude.ai").
 - [ ] **Perguntas para o suporte do WTS**: criar conta/empresa pela API, gerar token, criar painel/etapa, campos, chatbots, sequências, modelos, ler conteúdo de chatbots/sequências, botões dos modelos, conectar WhatsApp, alterar horário, criar carteira. Lista completa em `docs/AUTOATENDIMENTO.md`.
 
 ## 6. Decisões nossas
@@ -79,6 +79,9 @@ Quando algo for resolvido, risque aqui (ou peça para o Claude atualizar).
 - [x] Transbordo confirmado na América Viagens (16/10): troca em 1 min funcionou. Ajustar para o tempo definitivo.
 - [ ] Transbordo: confirmar numa conta real o formato de `timezoneDiff` e `dayWeek` do horário de atendimento (o fluxo aceita horas ou minutos, e nomes em inglês ou 0–6).
 
+- [x] **Montar minha IA** no portal (27/10): conversa com a Frédy (prompt do Coletor adaptado em `templates/ia-coletor.md`), teste do agente e "Finalizar e enviar para a equipe"; resultado em Clientes → "Ver IA". Precisa da chave da Anthropic (item 5).
+- [ ] Montar minha IA: testar com a chave real e ajustar o prompt do coletor conforme as primeiras conversas (tom, perguntas, quando entrar no teste).
+- [ ] Montar minha IA: gerar os fluxos do n8n direto da tela "Ver IA" com o token guardado do cliente (hoje a equipe cola o token na barra e usa "Gerar fluxo do n8n com este prompt").
 - [ ] Fluxo de **aniversário** como fluxo padrão.
 - [ ] **Painel completo da Marité** montado com um clique (já existe o modelo; falta mandar).
 - [ ] Mais automações e fluxos do dia a dia como padrão.
@@ -91,4 +94,5 @@ rotativo) · Rotativo sem planilha (lista no fluxo, liga/desliga pela página) �
 Montar prompt (Claude.ai) · Conferências com conteúdo completo e copiar ·
 Arquivar cards · Importar contatos · Usuários com equipes · Chatbots padrão ·
 Horário de atendimento · Portal do cliente (/cliente) e cadastro (/cadastro) com tela Clientes para a equipe ·
-Criação automática da conta na Helena com planos (Padrão e Teste, um link por plano) · Cadastro preenchido pelo CNPJ.
+Criação automática da conta na Helena com planos (Padrão e Teste, um link por plano) · Cadastro preenchido pelo CNPJ ·
+Montar minha IA no portal (conversa com a Frédy, teste do agente, resultado em Clientes → Ver IA).

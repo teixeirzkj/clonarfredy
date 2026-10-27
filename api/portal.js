@@ -10,6 +10,7 @@ import { planNames } from '../lib/plans.js';
 import { createCompanyToken, listCompanies, partnerConfigured } from '../lib/partner.js';
 import { createPreSignup, createSignup, deleteSignup, getPreSignup, listSignups, lookupCep, lookupCnpj, retryProvision, setSignupPlan, setSignupStatus, signupPasswordHash } from '../lib/signups.js';
 import { autoCreateEnabled } from '../lib/provision.js';
+import { finishChat, getChat, getFinal, resetChat, sendMessage, startChat } from '../lib/setup-chat.js';
 import { hit } from '../lib/store.js';
 
 const APP_URL = () => process.env.FREDY_APP_URL || 'https://fredy.wts.chat/';
@@ -24,7 +25,8 @@ import { storeConfigured } from '../lib/store.js';
 // Cada ação diz quem pode usar:
 //   aberta: login do portal, CEP, CNPJ (Receita), planos (nomes) e envio do cadastro
 //   equipe ou cliente: config, chatbots, me, guide, guideDone, changePassword
-//   só equipe: clients (op: list, provision, create, update, delete, signupStatus, signupPlan, signupDelete)
+//   só cliente: setupChat (op: get, start, send, finish, reset) — "Montar minha IA"
+//   só equipe: clients (op: list, provision, create, update, delete, signupStatus, signupPlan, signupDelete, helenaCompanies, helenaAccess, ia)
 const BOTH = ['admin', 'client'];
 
 async function clientsOp(body) {
@@ -71,6 +73,9 @@ async function clientsOp(body) {
       const result = await createClient({ company: body.company, email, wtsToken: token, companyId });
       return { ...result, owner: owner ? { name: owner.name ?? '', email: owner.email ?? '', phone: owner.phoneNumber ?? '' } : null };
     }
+    case 'ia':
+      // IA montada pelo cliente no portal: resumo, prompt final e conversa (equipe gera os fluxos).
+      return getFinal(String(body.id ?? ''));
     case 'signupPlan':
       return { signup: await setSignupPlan(body.id, body.plan) };
     case 'signupDelete':
@@ -121,6 +126,19 @@ export default route(async ({ req, body }) => {
 
   const session = await authorize(req, body, BOTH);
   switch (body.action) {
+    case 'setupChat': {
+      // "Montar minha IA": só o próprio cliente conversa com a IA dele (a equipe vê o resultado em Clientes).
+      if (session.role !== 'client') throw new HttpError(403, 'Só o cliente conversa com a IA dele. A equipe vê o resultado em Clientes.');
+      const id = session.clientId;
+      switch (body.op) {
+        case 'get': return getChat(id);
+        case 'start': return startChat(id);
+        case 'send': return sendMessage(id, body.text);
+        case 'finish': return finishChat(id);
+        case 'reset': return resetChat(id);
+        default: throw new HttpError(400, 'Ação desconhecida');
+      }
+    }
     case 'config':
       return { modelSlug: resolveModelSlug(''), n8nConfigured: n8nConfigured(), appUrl: APP_URL() };
     case 'chatbots':

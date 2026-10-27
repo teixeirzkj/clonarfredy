@@ -16,13 +16,15 @@ Conferido na documentação pública da API do WTS (109 endpoints, out/2026).
 | Arquivar cards | Coluna + período → `PUT /crm/v3/panel/card/{id}` com status `ARCHIVED` |
 | Rotativo | Lista no fluxo do n8n, liga/desliga pela página |
 | Chatbots padrão | Biblioteca de JSON para copiar e colar no WTS (pasta `templates/chatbots`) |
+| Montar minha IA | No portal, o cliente conversa com a Frédy, que monta e testa o agente dele; o prompt pronto chega para a equipe em Clientes → "Ver IA" (`lib/setup-chat.js`, API da Anthropic) |
 | Conferências | Modelos de mensagem, painéis/etapas, chatbots, sequências, campos e horário de atendimento (modelo × cliente) |
 
 ## Dá para fazer (próximos passos, dependem de decisão nossa)
 
 1. **Acesso do cliente (perfil cliente × admin)**: login por cliente, só com as
    telas liberadas (ex.: Rotativo, Importar contatos, Chatbots padrão, vídeos).
-   Fluxos do n8n e prompt da IA ficam só para a equipe.
+   O cliente monta o prompt dele pela conversa "Montar minha IA"; baixar o prompt
+   e os fluxos do n8n continua só com a equipe.
    - Decidir: como o cliente entra (link + senha por cliente? e-mail?), quais
      telas ele vê e onde ficam os vídeos (links do YouTube/Loom/Drive).
    - Precisa guardar os clientes em algum lugar (hoje a página não tem banco

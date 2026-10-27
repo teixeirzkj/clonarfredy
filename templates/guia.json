@@ -101,6 +101,19 @@
       ]
     },
     {
+      "id": "ia",
+      "title": "Monte o agente de IA",
+      "desc": "Converse com a Frédy: ela pergunta sobre sua empresa, monta o agente e testa com você.",
+      "tips": [
+        "Responda como numa conversa: uma pergunta de cada vez. Se não souber algo, diga que decide depois.",
+        "No fim ela vira o seu agente para você testar. Quando gostar, clique em \"Finalizar e enviar para a equipe\"."
+      ],
+      "video": "",
+      "blocks": [
+        "setupChat"
+      ]
+    },
+    {
       "id": "sequencias",
       "title": "Sequências",
       "desc": "Crie as sequências de mensagens automáticas.",
