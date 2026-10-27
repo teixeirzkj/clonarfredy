@@ -253,6 +253,20 @@ function field(label, control, example, { className = '' } = {}) {
     example && h('span', { class: 'field-example' }, example));
 }
 
+// Campo de senha (ou token) com o olho de mostrar/esconder.
+function pw(input, what = 'senha') {
+  const btn = h('button', { type: 'button', class: 'input-action', 'aria-label': `Mostrar ${what}`, 'aria-pressed': 'false' }, svg('eye'));
+  btn.addEventListener('click', () => {
+    const show = input.type === 'password';
+    input.type = show ? 'text' : 'password';
+    btn.setAttribute('aria-pressed', String(show));
+    btn.setAttribute('aria-label', `${show ? 'Ocultar' : 'Mostrar'} ${what}`);
+    btn.replaceChildren(svg(show ? 'eyeOff' : 'eye'));
+    input.focus();
+  });
+  return h('div', { class: 'input-wrap pw-wrap' }, input, btn);
+}
+
 // Explicação longa escondida: só abre se a pessoa precisar.
 function howTo(summary, ...steps) {
   return h('details', { class: 'howto' },
@@ -522,6 +536,9 @@ function renderSideNav(activeId) {
   $('side-nav').replaceChildren(...sideNavItems().map((item) => (item.href
     ? h('a', { class: 'side-item', href: item.href(), target: '_blank', rel: 'noopener' }, svg(item.icon), h('span', { class: 'side-text' }, item.label))
     : h('button', { type: 'button', class: `side-item${item.id === activeId ? ' is-active' : ''}`, onclick: item.go }, svg(item.icon), h('span', { class: 'side-text' }, item.label)))));
+  const nav = $('side-nav');
+  const active = nav.querySelector('.is-active');
+  if (active && nav.scrollWidth > nav.clientWidth + 1) nav.scrollTo({ left: nav.scrollLeft + active.getBoundingClientRect().left - nav.getBoundingClientRect().left - 12, behavior: 'auto' });
   $('side-foot').replaceChildren(...(PORTAL === 'cliente'
     ? [h('strong', {}, state.session?.company ?? 'Portal do cliente'), h('span', {}, 'Dúvidas? Fale com a equipe Frédy pelo WhatsApp.'),
       h('button', { type: 'button', class: 'btn btn-small btn-ghost-light', onclick: () => { saveSession(null); showLogin('Você saiu.'); } }, svg('back'), h('span', {}, 'Sair'))]
@@ -531,7 +548,10 @@ function renderSideNav(activeId) {
 
 function scrollToSection(text) {
   const el = [...document.querySelectorAll('.section-label')].find((s) => s.textContent.startsWith(text));
-  el?.closest('.section-head, h2')?.scrollIntoView({ behavior: reducedMotion.matches ? 'auto' : 'smooth', block: 'start' });
+  const target = el?.closest('.section-head, h2');
+  if (!target) return;
+  const sc = $('modal-scroll');
+  sc.scrollTo({ top: sc.scrollTop + target.getBoundingClientRect().top - sc.getBoundingClientRect().top - 8, behavior: reducedMotion.matches ? 'auto' : 'smooth' });
 }
 
 // Destaque do início: o que fazer primeiro.
@@ -2103,9 +2123,9 @@ function renderAccountBlock(view) {
     section('', 'Sua empresa', h('p', { class: 'panel-desc' }, state.session?.company ?? '')),
     section('', 'Trocar senha',
       h('div', { class: 'form-stack' },
-        field('Senha atual', current, ''),
-        field('Senha nova', next, 'Pelo menos 8 caracteres.'),
-        field('Repita a senha nova', repeat, '')),
+        field('Senha atual', pw(current), ''),
+        field('Senha nova', pw(next), 'Pelo menos 8 caracteres.'),
+        field('Repita a senha nova', pw(repeat), '')),
       h('div', { class: 'toolbar' }, h('span', { class: 'spacer' }), saveBtn),
       status),
     section('', 'Sair',
@@ -2376,8 +2396,8 @@ function renderSignupPage() {
         field('Nome', f.ownerName, ''),
         field('E-mail', f.ownerEmail, 'Este será o seu login no portal.'),
         field('WhatsApp', f.ownerPhone, 'Ex.: (47) 99999-0000'),
-        field('Crie a senha do portal', f.password, 'Pelo menos 8 caracteres. Você entra com seu e-mail e esta senha.'),
-        field('Repita a senha', f.password2, ''))),
+        field('Crie a senha do portal', pw(f.password), 'Pelo menos 8 caracteres. Você entra com seu e-mail e esta senha.'),
+        field('Repita a senha', pw(f.password2), ''))),
     section('4', 'Usuários da conta',
       h('div', { class: 'form-stack' }, h('label', { class: 'field field-ex' }, h('span', { class: 'field-label' }, 'Quantos usuários vão usar o sistema?'), count, countHint)),
       usersBox),
@@ -2670,7 +2690,7 @@ function createAccessForm(body, prefill = {}) {
     h('div', { class: 'form-stack' },
       field('Empresa', company, 'Nome que aparece no portal.'),
       field('E-mail de login', email, 'O cliente entra com este e-mail.'),
-      field('Token da conta WTS do cliente', token, 'No WTS do cliente: Ajustes → Integrações → API. Fica guardado criptografado; o cliente não vê.')),
+      field('Token da conta WTS do cliente', pw(token, 'token'), 'No WTS do cliente: Ajustes → Integrações → API. Fica guardado criptografado; o cliente não vê.')),
     status,
     h('div', { class: 'toolbar' }, button('Cancelar', () => loadClients(body, prefill.signupId ? 'signups' : 'clients'), { variant: 'btn-ghost' }), h('span', { class: 'spacer' }), saveBtn));
   swap(body, box);
@@ -4052,6 +4072,7 @@ function init() {
   });
   $('side-home').addEventListener('click', (e) => { e.preventDefault(); if (state.session && !state.busy) showGrid(); });
   if (PORTAL === 'cadastro') $('modal').classList.add('is-cadastro');
+  if (PORTAL) $('close').hidden = true; // no portal e no cadastro não há o que fechar
 
   $('close').addEventListener('click', () => {
     if (state.busy) return;
@@ -4076,6 +4097,16 @@ function init() {
     e.currentTarget.setAttribute('aria-pressed', String(show));
     e.currentTarget.setAttribute('aria-label', show ? 'Ocultar token' : 'Mostrar token');
     e.currentTarget.replaceChildren(svg(show ? 'eyeOff' : 'eye'));
+  });
+
+  $('toggle-password').addEventListener('click', (e) => {
+    const input = $('password');
+    const show = input.type === 'password';
+    input.type = show ? 'text' : 'password';
+    e.currentTarget.setAttribute('aria-pressed', String(show));
+    e.currentTarget.setAttribute('aria-label', show ? 'Ocultar senha' : 'Mostrar senha');
+    e.currentTarget.replaceChildren(svg(show ? 'eyeOff' : 'eye'));
+    input.focus();
   });
 
   // Trocar o token zera os status, pois eles valem para outra conta.

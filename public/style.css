@@ -840,7 +840,7 @@ details.advanced .field { margin-top: 10px; max-width: 420px; }
 
 @media (max-width: 767px) {
   .overlay { padding: 0; align-items: stretch; }
-  .modal, .modal.is-login { max-width: none; max-height: none; height: 100dvh; border-radius: 0; border: 0; }
+  .modal, .modal.is-login { max-width: none; max-height: none; height: 100vh; height: 100dvh; border-radius: 0; border: 0; }
   .brand-bar { height: 58px; padding: 0 10px 0 16px; padding-top: env(safe-area-inset-top); box-sizing: content-box; }
   .brand-logo { height: 26px; }
   .modal-scroll { padding: 16px 16px calc(24px + env(safe-area-inset-bottom)); }
@@ -1254,7 +1254,7 @@ a.hero { text-decoration: none; }
 
 /* ---------- Central: menu lateral + área principal (vale para equipe e cliente) ---------- */
 .overlay { padding: 0; align-items: stretch; justify-content: stretch; }
-.modal { flex-direction: row; max-width: none; max-height: none; height: 100dvh; border: 0; border-radius: 0; box-shadow: none; background: var(--page); }
+.modal { flex-direction: row; max-width: none; max-height: none; height: 100vh; height: 100dvh; border: 0; border-radius: 0; box-shadow: none; background: var(--page); }
 .side { display: flex; flex-direction: column; gap: 18px; width: 248px; flex: none; padding: 24px 14px 18px; background: linear-gradient(180deg, #06203f 0%, #0a2b57 100%); color: #e8efff; }
 .side-brand { display: flex; align-items: center; gap: 10px; padding: 4px 10px; text-decoration: none; }
 .side-brand .brand-logo { height: 26px; filter: brightness(0) invert(1); }
@@ -1361,12 +1361,18 @@ a.hero { text-decoration: none; }
 }
 @media (max-width: 900px) {
   .modal { flex-direction: column; }
-  .side { flex-direction: row; align-items: center; gap: 8px; width: auto; padding: 10px 12px; overflow-x: auto; }
-  .side-brand { padding: 0 6px; }
+  /* A area principal precisa poder encolher: sem isto o conteudo passa da tela e nada rola. */
+  .main { flex: 1 1 0; min-height: 0; }
+  .modal-scroll { -webkit-overflow-scrolling: touch; }
+  .side { display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: center; gap: 6px; width: auto; flex: none; padding: 6px 8px 6px 12px; overflow: hidden; }
+  .side-brand { padding: 0; gap: 6px; }
+  .side-brand .brand-logo { height: 22px; }
+  .side .brand-tag { display: none; }
   .side-label, .side-foot { display: none; }
-  .side-nav { display: flex; flex: 1; gap: 4px; }
-  .side-item { width: auto; padding: 9px 10px; white-space: nowrap; }
-  .side-text { display: none; }
+  .side-nav { display: flex; gap: 4px; min-width: 0; padding: 2px 28px 2px 2px; overflow-x: auto; scroll-snap-type: x proximity; scrollbar-width: none; -webkit-overflow-scrolling: touch; -webkit-mask-image: linear-gradient(90deg, #000 calc(100% - 26px), transparent); mask-image: linear-gradient(90deg, #000 calc(100% - 26px), transparent); }
+  .side-nav::-webkit-scrollbar { display: none; }
+  .side-item { flex: none; width: auto; min-height: 44px; padding: 8px 12px; gap: 8px; font-size: 12.5px; white-space: nowrap; scroll-snap-align: start; }
+  .side-item.is-active { box-shadow: none; }
   .banner { display: block; padding: 22px; }
   .banner-actions { margin-top: 14px; }
   .workspace { padding: 16px 14px 12px; }
@@ -1374,9 +1380,18 @@ a.hero { text-decoration: none; }
   .section-caption { display: none; }
 }
 @media (max-width: 767px) {
+  .bubble { max-width: 90%; }
+  .chat-composer .btn span { display: none; }
+  .chat-composer .btn { min-width: 48px; padding-left: 14px; padding-right: 14px; }
   .modal.is-login { align-items: stretch; }
   .modal.is-login .main { width: 100%; margin: 0; border-radius: 0; border: 0; }
   .kpis { gap: 8px; }
   .kpi { padding: 12px; }
   .kpi strong { font-size: 20px; }
 }
+
+/* Mostrar/esconder senha (olho) */
+.pw-wrap { position: relative; }
+.pw-wrap input { width: 100%; padding-right: 48px; }
+.pw-wrap .input-action { top: 50%; transform: translateY(-50%); }
+.pw-wrap .input-action:active { transform: translateY(-50%) scale(0.88); }
