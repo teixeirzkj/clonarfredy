@@ -16,6 +16,17 @@ Quando algo for resolvido, risque aqui (ou peça para o Claude atualizar).
 - [ ] Colocar os links dos vídeos em `templates/guia.json` (campo "video" de cada passo) ou mandar para o Claude colocar.
 - [ ] Testar com um cliente real: mandar o link `/cadastro`, criar a conta no WTS, criar o acesso em Clientes e mandar o login.
 
+## 0.1 Portal do cliente v2 (27/10)
+
+- [x] Endereço `/portal` para o atalho na Frédy; landing do portal mais simples; "Abrir a Frédy" em destaque; passo a passo em vídeo (espaço pronto por passo).
+- [x] Cadastro pré-preenchido pela página de pagamento (`?pre=ID`), usuários limitados pelo plano, cliente entra no portal já logado ao criar a conta.
+- [x] Tela Clientes → "Contas da Helena": criar acesso ao portal para contas existentes (um por um ou todas).
+- [ ] **Eric**: combinar como a página dele chama a API (docs/INTEGRACAO-PAGAMENTO.md), gerar `PRE_SIGNUP_SECRET` na Vercel e passar por canal seguro; mapear produtos → `plan`.
+- [ ] **Vídeos**: gravar e colocar o link em cada passo de `templates/guia.json` (campo `video`); também `<chatbot>.video.txt` nos chatbots.
+- [ ] **Atalho na Frédy**: colocar `https://clonarfredy.vercel.app/portal` como atalho nas contas dos clientes (ou domínio próprio, se quiserem; aí definir `PUBLIC_URL`).
+- [ ] **Ativar para todos**: em Clientes → Contas da Helena, "Criar acesso para todas sem acesso" e mandar e-mail + senha para cada dono (as senhas só aparecem na hora).
+- [ ] Portal: ordem e textos dos passos (`templates/guia.json`) podem ser reorganizados quando os vídeos existirem.
+
 ## 1. Segurança (fazer logo)
 
 - [ ] **Trocar o token da Belini** no WTS (Ajustes → Integrações → API) e desativar o antigo: apareceu inteiro em prints na conversa.

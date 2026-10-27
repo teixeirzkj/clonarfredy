@@ -101,7 +101,7 @@ const LOOKUPS = [
 
 // A mesma página tem três modos, pelo endereço: / (equipe), /cliente (portal do
 // cliente, login por e-mail) e /cadastro (cliente novo pede a conta, sem login).
-const PORTAL = /^\/cliente\/?$/.test(location.pathname) ? 'cliente' : /^\/cadastro\/?$/.test(location.pathname) ? 'cadastro' : null;
+const PORTAL = /^\/(cliente|portal)\/?$/.test(location.pathname) ? 'cliente' : /^\/cadastro\/?$/.test(location.pathname) ? 'cadastro' : null;
 
 // O que o cliente vê no portal (Montar prompt, Fluxos do n8n, webhooks e
 // "Configurar tudo" ficam só com a equipe; o servidor também bloqueia).
@@ -397,12 +397,15 @@ function setHeader(title, subtitle, withBack) {
   $('modal-title').textContent = title;
   $('modal-subtitle').textContent = subtitle;
   $('back').hidden = !withBack;
+  // Caminho no topo: área / tela.
+  $('crumb').replaceChildren(h('span', {}, PORTAL === 'cliente' ? 'Portal do cliente' : PORTAL === 'cadastro' ? 'Cadastro' : 'Implantação'), ' / ', h('strong', {}, withBack ? title : 'Início'));
 }
 
 function showView(name) {
   state.view = name;
   for (const view of ['login', 'grid', 'block']) $(`view-${view}`).hidden = view !== name;
   $('token-bar').hidden = name === 'login' || Boolean(PORTAL);
+  $('login-extra').hidden = name !== 'login' || PORTAL !== 'cliente';
   $('modal').classList.toggle('is-login', name === 'login');
   $('modal-scroll').scrollTop = 0;
   enter($(`view-${name}`), { y: 8, duration: 300 });
@@ -410,9 +413,12 @@ function showView(name) {
 
 function showLogin(message = '') {
   const client = PORTAL === 'cliente';
-  setHeader(client ? 'Portal do cliente' : 'Entrar', client ? 'Entre com o e-mail e a senha que você criou no cadastro' : 'Acesso restrito à equipe Frédy', false);
+  setHeader(client ? 'Portal do cliente Frédy' : 'Entrar', client ? 'Vídeos e passo a passo para configurar sua conta. Entre com o e-mail e a senha do cadastro.' : 'Acesso restrito à equipe Frédy', false);
   showView('login');
+  $('top-pill').hidden = true;
+  $('crumb').replaceChildren(h('span', {}, client ? 'Portal do cliente' : 'Implantação'));
   $('email-field').hidden = !client;
+  $('login-extra').hidden = !client;
   $('login-email').required = client;
   $('password-label').textContent = client ? 'Senha' : 'Senha de acesso';
   $('login-error').textContent = message;
@@ -431,15 +437,21 @@ async function loadConfig() {
 function showGrid() {
   if (state.busy) return;
   loadConfig();
-  if (PORTAL === 'cliente') setHeader(state.session?.company ? `Olá, ${state.session.company}` : 'Portal do cliente', 'Configure sua conta passo a passo', false);
+  if (PORTAL === 'cliente') setHeader(state.session?.company ? `Olá, ${state.session.company}` : 'Portal do cliente', 'Assista aos vídeos e configure sua conta passo a passo', false);
   else setHeader('Setup da Conta', 'Escolha o que configurar na conta do cliente', false);
   showView('grid');
+  renderSideNav('home');
+  const pill = $('top-pill');
+  pill.textContent = PORTAL === 'cliente' ? (state.session?.company ?? 'Portal do cliente') : 'Equipe Frédy';
+  pill.hidden = false;
+  loadGuideSummary();
   renderGrid({ animate: true });
 }
 
 function openBlock(block) {
   setHeader(block.title, block.desc, true);
   showView('block');
+  renderSideNav(block.id);
   const view = $('view-block');
   // Fluxos do n8n: volta para a mesma tela (com o que já foi escolhido) enquanto o token for o mesmo.
   if (block.kind === 'n8n' && state.n8nCache && state.n8nCache.token === clientToken()) {
@@ -475,6 +487,106 @@ function statusBadge(block) {
   return status ? badge(status.tone, status.text) : badge('', 'Pendente');
 }
 
+// ---------- Central: menu lateral, destaque e números ----------
+
+// Atalhos do menu lateral. A equipe e o cliente têm menus diferentes.
+function sideNavItems() {
+  const block = (id) => BLOCK_BY_ID[id] ?? SECTIONS.flatMap((s) => s.blocks).find((b) => b.kind === id);
+  if (PORTAL === 'cliente') {
+    return [
+      { id: 'home', label: 'Início', icon: 'kanban', go: showGrid },
+      { id: 'guide', label: 'Passo a passo', icon: 'play', go: () => openBlock(GUIDE) },
+      { id: 'app', label: 'Abrir a Frédy', icon: 'arrow', href: () => state.config?.appUrl || 'https://fredy.wts.chat/' },
+      { id: 'chatbotsPadrao', label: 'Chatbots padrão', icon: 'bot', go: () => openBlock(block('chatbotsPadrao')) },
+      { id: 'importContacts', label: 'Importar contatos', icon: 'upload', go: () => openBlock(block('importContacts')) },
+      { id: 'account', label: 'Minha conta', icon: 'user', go: () => openBlock(ACCOUNT) },
+    ];
+  }
+  return [
+    { id: 'home', label: 'Início', icon: 'kanban', go: showGrid },
+    { id: 'setupAll', label: 'Configurar tudo', icon: 'rocket', go: () => openBlock(SETUP_ALL) },
+    { id: 'clientsAdmin', label: 'Clientes', icon: 'team', go: () => openBlock(block('clientsAdmin')) },
+    { id: 'n8n', label: 'Fluxos do n8n', icon: 'flow', go: () => openBlock(block('n8n')) },
+    { id: 'prompt', label: 'Prompt da IA', icon: 'sparkle', go: () => openBlock(block('prompt')) },
+    { id: 'check', label: 'Conferir', icon: 'check', go: () => { showGrid(); scrollToSection('Conferir'); } },
+    { id: 'lookup', label: 'Consultar', icon: 'form', go: () => { showGrid(); scrollToSection('Consultar'); } },
+  ].filter((i) => i.id === 'home' || i.id === 'check' || i.id === 'lookup' || i.id === 'setupAll' || block(i.id));
+}
+
+function renderSideNav(activeId) {
+  $('side-nav').replaceChildren(...sideNavItems().map((item) => (item.href
+    ? h('a', { class: 'side-item', href: item.href(), target: '_blank', rel: 'noopener' }, svg(item.icon), h('span', { class: 'side-text' }, item.label))
+    : h('button', { type: 'button', class: `side-item${item.id === activeId ? ' is-active' : ''}`, onclick: item.go }, svg(item.icon), h('span', { class: 'side-text' }, item.label)))));
+  $('side-foot').replaceChildren(...(PORTAL === 'cliente'
+    ? [h('strong', {}, state.session?.company ?? 'Portal do cliente'), h('span', {}, 'Dúvidas? Fale com a equipe Frédy pelo WhatsApp.'),
+      h('button', { type: 'button', class: 'btn btn-small btn-ghost-light', onclick: () => { saveSession(null); showLogin('Você saiu.'); } }, svg('back'), h('span', {}, 'Sair'))]
+    : [h('strong', {}, 'Equipe Frédy'), h('span', {}, 'Cole o token da conta do cliente para liberar as ferramentas.')]));
+  $('brand-tag').textContent = PORTAL === 'cliente' ? 'Portal do cliente' : 'Implantação';
+}
+
+function scrollToSection(text) {
+  const el = [...document.querySelectorAll('.section-label')].find((s) => s.textContent.startsWith(text));
+  el?.closest('.section-head, h2')?.scrollIntoView({ behavior: reducedMotion.matches ? 'auto' : 'smooth', block: 'start' });
+}
+
+// Destaque do início: o que fazer primeiro.
+function renderBanner() {
+  const box = $('banner');
+  if (PORTAL === 'cliente') {
+    const company = state.session?.company;
+    box.replaceChildren(h('section', { class: 'banner' },
+      h('div', { class: 'banner-text' },
+        h('div', { class: 'banner-eyebrow' }, 'SEU PORTAL FRÉDY'),
+        h('h2', {}, company ? `Olá, ${company}.` : 'Olá!', h('br'), 'Vamos deixar sua conta pronta.'),
+        h('p', {}, 'Assista ao vídeo de cada passo, faça na sua conta e marque como concluído. Para atender, abra a Frédy.')),
+      h('div', { class: 'banner-actions' },
+        h('button', { type: 'button', class: 'btn btn-light', onclick: () => openBlock(GUIDE) }, svg('play'), h('span', {}, 'Passo a passo em vídeo')),
+        h('a', { class: 'btn btn-ghost-light banner-app', href: state.config?.appUrl || 'https://fredy.wts.chat/', target: '_blank', rel: 'noopener' }, svg('arrow'), h('span', {}, 'Abrir a Frédy')))));
+    return;
+  }
+  box.replaceChildren(h('section', { class: 'banner' },
+    h('div', { class: 'banner-text' },
+      h('div', { class: 'banner-eyebrow' }, 'CENTRAL DE IMPLANTAÇÃO'),
+      h('h2', {}, 'Uma implantação mais simples.', h('br'), 'Tudo em um só lugar.'),
+      h('p', {}, 'Cole o token da conta do cliente, copie o padrão, gere os fluxos do n8n e acompanhe o que falta em cada conta.')),
+    h('div', { class: 'banner-actions' },
+      h('button', { type: 'button', class: 'btn btn-light', onclick: () => openBlock(SETUP_ALL) }, svg('rocket'), h('span', {}, 'Configurar tudo de uma vez')),
+      BLOCK_BY_ID.clientsAdmin ? h('button', { type: 'button', class: 'btn btn-ghost-light', onclick: () => openBlock(BLOCK_BY_ID.clientsAdmin) }, svg('team'), h('span', {}, 'Clientes')) : null)));
+}
+
+// Números do início (equipe: status da conta aberta; cliente: andamento do passo a passo).
+function renderKpis() {
+  const box = $('kpis');
+  const kpi = (icon, value, label) => h('div', { class: 'kpi' }, h('span', { class: 'kpi-icon', 'aria-hidden': 'true' }, svg(icon)), h('div', {}, h('strong', {}, String(value)), h('small', {}, label)));
+  if (PORTAL === 'cliente') {
+    const g = state.guideSummary;
+    const tools = SECTIONS.flatMap((s) => s.blocks).filter((b) => CLIENT_BLOCK_IDS.includes(b.id)).length;
+    box.replaceChildren(h('div', { class: 'kpis' },
+      kpi('check', g ? `${g.done} de ${g.total}` : '–', 'Passos concluídos'),
+      kpi('play', g ? g.videos : '–', 'Passos com vídeo'),
+      kpi('kanban', tools, 'Ferramentas liberadas')));
+    return;
+  }
+  const all = SECTIONS.flatMap((s) => s.blocks);
+  const tracked = all.filter((b) => ['sync', 'webhooks', 'agents', 'check'].includes(b.kind));
+  const done = tracked.filter((b) => state.status[b.id]?.tone === 'ok').length;
+  box.replaceChildren(h('div', { class: 'kpis' },
+    kpi('kanban', all.length, 'Ferramentas'),
+    kpi('check', done, 'Concluídas nesta conta'),
+    kpi('alert', tracked.length - done, 'Pendentes nesta conta'),
+    kpi('form', LOOKUPS.length, 'Consultas rápidas')));
+}
+
+// Andamento do passo a passo para os números do portal (carregado uma vez por sessão).
+async function loadGuideSummary() {
+  if (PORTAL !== 'cliente' || state.guideSummary || !state.session) return;
+  try {
+    const g = await api('portal', { action: 'guide' });
+    state.guideSummary = { total: g.steps.length, done: g.done.length, videos: g.steps.filter((s) => s.video).length };
+    if (state.view === 'grid') renderKpis();
+  } catch { /* fica sem números */ }
+}
+
 function renderGrid({ animate = false } = {}) {
   const query = $('search').value.trim().toLowerCase();
   const matches = (item) => !query || `${item.title} ${item.desc}`.toLowerCase().includes(query);
@@ -482,40 +594,43 @@ function renderGrid({ animate = false } = {}) {
   container.replaceChildren();
   let visible = 0;
 
-  const hero = PORTAL === 'cliente' ? { ...GUIDE, heroTitle: 'Passo a passo da implantação', heroDesc: 'Vídeos e instruções para deixar sua conta pronta, na ordem certa.' }
-    : { ...SETUP_ALL, heroTitle: 'Configurar tudo de uma vez', heroDesc: 'Etiquetas, equipes e webhooks, prompt da IA e fluxos do n8n (agente, mover card, rotativo) numa tela só.' };
-  if (matches(hero)) {
-    visible += 1;
-    container.append(h('button', { type: 'button', class: 'hero', onclick: () => openBlock(hero) },
-      h('span', { class: 'hero-icon', 'aria-hidden': 'true' }, svg('rocket')),
-      h('span', { class: 'hero-body' },
-        h('span', { class: 'hero-title' }, hero.heroTitle),
-        h('span', { class: 'hero-desc' }, hero.heroDesc)),
-      !PORTAL && state.status.setupAll ? badge(state.status.setupAll.tone, state.status.setupAll.text) : null,
-      h('span', { class: 'hero-arrow', 'aria-hidden': 'true' }, svg('arrow'))));
-  }
+  renderBanner();
+  renderKpis();
+  // Pendente/concluída só vale para o que tem status (sincronizações e conferências); o cliente não filtra.
+  const filter = PORTAL ? 'all' : (state.filter || 'all');
+  $('filters').hidden = Boolean(PORTAL);
+  const TRACKED = ['sync', 'webhooks', 'agents', 'check'];
+  const stateOf = (block) => (TRACKED.includes(block.kind) ? (state.status[block.id]?.tone === 'ok' ? 'done' : 'pending') : null);
+  const passes = (block) => filter === 'all' || stateOf(block) === filter;
 
   const sections = PORTAL === 'cliente'
     ? [...SECTIONS.map((sec) => ({ ...sec, title: sec.title === 'n8n e IA' ? 'Chatbots' : sec.title, blocks: sec.blocks.filter((b) => CLIENT_BLOCK_IDS.includes(b.id)) })), { title: 'Sua conta', blocks: [ACCOUNT] }]
     : SECTIONS;
   for (const sec of sections) {
-    const blocks = sec.blocks.filter(matches);
+    const blocks = sec.blocks.filter(matches).filter(passes);
     if (!blocks.length) continue;
     visible += blocks.length;
     container.append(
-      h('h2', { class: 'section-label' }, sec.title, h('span', { class: 'section-count' }, blocks.length)),
-      h('div', { class: 'cards' }, blocks.map((block) =>
-        h('button', { type: 'button', class: 'card', onclick: () => openBlock(block) },
-          h('span', { class: 'card-icon', 'aria-hidden': 'true' }, svg(block.icon)),
-          h('span', { class: 'card-body' },
-            h('span', { class: 'card-top' }, h('span', { class: 'card-title' }, block.title),
-              ['sync', 'webhooks', 'agents', 'check'].includes(block.kind) ? statusBadge(block) : null),
-            h('span', { class: 'card-desc' }, block.desc))))),
+      h('div', { class: 'section-head' },
+        h('h2', { class: 'section-label' }, sec.title, h('span', { class: 'section-count' }, blocks.length)),
+        h('span', { class: 'section-caption' }, sec.caption ?? 'Escolha uma ferramenta para começar')),
+      h('div', { class: 'cards' }, blocks.map((block) => {
+        const st = stateOf(block);
+        return h('button', { type: 'button', class: 'card', onclick: () => openBlock(block) },
+          h('span', { class: 'card-main' },
+            h('span', { class: 'card-icon', 'aria-hidden': 'true' }, svg(block.icon)),
+            h('span', { class: 'card-body' },
+              h('span', { class: 'card-top' }, h('span', { class: 'card-title' }, block.title)),
+              h('span', { class: 'card-desc' }, block.desc))),
+          h('span', { class: 'card-foot' },
+            st ? statusBadge(block) : h('span', { class: 'card-open' }, 'Abrir'),
+            h('span', { class: 'card-arrow', 'aria-hidden': 'true' }, svg('arrow'))));
+      })),
     );
   }
 
   // Webhooks apontam para o n8n da equipe: fora do portal do cliente.
-  const lookups = LOOKUPS.filter((l) => PORTAL !== 'cliente' || l.id !== 'webhooks').filter(matches);
+  const lookups = LOOKUPS.filter((l) => PORTAL !== 'cliente' || l.id !== 'webhooks').filter(matches).filter(() => filter === 'all');
   if (lookups.length) {
     visible += lookups.length;
     container.append(
@@ -1772,7 +1887,10 @@ async function renderGuideBlock(view) {
     counter.textContent = `${done.size} de ${total} passos concluídos`;
     bar.firstChild.style.transform = `scaleX(${total ? done.size / total : 0})`;
   };
-  const save = () => (PORTAL === 'cliente' ? api('portal', { action: 'guideDone', done: [...done] }).catch(() => {}) : null);
+  const save = () => {
+    if (state.guideSummary) state.guideSummary.done = done.size; // números do início
+    return PORTAL === 'cliente' ? api('portal', { action: 'guideDone', done: [...done] }).catch(() => {}) : null;
+  };
 
   const list = h('div', { class: 'guide' }, ...data.steps.map((step, i) => {
     const check = h('button', { type: 'button', class: 'guide-check', 'aria-pressed': String(done.has(step.id)), 'aria-label': `Marcar "${step.title}" como concluído` }, svg('check'));
@@ -1782,10 +1900,11 @@ async function renderGuideBlock(view) {
         h('span', { class: 'guide-title' }, step.title, h('span', { class: 'guide-desc' }, step.desc)),
         h('span', { class: 'chevron', 'aria-hidden': 'true' }, svg('arrow'))),
       h('div', { class: 'guide-body' },
+        step.video ? h('div', { class: 'guide-video-caption' }, svg('play'), h('span', {}, `Passo ${i + 1}: assista antes de fazer`)) : null,
         step.video && embedUrl(step.video)
           ? h('div', { class: 'guide-video' }, h('iframe', { src: embedUrl(step.video), title: `Vídeo: ${step.title}`, loading: 'lazy', allow: 'fullscreen; picture-in-picture', allowFullscreen: true }))
           : step.video ? h('a', { class: 'btn btn-small', href: step.video, target: '_blank', rel: 'noopener' }, svg('play'), h('span', {}, 'Assistir vídeo'))
-            : h('p', { class: 'hint guide-novideo' }, svg('play'), ' Vídeo em breve.'),
+            : h('div', { class: 'guide-novideo' }, svg('play'), h('span', {}, `Vídeo do passo ${i + 1} em breve: a equipe Frédy está gravando. Enquanto isso, siga as dicas abaixo.`)),
         step.tips.length ? h('ul', { class: 'guide-tips' }, ...step.tips.map((t) => h('li', {}, t))) : null,
         h('div', { class: 'toolbar' },
           ...step.blocks.map((id) => BLOCK_BY_ID[id]).filter(Boolean)
@@ -1820,7 +1939,7 @@ async function renderGuideBlock(view) {
   }, true);
   paintProgress();
   swap(body,
-    h('div', { class: 'guide-head' }, counter, bar),
+    h('div', { class: 'guide-head' }, counter, bar, h('p', { class: 'guide-intro' }, 'Assista ao vídeo de cada passo e depois faça na sua conta. Ao terminar, marque "Concluído" para ir ao próximo.')),
     data.steps.length ? list : notice('O passo a passo ainda não foi configurado.', 'info'),
     h('p', { class: 'hint' }, 'Dúvidas? Fale com a equipe Frédy pelo WhatsApp.'));
   stagger(list.querySelectorAll('.guide-step'), { step: 30, y: 8 });
@@ -1868,13 +1987,25 @@ function renderSignupPage() {
   $('reopen').lastChild.textContent = ' Abrir cadastro';
   const view = $('view-block');
   view.replaceChildren();
-  // Plano pelo link (/cadastro?plano=...): vai junto no envio e aparece no topo.
-  const planId = new URLSearchParams(location.search).get('plano') || '';
+  // Plano pelo link (/cadastro?plano=...) ou pelo pré-cadastro da página de pagamento (?pre=ID):
+  // vai junto no envio, aparece no topo e limita os usuários.
+  const params = new URLSearchParams(location.search);
+  const preId = params.get('pre') || '';
+  let planId = params.get('plano') || '';
+  let maxUsers = null;
+  let preUsers = []; // usuários que vieram do pedido
   const planLine = h('p', { class: 'hint signup-plan' });
-  api('portal', { action: 'plans' }).then((r) => {
-    const plan = r.planos.find((p) => p.id === (planId || r.padrao));
-    if (plan && r.planos.length > 1) planLine.textContent = `Plano: ${plan.nome}`;
-  }).catch(() => {});
+  const preBox = h('div');
+  const applyPlan = (plan, manyPlans) => {
+    if (!plan) return;
+    maxUsers = plan.usuarios || null;
+    planLine.textContent = `Plano: ${plan.nome}${maxUsers ? ` · até ${maxUsers} usuário(s)` : ''}`;
+    planLine.hidden = !(manyPlans || maxUsers);
+    syncUsers();
+  };
+  if (!preId) {
+    api('portal', { action: 'plans' }).then((r) => applyPlan(r.planos.find((p) => p.id === (planId || r.padrao)), r.planos.length > 1)).catch(() => {});
+  }
 
   const input = (attrs = {}) => h('input', { type: 'text', ...attrs });
   const f = {
@@ -1959,22 +2090,28 @@ function renderSignupPage() {
   // Usuários: quantos + os dados de cada um.
   const usersBox = h('div', { class: 'signup-users' });
   const count = input({ type: 'number', min: 1, max: 100, value: 2, inputMode: 'numeric' });
-  const userRow = (i) => {
-    const profile = h('input', { type: 'hidden', value: i === 0 ? 'Admin' : 'Agent' });
+  const countHint = h('span', { class: 'field-example' }, 'Inclua você, se for atender.');
+  const userRow = (i, u = {}) => {
+    const profile = h('input', { type: 'hidden', value: u.profile || (i === 0 ? 'Admin' : 'Agent') });
     return h('div', { class: 'signup-user' },
       h('div', { class: 'signup-user-head' }, h('span', { class: 'step-num' }, String(i + 1)), h('strong', {}, `Usuário ${i + 1}`)),
       h('div', { class: 'form-grid' },
-        field('Nome completo', input({ 'data-u': 'name', placeholder: 'Ana Lima' }), ''),
-        field('Apelido (como aparece no atendimento)', input({ 'data-u': 'nickname', placeholder: 'Ana' }), ''),
-        field('E-mail', input({ type: 'email', 'data-u': 'email', placeholder: 'ana@empresa.com.br' }), 'Recebe o convite para criar a senha.'),
-        field('Telefone (opcional)', input({ type: 'tel', 'data-u': 'phone', placeholder: '(47) 98888-7777' }), ''),
+        field('Nome completo', input({ 'data-u': 'name', placeholder: 'Ana Lima', value: u.name || '' }), ''),
+        field('Apelido (como aparece no atendimento)', input({ 'data-u': 'nickname', placeholder: 'Ana', value: u.nickname || '' }), ''),
+        field('E-mail', input({ type: 'email', 'data-u': 'email', placeholder: 'ana@empresa.com.br', value: u.email || '' }), 'Recebe o convite para criar a senha.'),
+        field('Telefone (opcional)', input({ type: 'tel', 'data-u': 'phone', placeholder: '(47) 98888-7777', value: u.phone || '' }), ''),
         field('Perfil', h('div', {}, profile, segmented([['Agent', 'Atendente'], ['Admin', 'Administrador']], profile.value, (v) => { profile.value = v; }, 'Perfil')), '')),
       profile);
   };
   const syncUsers = () => {
-    const n = Math.max(1, Math.min(100, Number(count.value) || 1));
+    // O plano limita quantos usuários a conta tem.
+    const limit = maxUsers || 100;
+    count.max = limit;
+    if (Number(count.value) > limit) count.value = limit;
+    countHint.textContent = maxUsers ? `Seu plano inclui até ${maxUsers} usuário(s). Inclua você, se for atender.` : 'Inclua você, se for atender.';
+    const n = Math.max(1, Math.min(limit, Number(count.value) || 1));
     const rows = [...usersBox.children];
-    for (let i = rows.length; i < n; i++) { const row = userRow(i); usersBox.append(row); enter(row, { y: 6 }); }
+    for (let i = rows.length; i < n; i++) { const row = userRow(i, preUsers[i]); usersBox.append(row); enter(row, { y: 6 }); }
     rows.slice(n).forEach((r) => r.remove());
   };
   count.oninput = syncUsers;
@@ -1993,7 +2130,7 @@ function renderSignupPage() {
       companyPhone: f.companyPhone.value, site: f.site.value,
       address: { cep: f.cep.value, street: f.street.value, number: f.number.value, complement: f.complement.value, district: f.district.value, city: f.city.value, uf: f.uf.value },
       owner: { name: f.ownerName.value, email: f.ownerEmail.value, phone: f.ownerPhone.value },
-      users, notes: f.notes.value, consent: consent.checked, website: f.website.value, plan: planId,
+      users, notes: f.notes.value, consent: consent.checked, website: f.website.value, plan: planId, pre: preId,
     };
     if (f.password.value !== f.password2.value) {
       status.replaceChildren(notice('As duas senhas não são iguais.'));
@@ -2005,27 +2142,36 @@ function renderSignupPage() {
     try {
       const result = await api('portal', { action: 'signup', data });
       if (result.created) {
-        // Conta criada: leva o cliente direto para o sistema Frédy.
         const appUrl = result.appUrl || 'https://fredy.wts.chat/';
+        // Acesso ao portal criado agora: entra direto nele (lá estão os vídeos e o botão da Frédy).
+        const toPortal = Boolean(result.session);
+        if (toPortal) { try { sessionStorage.setItem('setup-session-cliente', JSON.stringify(result.session)); } catch { /* entra pelo login */ } }
+        const dest = toPortal ? '/portal' : appUrl;
         const countdown = h('strong', {}, '10');
-        setHeader('Conta criada!', 'Sua conta Frédy já está pronta para entrar.', false);
+        setHeader('Conta criada!', toPortal ? 'Agora é só seguir o passo a passo no seu portal.' : 'Sua conta Frédy já está pronta para entrar.', false);
         swap(view, h('div', { class: 'signup-done' },
           h('span', { class: 'signup-done-icon', 'aria-hidden': 'true' }, svg('check')),
           h('h2', {}, 'Sua conta Frédy foi criada'),
-          h('p', {}, `Ela já vem com seus usuários, equipes e etiquetas. Entre com o e-mail ${result.email}. No primeiro acesso, siga o e-mail de boas-vindas ou use "Esqueci minha senha".`),
-          h('a', { class: 'btn btn-primary', href: appUrl }, svg('arrow'), h('span', {}, 'Entrar na Frédy agora')),
-          h('p', { class: 'hint' }, 'Abrindo a Frédy em ', countdown, ' segundos...'),
-          h('div', { class: 'signup-next' },
-            h('strong', {}, 'Depois: o passo a passo'),
-            h('p', {}, `O que não dá para criar sozinho (painéis, modelos de mensagem, chatbots, sequências) fica no portal, com vídeos. Entre em ${location.origin}/cliente com o mesmo e-mail e a senha que você criou aqui.`),
-            h('div', { class: 'toolbar' },
-              h('a', { class: 'btn btn-small', href: '/cliente', target: '_blank', rel: 'noopener' }, svg('arrow'), h('span', {}, 'Abrir o passo a passo')),
-              button('Copiar endereço', (e) => flashOnCopy(e.currentTarget, `${location.origin}/cliente`), { variant: 'btn-small btn-ghost', icon: 'copy' })))));
+          h('p', {}, toPortal
+            ? `Ela já vem com seus usuários, equipes e etiquetas. No portal você assiste ao vídeo de cada passo e abre a Frédy. Para entrar na Frédy, use o e-mail ${result.email} ou o telefone cadastrado.`
+            : `Ela já vem com seus usuários, equipes e etiquetas. Entre com o e-mail ${result.email}. No primeiro acesso, siga o e-mail de boas-vindas ou use "Esqueci minha senha".`),
+          h('a', { class: 'btn btn-primary', href: dest }, svg('arrow'), h('span', {}, toPortal ? 'Ir para o meu portal' : 'Entrar na Frédy agora')),
+          h('p', { class: 'hint' }, toPortal ? 'Abrindo o portal em ' : 'Abrindo a Frédy em ', countdown, ' segundos...'),
+          toPortal
+            ? h('div', { class: 'signup-next' },
+              h('strong', {}, 'Quer entrar na Frédy agora?'),
+              h('div', { class: 'toolbar' }, h('a', { class: 'btn btn-small', href: appUrl, target: '_blank', rel: 'noopener' }, svg('arrow'), h('span', {}, 'Abrir a Frédy'))))
+            : h('div', { class: 'signup-next' },
+              h('strong', {}, 'Depois: o passo a passo'),
+              h('p', {}, `O que não dá para criar sozinho (painéis, modelos de mensagem, chatbots, sequências) fica no portal, com vídeos. Entre em ${location.origin}/portal com o mesmo e-mail e a senha que você criou aqui.`),
+              h('div', { class: 'toolbar' },
+                h('a', { class: 'btn btn-small', href: '/portal', target: '_blank', rel: 'noopener' }, svg('arrow'), h('span', {}, 'Abrir o passo a passo')),
+                button('Copiar endereço', (e) => flashOnCopy(e.currentTarget, `${location.origin}/portal`), { variant: 'btn-small btn-ghost', icon: 'copy' })))));
         let left = 10;
         const tick = setInterval(() => {
           left -= 1;
           countdown.textContent = String(left);
-          if (left <= 0) { clearInterval(tick); location.href = appUrl; }
+          if (left <= 0) { clearInterval(tick); location.href = dest; }
         }, 1000);
       } else {
         setHeader('Cadastro recebido!', 'Sua conta está sendo criada.', false);
@@ -2036,10 +2182,10 @@ function renderSignupPage() {
           h('p', {}, `A equipe Frédy vai finalizar sua conta e avisar em ${data.owner.email}.`),
           h('div', { class: 'signup-next' },
             h('strong', {}, 'Seu portal: o passo a passo da implantação'),
-            h('p', {}, `Quando a conta estiver pronta, entre em ${location.origin}/cliente com o e-mail ${data.owner.email} e a senha que você criou aqui. Guarde este endereço.`),
+            h('p', {}, `Quando a conta estiver pronta, entre em ${location.origin}/portal com o e-mail ${data.owner.email} e a senha que você criou aqui. Guarde este endereço.`),
             h('div', { class: 'toolbar' },
-              h('a', { class: 'btn btn-small', href: '/cliente' }, svg('arrow'), h('span', {}, 'Abrir o portal')),
-              button('Copiar endereço', (e) => flashOnCopy(e.currentTarget, `${location.origin}/cliente`), { variant: 'btn-small btn-ghost', icon: 'copy' })))));
+              h('a', { class: 'btn btn-small', href: '/portal' }, svg('arrow'), h('span', {}, 'Abrir o portal')),
+              button('Copiar endereço', (e) => flashOnCopy(e.currentTarget, `${location.origin}/portal`), { variant: 'btn-small btn-ghost', icon: 'copy' })))));
       }
       pop(view.querySelector('.signup-done-icon'));
     } catch (err) {
@@ -2050,7 +2196,28 @@ function renderSignupPage() {
     }
   }, { variant: 'btn-primary', icon: 'arrow' });
 
+  // Pré-cadastro da página de pagamento: preenche tudo que veio do pedido e trava o plano.
+  if (preId) {
+    preBox.replaceChildren(loading('Buscando os dados do seu pedido...'));
+    api('portal', { action: 'preSignupGet', id: preId }).then((pre) => {
+      planId = pre.plan;
+      const set = (el, v) => { if (v) el.value = v; };
+      const c = pre.company || {}, a = pre.address || {}, o = pre.owner || {};
+      set(f.legalName, c.legalName); set(f.tradeName, c.tradeName); set(f.segment, c.segment); set(f.companyPhone, c.phone); set(f.site, c.site);
+      set(f.cep, a.cep ? `${a.cep.slice(0, 5)}-${a.cep.slice(5)}` : ''); set(f.street, a.street); set(f.number, a.number); set(f.complement, a.complement);
+      set(f.district, a.district); set(f.city, a.city); set(f.uf, a.uf);
+      set(f.ownerName, o.name); set(f.ownerEmail, o.email); set(f.ownerPhone, o.phone);
+      preUsers = Array.isArray(pre.users) ? pre.users : [];
+      usersBox.replaceChildren();
+      count.value = Math.max(1, preUsers.length || pre.usersCount || 1);
+      applyPlan({ nome: pre.planName, usuarios: pre.maxUsers }, false);
+      if (c.cnpj) { f.cnpj.value = c.cnpj; f.cnpj.oninput(); } // formata e completa o que faltar pela Receita
+      preBox.replaceChildren(notice(`Pedido confirmado${pre.order?.product ? ` (${pre.order.product})` : ''}. Confira os dados, crie a senha do portal e complete os usuários.`, 'ok'));
+    }).catch((err) => preBox.replaceChildren(notice(err.message, 'warn')));
+  }
+
   view.append(
+    preBox,
     planLine,
     section('1', 'Empresa',
       h('div', { class: 'form-grid' },
@@ -2078,7 +2245,7 @@ function renderSignupPage() {
         field('Crie a senha do portal', f.password, 'Pelo menos 8 caracteres. Você entra com seu e-mail e esta senha.'),
         field('Repita a senha', f.password2, ''))),
     section('4', 'Usuários da conta',
-      h('div', { class: 'form-stack' }, field('Quantos usuários vão usar o sistema?', count, 'Inclua você, se for atender.')),
+      h('div', { class: 'form-stack' }, h('label', { class: 'field field-ex' }, h('span', { class: 'field-label' }, 'Quantos usuários vão usar o sistema?'), count, countHint)),
       usersBox),
     section('5', 'Observações', f.notes),
     h('label', { class: 'signup-trap', 'aria-hidden': 'true' }, 'Não preencha', f.website),
@@ -2121,15 +2288,21 @@ async function loadClients(body, tab = 'signups') {
   const links = h('div', { class: 'portal-links' },
     ...(plans.length ? plans.map((p) => h('div', {}, h('span', { class: 'field-label' }, `Link do cadastro: plano ${p.nome}`), h('code', {}, signupLink(p)), copyButton(signupLink(p))))
       : [h('div', {}, h('span', { class: 'field-label' }, 'Link do cadastro (cliente novo)'), h('code', {}, `${origin}/cadastro`), copyButton(`${origin}/cadastro`))]),
-    h('div', {}, h('span', { class: 'field-label' }, 'Link do portal (quem já é cliente)'), h('code', {}, `${origin}/cliente`), copyButton(`${origin}/cliente`)));
+    h('div', {}, h('span', { class: 'field-label' }, 'Link do portal do cliente (atalho na Frédy)'), h('code', {}, `${origin}/portal`), copyButton(`${origin}/portal`)));
   const content = h('div');
   const newCount = data.signups.filter((s) => s.status === 'novo').length;
+  // Contas da Helena: só com o Token de Parceiro (gera o token de cada conta para criar o acesso).
+  const TABS = [
+    ['signups', `Cadastros recebidos${newCount ? ` (${newCount} novo${newCount > 1 ? 's' : ''})` : ''}`],
+    ['clients', `Clientes com acesso (${data.clients.length})`],
+    ...(data.partner ? [['helena', 'Contas da Helena']] : []),
+  ];
   const tabs = h('div', { class: 'tabs', role: 'tablist' },
-    ...[['signups', `Cadastros recebidos${newCount ? ` (${newCount} novo${newCount > 1 ? 's' : ''})` : ''}`], ['clients', `Clientes com acesso (${data.clients.length})`]].map(([id, text]) =>
+    ...TABS.map(([id, text]) =>
       h('button', { type: 'button', class: `tab${tab === id ? ' is-active' : ''}`, role: 'tab', 'aria-selected': String(tab === id), onclick: () => { tab = id; draw(); } }, text)));
   const draw = () => {
-    tabs.querySelectorAll('.tab').forEach((t, i) => { const on = (i === 0 ? 'signups' : 'clients') === tab; t.classList.toggle('is-active', on); t.setAttribute('aria-selected', String(on)); });
-    swap(content, tab === 'signups' ? signupsView(data, body) : clientsView(data, body));
+    tabs.querySelectorAll('.tab').forEach((t, i) => { const on = TABS[i][0] === tab; t.classList.toggle('is-active', on); t.setAttribute('aria-selected', String(on)); });
+    swap(content, tab === 'signups' ? signupsView(data, body) : tab === 'clients' ? clientsView(data, body) : helenaView(body));
   };
   body.autoCreate = Boolean(data.autoCreate);
   const auto = data.autoCreate
@@ -2245,14 +2418,94 @@ function signupsView(data, body) {
   return list;
 }
 
+// Contas do parceiro na Helena: cria o acesso ao portal de cada uma (token pela API de
+// parceiro, login = e-mail do dono) para ativar o portal para todos os clientes.
+function helenaView(body) {
+  const box = h('div');
+  swap(box, loading('Lendo as contas na Helena...'));
+  const fmtCnpj = (d) => String(d ?? '').replace(/\D/g, '').replace(/^(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})$/, '$1.$2.$3/$4-$5');
+  api('portal', { action: 'clients', op: 'helenaCompanies' }).then((r) => {
+    const out = h('div');
+    const results = []; // acessos criados nesta tela
+    const summary = () => results.map((x) => `${x.company}\nE-mail: ${x.email}\nSenha: ${x.password}`).join('\n\n');
+    const createFor = async (c) => {
+      const res = await api('portal', { action: 'clients', op: 'helenaAccess', companyId: c.id, company: c.name });
+      c.access = { id: res.client.id, email: res.client.email };
+      results.push({ company: c.name, email: res.client.email, password: res.password });
+      return res;
+    };
+    const paints = [];
+    const rows = r.companies.map((c) => {
+      const detail = h('div', { class: 'row-detail' });
+      const actions = h('div', { class: 'row-actions' });
+      const paint = () => {
+        detail.textContent = [c.documentId ? `CNPJ ${fmtCnpj(c.documentId)}` : null, c.status || null, c.access ? `acesso: ${c.access.email}` : 'sem acesso ao portal'].filter(Boolean).join(' · ');
+        actions.replaceChildren(c.access ? badge('ok', 'Com acesso') : button('Criar acesso', async (e) => {
+          const btn = e.currentTarget;
+          btn.disabled = true;
+          try {
+            const res = await createFor(c);
+            paints.forEach((p) => p());
+            swap(out, credentialsBox(res.client.email, res.password));
+            out.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          } catch (err) { swap(out, notice(err.message)); btn.disabled = false; }
+        }, { variant: 'btn-small btn-primary', icon: 'plus' }));
+        row.classList.toggle('is-off', !c.access);
+      };
+      const row = h('div', { class: 'row rot-row' },
+        h('span', { class: `row-dot ${c.access ? 'ok' : ''}` }, svg('user')),
+        h('div', {}, h('div', { class: 'row-title' }, c.name), detail),
+        actions);
+      paint();
+      paints.push(paint);
+      return row;
+    });
+    const pending = () => r.companies.filter((c) => !c.access);
+    // Cria um por um (cada um gera o token e lê o dono da conta) e mostra todas as senhas no fim.
+    const bulk = button(`Criar acesso para todas sem acesso (${pending().length})`, async (e) => {
+      const list = pending();
+      if (!list.length) return;
+      if (!confirm(`Criar o acesso ao portal de ${list.length} conta(s)? Em cada uma será gerado um token de API "Portal Frédy" e uma senha para o dono.`)) return;
+      const btn = e.currentTarget;
+      btn.disabled = true;
+      const progress = h('div');
+      swap(out, progress);
+      const errors = [];
+      for (const [i, c] of list.entries()) {
+        progress.replaceChildren(loading(`Criando acesso ${i + 1} de ${list.length}: ${c.name}...`));
+        try { await createFor(c); } catch (err) { errors.push(`${c.name}: ${err.message}`); }
+      }
+      paints.forEach((p) => p());
+      btn.hidden = !pending().length;
+      btn.disabled = false;
+      const msg = summary();
+      swap(out,
+        notice(`${results.length} acesso(s) criado(s)${errors.length ? `; ${errors.length} com erro` : ''}. Copie as senhas agora: elas não aparecem de novo.`, errors.length ? 'warn' : 'ok'),
+        errors.length ? h('ul', { class: 'guide-tips' }, ...errors.map((x) => h('li', {}, x))) : null,
+        msg ? h('pre', { class: 'detail-text' }, msg) : null,
+        msg ? h('div', { class: 'toolbar' }, h('span', { class: 'spacer' }), button('Copiar tudo', (ev) => flashOnCopy(ev.currentTarget, msg), { variant: 'btn-primary', icon: 'copy' })) : null);
+    }, { variant: 'btn-primary', icon: 'rocket' });
+    const top = h('div');
+    const paintTop = () => swap(top, notice(`${r.companies.length} conta(s) na Helena, ${pending().length} sem acesso ao portal. Criar acesso gera um token de API "Portal Frédy" na conta e uma senha para o dono (login = e-mail dele).`, 'info'));
+    paintTop();
+    paints.push(paintTop);
+    swap(box,
+      top,
+      h('div', { class: 'toolbar' }, h('span', { class: 'spacer' }), pending().length ? bulk : null),
+      out,
+      h('div', { class: 'list' }, h('div', { class: 'list-title' }, 'Contas', badge('', String(r.companies.length))), ...rows));
+  }).catch((err) => retry(box, err, () => swap(box, helenaView(body))));
+  return box;
+}
+
 function accessMessage(email, password) {
-  return `Seu acesso ao portal Frédy está pronto!\n\nEndereço: ${location.origin}/cliente\nE-mail: ${email}\nSenha: ${password}\n\nNo primeiro acesso, troque a senha em "Minha conta".`;
+  return `Seu acesso ao portal Frédy está pronto!\n\nEndereço: ${location.origin}/portal\nE-mail: ${email}\nSenha: ${password}\n\nNo primeiro acesso, troque a senha em "Minha conta".`;
 }
 
 function credentialsBox(email, password) {
   const msg = password ? accessMessage(email, password) : `Seu acesso ao portal Frédy está pronto!
 
-Endereço: ${location.origin}/cliente
+Endereço: ${location.origin}/portal
 E-mail: ${email}
 Senha: a que você criou no cadastro.`;
   return h('div', { class: 'credentials' },
@@ -3654,6 +3907,16 @@ function init() {
   document.addEventListener('pointerdown', ripple);
   $('search').addEventListener('input', () => renderGrid());
   $('back').addEventListener('click', showGrid);
+  // Filtros do início (Todas / Pendentes / Concluídas) e logo do menu lateral.
+  $('filters').addEventListener('click', (e) => {
+    const b = e.target.closest('.filter');
+    if (!b) return;
+    state.filter = b.dataset.filter;
+    $('filters').querySelectorAll('.filter').forEach((x) => x.classList.toggle('is-active', x === b));
+    renderGrid();
+  });
+  $('side-home').addEventListener('click', (e) => { e.preventDefault(); if (state.session && !state.busy) showGrid(); });
+  if (PORTAL === 'cadastro') $('modal').classList.add('is-cadastro');
 
   $('close').addEventListener('click', () => {
     if (state.busy) return;

@@ -8,6 +8,8 @@ copiando o padrão da **conta modelo**, só com a API pública do WTS.
 | Endereço | Quem usa | O que faz |
 |---|---|---|
 | `/` | Equipe Frédy (senha `APP_PASSWORD`) | Tudo, inclusive Fluxos do n8n, Montar prompt e a tela **Clientes** |
+| `/portal` (ou `/cliente`) | Portal do cliente (login por e-mail + senha) | Landing simples, "Abrir a Frédy" em destaque, passo a passo em vídeo (cada passo abre com o vídeo; sem vídeo mostra o espaço "em breve") e as ferramentas liberadas. O endereço `/portal` vai como atalho dentro da Frédy. A equipe cria o acesso em Clientes → "Contas da Helena" (token gerado pela API de parceiro, login = e-mail do dono) ou o acesso nasce no cadastro |
+| `/cadastro?pre=ID` | Cliente vindo da página de pagamento | Pré-cadastro criado pela página de pagamento (`action: preSignup` com `PRE_SIGNUP_SECRET`, ver docs/INTEGRACAO-PAGAMENTO.md): tudo preenchido, plano travado e usuários limitados pelo plano. Ao criar a conta, o cliente entra no portal já logado |
 | `/cadastro` | Cliente novo (sem login) | Envia CNPJ, empresa, endereço (CEP preenche), responsável, senha do portal e usuários. Com `HELENA_PARTNER_TOKEN`, **cria a conta sozinha**: confere o CNPJ na Receita (ATIVA) e se já existe conta, cria a empresa (`POST /v1/company`, status ONBOARDING, apps e limites do plano em `templates/planos.json`; cada plano tem um link `/cadastro?plano=<id>` e a equipe pode trocar o plano na tela Clientes), gera o token (`POST /v1/company/{id}/tokens`), cria os usuários, copia etiquetas e equipes e libera o portal. Se alguma trava barrar, fica em **Clientes** com o motivo e o botão "Tentar de novo" |
 | `/cliente` | Cliente que já tem acesso (e-mail + senha) | Passo a passo com vídeos (`templates/guia.json`), Rotativo, consultas, conferências, chatbots padrão, importar contatos, arquivar cards, etiquetas/equipes/usuários. Sem n8n, prompt e webhooks |
 
@@ -65,7 +67,7 @@ própria tela). Veja `templates/n8n/LEIA-ME.md`. O prompt padrão da IA fica em
 | `HELENA_API_BASE` | Opcional: base da API de parceiro (padrão `https://api.helena.run`) |
 | `FREDY_APP_URL` | Opcional: sistema para onde o cliente vai depois de criar a conta (padrão `https://fredy.wts.chat/`) |
 | `PORTAL_AUTO_CREATE` | Opcional: `off` desliga a criação automática (o cadastro só chega para a equipe) |
-| `SIGNUP_WEBHOOK_URL` | Opcional: recebe cada cadastro novo (ex.: fluxo do n8n que avisa a equipe no WhatsApp) |
+| `SIGNUP_WEBHOOK_URL`, `PRE_SIGNUP_SECRET` (chave da integração com a página de pagamento, ver docs/INTEGRACAO-PAGAMENTO.md), `PUBLIC_URL` (endereço público da página, para os links mandados para fora; sem ele usa o host da requisição) | Opcional: recebe cada cadastro novo (ex.: fluxo do n8n que avisa a equipe no WhatsApp) |
 | `N8N_WEBHOOK_BASE` | Opcional: base das URLs de webhook mostradas (padrão `https://webhooks.tedyleads.com.br/webhook/`) |
 
 ## Rodar localmente

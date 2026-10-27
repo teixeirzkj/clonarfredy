@@ -5,6 +5,10 @@
       "destination": "/index.html"
     },
     {
+      "source": "/portal",
+      "destination": "/index.html"
+    },
+    {
       "source": "/cadastro",
       "destination": "/index.html"
     }
