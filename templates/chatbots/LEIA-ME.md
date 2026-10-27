@@ -12,7 +12,7 @@ Pastas (o WTS cria cada tipo em um lugar diferente):
 
 O nome do arquivo vira o nome na tela: `follow-up-1-dia.json` → "Follow up 1 dia".
 
-A tela **Chatbots padrão** lista os arquivos com botão para copiar e baixar,
+A tela **Chatbots padrão** lista os arquivos com botão para copiar (não tem baixar: é colar direto no WTS),
 mostra o tipo e a lista "Depois de colar, confira": webhooks, modelos de
 mensagem, sequências, etiquetas, cards e transferências que o chatbot usa.
 Esses itens vêm com o ID da conta de origem e precisam ser escolhidos de novo

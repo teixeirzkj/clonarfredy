@@ -139,24 +139,12 @@
       "id": "contatos",
       "title": "Importe seus contatos",
       "desc": "Suba sua lista de clientes por planilha, já com etiquetas.",
-      "tips": [],
-      "video": "",
-      "blocks": [
-        "importContacts"
-      ]
-    },
-    {
-      "id": "rotativo",
-      "title": "Rotativo de atendentes",
-      "desc": "Escolha quem recebe os atendimentos novos e em que ordem.",
       "tips": [
-        "O rotativo é ativado pela equipe Frédy; depois você liga e desliga as pessoas aqui.",
-        "Quem deve receber mais atendimentos: aumente o \"Recebe X por rodada\" dessa pessoa (2 = o dobro de quem tem 1).",
-        "Transbordo: se ninguém assumir a conversa em X minutos ou horas, ela passa para a próxima pessoa da lista. Ligue, escolha o tempo e se a troca vale só no horário de atendimento. Se as equipes têm distribuição automática, deixe \"conta como atendida quando o atendente responder\"."
+        "Até 5.000 linhas de contatos por planilha. Com mais contatos, divida em mais de uma planilha."
       ],
       "video": "",
       "blocks": [
-        "rotativo"
+        "importContacts"
       ]
     }
   ]

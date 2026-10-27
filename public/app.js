@@ -103,9 +103,9 @@ const LOOKUPS = [
 // cliente, login por e-mail) e /cadastro (cliente novo pede a conta, sem login).
 const PORTAL = /^\/(cliente|portal)\/?$/.test(location.pathname) ? 'cliente' : /^\/cadastro\/?$/.test(location.pathname) ? 'cadastro' : null;
 
-// O que o cliente vê no portal (Montar prompt, Fluxos do n8n, webhooks e
+// O que o cliente vê no portal (Montar prompt, Fluxos do n8n, webhooks, Rotativo e
 // "Configurar tudo" ficam só com a equipe; o servidor também bloqueia).
-const CLIENT_BLOCK_IDS = ['setupChat', 'tags', 'departments', 'agents', 'rotativo', 'archiveCards', 'importContacts', 'chatbotsPadrao', 'templates', 'panels', 'chatbots', 'sequences', 'fields', 'officeHours'];
+const CLIENT_BLOCK_IDS = ['setupChat', 'tags', 'departments', 'agents', 'archiveCards', 'importContacts', 'chatbotsPadrao', 'templates', 'panels', 'chatbots', 'sequences', 'fields', 'officeHours'];
 // Só no portal: o cliente conversa com a Frédy e monta o agente de IA dele.
 const IA_CHAT = { id: 'setupChat', kind: 'setupChat', icon: 'sparkle', title: 'Montar minha IA', desc: 'Converse com a Frédy: ela pergunta sobre sua empresa, monta o agente e testa com você.' };
 const GUIDE = { id: 'guide', kind: 'guide', title: 'Passo a passo da implantação', desc: 'Siga os passos com vídeos e deixe sua conta pronta.' };
@@ -1546,6 +1546,7 @@ async function loadArchive(body) {
 // ---------- Importar contatos de uma planilha ----------
 
 const CONTACT_BATCH = 100;
+const CONTACT_MAX_ROWS = 5000; // linhas de contatos por planilha (sem contar a linha de títulos)
 
 // Lê CSV (vírgula ou ponto e vírgula, aspas, BOM do Excel).
 function parseCsv(textIn) {
@@ -1615,7 +1616,7 @@ function guessColumn(header, fields) {
 
 function renderContactsBlock(view) {
   const body = h('div');
-  view.append(h('p', { class: 'panel-desc' }, 'Suba a planilha de contatos (CSV), diga o que é cada coluna e importe. Quem já existe (mesmo telefone ou e-mail) é atualizado.'), body);
+  view.append(h('p', { class: 'panel-desc' }, 'Suba a planilha de contatos (CSV, até 5.000 linhas), diga o que é cada coluna e importe. Quem já existe (mesmo telefone ou e-mail) é atualizado.'), body);
   const tokenInput = $('client-token');
   let timer = null;
   const onToken = () => {
@@ -1655,13 +1656,24 @@ async function loadContactsImport(body) {
   const result = h('div');
 
   const fileInput = h('input', { type: 'file', accept: '.csv,text/csv,.txt' });
-  const drop = h('label', { class: 'drop' }, svg('upload'), h('span', {}, 'Escolher ou arrastar a planilha (.csv)'), fileInput);
+  const dropLabel = 'Escolher ou arrastar a planilha (.csv)';
+  const drop = h('label', { class: 'drop' }, svg('upload'), h('span', {}, dropLabel), fileInput);
   const fileError = h('div');
+  const num = (n) => n.toLocaleString('pt-BR');
   const readFile = async (file) => {
     fileError.replaceChildren();
     result.replaceChildren();
     const rows = parseCsv(await file.text());
-    if (rows.length < 2) return fileError.replaceChildren(notice('A planilha precisa de uma linha de títulos e pelo menos um contato.'));
+    fileInput.value = ''; // deixa escolher o mesmo arquivo de novo depois de corrigir
+    const problem = rows.length < 2 ? 'A planilha precisa de uma linha de títulos e pelo menos um contato.'
+      : rows.length - 1 > CONTACT_MAX_ROWS ? `A planilha tem ${num(rows.length - 1)} linhas de contatos e o limite é ${num(CONTACT_MAX_ROWS)} por planilha. Divida em mais de uma (cada uma com a linha de títulos) e importe uma de cada vez.` : '';
+    if (problem) {
+      // Planilha recusada: limpa o que estava carregado antes para não importar a errada.
+      Object.assign(sheet, { headers: [], rows: [], map: [] });
+      mapBox.replaceChildren();
+      drop.querySelector('span').textContent = dropLabel;
+      return fileError.replaceChildren(notice(problem));
+    }
     sheet.headers = rows[0].map((c, i) => c.trim() || `Coluna ${i + 1}`);
     sheet.rows = rows.slice(1);
     sheet.map = sheet.headers.map((hd) => guessColumn(hd, opts.fields));
@@ -1816,7 +1828,9 @@ async function loadContactsImport(body) {
   };
 
   swap(body,
-    section('1', 'Planilha', h('div', { class: 'drop-wrap' }, drop), fileError,
+    section('1', 'Planilha', h('div', { class: 'drop-wrap' }, drop),
+      h('p', { class: 'hint' }, `Até ${num(CONTACT_MAX_ROWS)} linhas de contatos por planilha. Com mais contatos, divida em mais de uma planilha e importe uma de cada vez.`),
+      fileError,
       howTo('Como gerar o CSV',
         'No Excel: Arquivo → Salvar como → CSV UTF-8 (separado por vírgulas).',
         'No Google Planilhas: Arquivo → Fazer download → Valores separados por vírgula (.csv).',
@@ -1857,7 +1871,6 @@ async function renderChatbotsBlock(view) {
         h('div', { class: 'toolbar' },
           bot.video ? h('a', { class: 'btn btn-small', href: bot.video, target: '_blank', rel: 'noopener' }, svg('play'), h('span', {}, 'Ver vídeo')) : null,
           h('span', { class: 'spacer' }),
-          button('Baixar', () => download(bot.id.split('/').pop().replace(/\.json$/, '.txt'), bot.content, 'text/plain'), { variant: 'btn-small', icon: 'download' }),
           button('Copiar chatbot', (e) => flashOnCopy(e.currentTarget, bot.content), { variant: 'btn-primary btn-small', icon: 'copy' })),
         // O que vem com ID da conta de origem e precisa ser escolhido de novo depois de colar.
         bot.checks.length ? h('div', { class: 'list bot-checks' },

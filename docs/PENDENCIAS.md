@@ -95,4 +95,5 @@ Montar prompt (Claude.ai) · Conferências com conteúdo completo e copiar ·
 Arquivar cards · Importar contatos · Usuários com equipes · Chatbots padrão ·
 Horário de atendimento · Portal do cliente (/cliente) e cadastro (/cadastro) com tela Clientes para a equipe ·
 Criação automática da conta na Helena com planos (Padrão e Teste, um link por plano) · Cadastro preenchido pelo CNPJ ·
-Montar minha IA no portal (conversa com a Frédy, teste do agente, resultado em Clientes → Ver IA).
+Montar minha IA no portal (conversa com a Frédy, teste do agente, resultado em Clientes → Ver IA) ·
+Portal do cliente sem Rotativo, Chatbots padrão só com Copiar e Importar contatos limitado a 5.000 linhas por planilha (27/10).

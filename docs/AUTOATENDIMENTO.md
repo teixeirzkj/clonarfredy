@@ -12,17 +12,17 @@ Conferido na documentação pública da API do WTS (109 endpoints, out/2026).
 |---|---|
 | Etiquetas, equipes, webhooks, usuários | Copia da conta modelo, com prévia (`POST /core/v1/tag`, `/department`, `/webhook/subscription`, `/agent`) |
 | Usuários já nas equipes | Ao criar o usuário, marca as equipes (`PUT /core/v1/department/{id}/agents`) |
-| Importar contatos | Planilha CSV → `POST /core/v2/contact/batch` (até 100 por vez, atualiza quem já existe), com etiquetas, campos e sequência |
+| Importar contatos | Planilha CSV → `POST /core/v2/contact/batch` (até 100 por vez, atualiza quem já existe), com etiquetas, campos e sequência; limite de 5.000 linhas por planilha |
 | Arquivar cards | Coluna + período → `PUT /crm/v3/panel/card/{id}` com status `ARCHIVED` |
 | Rotativo | Lista no fluxo do n8n, liga/desliga pela página |
-| Chatbots padrão | Biblioteca de JSON para copiar e colar no WTS (pasta `templates/chatbots`) |
+| Chatbots padrão | Biblioteca de JSON para copiar e colar no WTS (pasta `templates/chatbots`); só copiar, sem baixar |
 | Montar minha IA | No portal, o cliente conversa com a Frédy, que monta e testa o agente dele; o prompt pronto chega para a equipe em Clientes → "Ver IA" (`lib/setup-chat.js`, API da Anthropic) |
 | Conferências | Modelos de mensagem, painéis/etapas, chatbots, sequências, campos e horário de atendimento (modelo × cliente) |
 
 ## Dá para fazer (próximos passos, dependem de decisão nossa)
 
 1. **Acesso do cliente (perfil cliente × admin)**: login por cliente, só com as
-   telas liberadas (ex.: Rotativo, Importar contatos, Chatbots padrão, vídeos).
+   telas liberadas (ex.: Importar contatos, Chatbots padrão, vídeos; o Rotativo é só da equipe).
    O cliente monta o prompt dele pela conversa "Montar minha IA"; baixar o prompt
    e os fluxos do n8n continua só com a equipe.
    - Decidir: como o cliente entra (link + senha por cliente? e-mail?), quais
