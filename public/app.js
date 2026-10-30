@@ -2450,7 +2450,7 @@ async function loadClients(body, tab = 'signups') {
     return;
   }
   const origin = location.origin;
-  const plans = data.plans?.planos ?? [];
+  const plans = (data.plans?.planos ?? []).filter((p) => !p.soPreCadastro); // esses só abrem pela página de pagamento
   const signupLink = (p) => `${origin}/cadastro${p.id === data.plans.padrao ? '' : `?plano=${encodeURIComponent(p.id)}`}`;
   const links = h('div', { class: 'portal-links' },
     ...(plans.length ? plans.map((p) => h('div', {}, h('span', { class: 'field-label' }, `Link do cadastro: plano ${p.nome}`), h('code', {}, signupLink(p)), copyButton(signupLink(p))))

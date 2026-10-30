@@ -32,8 +32,12 @@ o botão da Frédy e o passo a passo em vídeo.
 
 - A chave também pode ir no header `X-Integracao` em vez de `secret`. Ela fica na
   variável `PRE_SIGNUP_SECRET` da Vercel; combinar o valor com a equipe Frédy.
-- Só `plan` é obrigatório: é o `id` de um plano em `templates/planos.json` (hoje `padrao`
-  e `teste`). Tudo o mais é opcional e só preenche a tela; o cliente pode corrigir.
+- Só `plan` é obrigatório: é o `id` de um plano em `templates/planos.json` (`padrao`, `teste` e
+  `plug-and-play`). Tudo o mais é opcional e só preenche a tela; o cliente pode corrigir.
+- Plano com `soPreCadastro: true` (o `plug-and-play`) só abre por este link: `/cadastro?plano=` não serve.
+- `usersCount` maior que o plano aumenta o limite de usuários (o cliente pagou por mais).
+- Um `order.id` vira um pré-cadastro só: chamar de novo devolve o mesmo link; depois do cadastro feito
+  responde `409` ("esse pagamento já virou cadastro").
 - Os nomes dos campos também podem vir em português: `plano`, `empresa` (`razaoSocial`,
   `nomeFantasia`, `segmento`, `telefone`), `endereco` (`rua`, `numero`, `complemento`,
   `bairro`, `cidade`, `uf`), `responsavel` (`nome`, `email`, `telefone`), `usuarios`
@@ -47,7 +51,10 @@ o botão da Frédy e o passo a passo em vídeo.
 ```
 
 Mande o cliente para `url` (redirecionamento ou botão "Continuar o cadastro"). O link vale
-por **7 dias** e só **uma vez**. Erros: `401` chave errada, `400` plano inválido.
+por **7 dias** e só **uma vez**. Erros: `401` chave errada, `400` plano inválido, `409` pedido já cadastrado.
+
+A proposta do Frédy (repo `teteateteproject/proposta-fredy`) já usa esta API no Plug and Play:
+pagamento no Asaas → `/api/pago` confere → `preSignup` → cliente vai para `url`.
 
 ## O que acontece na tela
 
