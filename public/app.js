@@ -1943,7 +1943,7 @@ async function renderGuideBlock(view) {
       h('div', { class: 'guide-body' },
         step.video ? h('div', { class: 'guide-video-caption' }, svg('play'), h('span', {}, `Passo ${i + 1}: assista antes de fazer`)) : null,
         step.video && embedUrl(step.video)
-          ? h('div', { class: 'guide-video' }, h('iframe', { src: embedUrl(step.video), title: `Vídeo: ${step.title}`, loading: 'lazy', allow: 'fullscreen; picture-in-picture', allowFullscreen: true }))
+          ? h('div', { class: 'guide-video' }, h('iframe', { src: embedUrl(step.video), title: `Vídeo: ${step.title}`, loading: 'lazy', allow: 'fullscreen; picture-in-picture', allowFullscreen: true, referrerpolicy: 'strict-origin' }))
           : step.video ? h('a', { class: 'btn btn-small', href: step.video, target: '_blank', rel: 'noopener' }, svg('play'), h('span', {}, 'Assistir vídeo'))
             : h('div', { class: 'guide-novideo' }, svg('play'), h('span', {}, `Vídeo do passo ${i + 1} em breve: a equipe Frédy está gravando. Enquanto isso, siga as dicas abaixo.`)),
         step.tips.length ? h('ul', { class: 'guide-tips' }, ...step.tips.map((t) => h('li', {}, t))) : null,
