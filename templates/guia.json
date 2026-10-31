@@ -10,7 +10,7 @@
         "No primeiro acesso, siga o e-mail de boas-vindas ou use \"Esqueci minha senha\" na tela de login.",
         "Depois volte aqui e siga os próximos passos na ordem."
       ],
-      "video": "",
+      "video": "https://youtu.be/OBOos0NF8x0",
       "link": {
         "label": "Abrir a Frédy",
         "url": "https://fredy.wts.chat/"
@@ -40,7 +40,7 @@
         "Na Frédy: Ajustes → Usuários e Ajustes → Equipes.",
         "Cada pessoa recebe um e-mail para criar a senha dela."
       ],
-      "video": "",
+      "video": "https://youtu.be/TKywuS8fPqE",
       "blocks": [
         "departments",
         "agents"
@@ -59,7 +59,7 @@
         "Aqui no portal, \"Etiquetas padrão\" copia as etiquetas do modelo para a sua conta.",
         "Na Frédy, as etiquetas aparecem em cada contato (CRM → Contatos → abrir o contato → Etiquetas)."
       ],
-      "video": "",
+      "video": "https://youtu.be/yz9fn8dVLLM",
       "blocks": [
         "tags"
       ],
@@ -76,7 +76,7 @@
       "tips": [
         "Abra cada painel aqui no portal, copie as etapas na ordem e crie na Frédy em CRM → Painéis."
       ],
-      "video": "",
+      "video": "https://youtu.be/CpYvMOol9JM",
       "blocks": [
         "panels"
       ],
@@ -93,7 +93,7 @@
         "Campos do painel: na Frédy, abra o painel em CRM → Painéis e crie os campos que faltam.",
         "Campos do contato: em CRM → Contatos, abra um contato e use \"Adicionar/Alterar campos personalizados\"."
       ],
-      "video": "",
+      "video": "https://youtu.be/xi9twPE1Id0",
       "blocks": [
         "fields"
       ],
@@ -110,7 +110,7 @@
         "Na Frédy: Ajustes → Modelos de mensagens → Novo.",
         "Os modelos do WhatsApp oficial passam por aprovação antes de poder usar."
       ],
-      "video": "",
+      "video": "https://youtu.be/Ouh3lKMDtnw",
       "blocks": [
         "templates"
       ],
@@ -128,7 +128,7 @@
         "Na Frédy: Apps → Chatbot → Chatbots para automação → Novo. Dê o nome, salve e, no editor, clique numa área vazia e cole (Ctrl+V).",
         "Depois de colar, confira as equipes, etiquetas e modelos usados no chatbot e clique em Publicar."
       ],
-      "video": "",
+      "video": "https://youtu.be/BbEWSkm-dOY",
       "blocks": [
         "chatbotsPadrao",
         "chatbots"
@@ -159,7 +159,7 @@
         "Na Frédy: Apps → Sequências → Nova.",
         "Veja o vídeo e monte cada sequência seguindo o modelo."
       ],
-      "video": "",
+      "video": "https://youtu.be/MbXs0HIoRU0",
       "blocks": [
         "sequences"
       ],
@@ -175,7 +175,7 @@
       "tips": [
         "Na Frédy: Ajustes → Conta → Horário de atendimento."
       ],
-      "video": "",
+      "video": "https://youtu.be/DmfDkWvDFc0",
       "blocks": [
         "officeHours"
       ],
@@ -192,7 +192,7 @@
         "Até 5.000 linhas de contatos por planilha. Com mais contatos, divida em mais de uma planilha.",
         "Depois de importar, confira os contatos na Frédy em CRM → Contatos."
       ],
-      "video": "",
+      "video": "https://youtu.be/IHidpsiftwk",
       "blocks": [
         "importContacts"
       ],
