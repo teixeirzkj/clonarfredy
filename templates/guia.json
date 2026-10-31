@@ -22,17 +22,22 @@
       "title": "Conecte seu WhatsApp",
       "desc": "Ligue o número da empresa à sua conta para começar a atender.",
       "tips": [
-        "No sistema, vá em Ajustes → Canais e conecte o número.",
+        "Na Frédy: Ajustes → Conta → Canais de atendimento, e conecte o número.",
         "Use o celular com o WhatsApp da empresa por perto para ler o QR code."
       ],
       "video": "",
-      "blocks": []
+      "blocks": [],
+      "link": {
+        "label": "Abrir a Frédy",
+        "url": "https://fredy.wts.chat/settings/core/company/channels"
+      }
     },
     {
       "id": "equipe",
       "title": "Cadastre sua equipe",
       "desc": "Confira os usuários e as equipes. Quem você informou no cadastro já foi criado.",
       "tips": [
+        "Na Frédy: Ajustes → Usuários e Ajustes → Equipes.",
         "Cada pessoa recebe um e-mail para criar a senha dela."
       ],
       "video": "",
@@ -40,65 +45,98 @@
         "departments",
         "agents"
       ],
-      "autoDone": true
+      "autoDone": true,
+      "link": {
+        "label": "Abrir a Frédy",
+        "url": "https://fredy.wts.chat/settings/core/agents"
+      }
     },
     {
       "id": "etiquetas",
       "title": "Etiquetas",
       "desc": "As etiquetas padrão já foram copiadas. Confira e ajuste se precisar.",
-      "tips": [],
+      "tips": [
+        "Aqui no portal, \"Etiquetas padrão\" copia as etiquetas do modelo para a sua conta.",
+        "Na Frédy, as etiquetas aparecem em cada contato (CRM → Contatos → abrir o contato → Etiquetas)."
+      ],
       "video": "",
       "blocks": [
         "tags"
       ],
-      "autoDone": true
+      "autoDone": true,
+      "link": {
+        "label": "Abrir a Frédy",
+        "url": "https://fredy.wts.chat/contacts"
+      }
     },
     {
       "id": "paineis",
       "title": "Painéis e etapas (CRM)",
       "desc": "Monte o funil de vendas com as mesmas etapas do modelo.",
       "tips": [
-        "Abra cada painel, copie as etapas na ordem e crie no sistema em CRM → Painéis."
+        "Abra cada painel aqui no portal, copie as etapas na ordem e crie na Frédy em CRM → Painéis."
       ],
       "video": "",
       "blocks": [
         "panels"
-      ]
+      ],
+      "link": {
+        "label": "Abrir a Frédy",
+        "url": "https://fredy.wts.chat/panels"
+      }
     },
     {
       "id": "campos",
       "title": "Campos personalizados",
       "desc": "Crie os campos extras dos contatos e dos cards.",
-      "tips": [],
+      "tips": [
+        "Campos do painel: na Frédy, abra o painel em CRM → Painéis e crie os campos que faltam.",
+        "Campos do contato: em CRM → Contatos, abra um contato e use \"Adicionar/Alterar campos personalizados\"."
+      ],
       "video": "",
       "blocks": [
         "fields"
-      ]
+      ],
+      "link": {
+        "label": "Abrir a Frédy",
+        "url": "https://fredy.wts.chat/panels"
+      }
     },
     {
       "id": "modelos",
       "title": "Modelos de mensagem",
       "desc": "Copie os modelos de mensagem (texto, variáveis e botões) e cadastre na sua conta.",
       "tips": [
+        "Na Frédy: Ajustes → Modelos de mensagens → Novo.",
         "Os modelos do WhatsApp oficial passam por aprovação antes de poder usar."
       ],
       "video": "",
       "blocks": [
         "templates"
-      ]
+      ],
+      "link": {
+        "label": "Abrir a Frédy",
+        "url": "https://fredy.wts.chat/settings/chat/templates"
+      }
     },
     {
       "id": "chatbots",
       "title": "Chatbots",
       "desc": "Copie o JSON do chatbot padrão e cole no chatbot da sua conta.",
       "tips": [
-        "Depois de colar, confira as equipes e etiquetas usadas no chatbot."
+        "Aqui no portal, abra o chatbot padrão e clique em \"Copiar chatbot\".",
+        "Na Frédy: Apps → Chatbot → Chatbots para automação → Novo. Dê o nome, salve e, no editor, clique numa área vazia e cole (Ctrl+V).",
+        "Depois de colar, confira as equipes, etiquetas e modelos usados no chatbot e clique em Publicar."
       ],
       "video": "",
       "blocks": [
         "chatbotsPadrao",
         "chatbots"
-      ]
+      ],
+      "link": {
+        "label": "Abrir a Frédy",
+        "url": "https://fredy.wts.chat/chatbots/list/automation"
+      }
     },
     {
       "id": "ia",
@@ -118,34 +156,50 @@
       "title": "Sequências",
       "desc": "Crie as sequências de mensagens automáticas.",
       "tips": [
+        "Na Frédy: Apps → Sequências → Nova.",
         "Veja o vídeo e monte cada sequência seguindo o modelo."
       ],
       "video": "",
       "blocks": [
         "sequences"
-      ]
+      ],
+      "link": {
+        "label": "Abrir a Frédy",
+        "url": "https://fredy.wts.chat/sequences"
+      }
     },
     {
       "id": "horario",
       "title": "Horário de atendimento",
       "desc": "Confira os dias e horários e a mensagem fora do horário.",
-      "tips": [],
+      "tips": [
+        "Na Frédy: Ajustes → Conta → Horário de atendimento."
+      ],
       "video": "",
       "blocks": [
         "officeHours"
-      ]
+      ],
+      "link": {
+        "label": "Abrir a Frédy",
+        "url": "https://fredy.wts.chat/settings/core/company/office-hours"
+      }
     },
     {
       "id": "contatos",
       "title": "Importe seus contatos",
       "desc": "Suba sua lista de clientes por planilha, já com etiquetas.",
       "tips": [
-        "Até 5.000 linhas de contatos por planilha. Com mais contatos, divida em mais de uma planilha."
+        "Até 5.000 linhas de contatos por planilha. Com mais contatos, divida em mais de uma planilha.",
+        "Depois de importar, confira os contatos na Frédy em CRM → Contatos."
       ],
       "video": "",
       "blocks": [
         "importContacts"
-      ]
+      ],
+      "link": {
+        "label": "Abrir a Frédy",
+        "url": "https://fredy.wts.chat/contacts"
+      }
     }
   ]
 }

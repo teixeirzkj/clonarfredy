@@ -30,5 +30,6 @@ Chatbots atuais (10/10/2026):
 | `automacao/follow-up-1-dia.json` | Automação | Marca etiqueta, manda o modelo "FollowUp Orçamento Após 1 dia"; sem resposta em 2 h entra na sequência "Follow 48 horas" |
 | `automacao/follow-up-2-dias.json` | Automação | Troca a etiqueta, manda "FollowUp Orçamento Após 2 dias"; sem resposta em 12 h entra em "Follow 72 horas" |
 | `automacao/follow-up-3-dias.json` | Automação | Troca a etiqueta, manda "FollowUp Orçamento Após 3 dias"; sem resposta em 12 h entra em "Follow 7 dias" |
+| `automacao/follow-up-7-dias.json` | Automação | Marca "Follow 7d", tira "Follow 72h", manda o modelo "FollowUp Orçamento Após 7 dias"; sem resposta marca "Não respondeu follow" e conclui (montado a partir do de 3 dias em 30/10) |
 | `automacao/checkin.json` | Automação | Manda o modelo "checkin" (botões Preciso de ajuda / Está tudo certo): ajuda → avisa que a equipe segue; tudo certo → deseja boa viagem e encerra |
 | `automacao/feedback.json` | Automação | Manda o modelo "feedback" (Sim / Não): Sim → pede detalhes e link de avaliação; Não → pede o que houve; sem resposta válida → transfere para a equipe |
