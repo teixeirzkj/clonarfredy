@@ -1,6 +1,6 @@
 # Pendências do Setup da Conta (Frédy)
 
-Lista única do que falta fazer, decidir ou mandar. Atualizada em 10/10/2026.
+Lista única do que falta fazer, decidir ou mandar. Atualizada em 01/11/2026.
 Quando algo for resolvido, risque aqui (ou peça para o Claude atualizar).
 
 ## 0. Portal do cliente (para funcionar na Vercel)
@@ -13,7 +13,7 @@ Quando algo for resolvido, risque aqui (ou peça para o Claude atualizar).
 - [ ] Testar o cadastro com um CNPJ da Frédy (ou autorizado) pelo link do plano Teste e conferir a conta criada (status ONBOARDING) no painel de parceiro. Atenção: a conta é criada de verdade na Helena.
 - [ ] Cadastro "Seu Mobile": clicar "Tentar de novo" em Clientes (a conta já existe, criada pelo suporte) e conferir o acesso ao portal; depois arquivar ou excluir, porque o CNPJ é de uma loja real.
 - [ ] (Opcional) `SIGNUP_WEBHOOK_URL`: fluxo do n8n que avisa a equipe no WhatsApp quando chega cadastro novo.
-- [ ] Colocar os links dos vídeos em `templates/guia.json` (campo "video" de cada passo) ou mandar para o Claude colocar.
+- [x] Colocar os links dos vídeos em `templates/guia.json` (campo "video" de cada passo) ou mandar para o Claude colocar.
 - [ ] Testar com um cliente real: mandar o link `/cadastro`, criar a conta no WTS, criar o acesso em Clientes e mandar o login.
 
 ## 0.1 Portal do cliente v2 (27/10)
@@ -22,7 +22,7 @@ Quando algo for resolvido, risque aqui (ou peça para o Claude atualizar).
 - [x] Cadastro pré-preenchido pela página de pagamento (`?pre=ID`), usuários limitados pelo plano, cliente entra no portal já logado ao criar a conta.
 - [x] Tela Clientes → "Contas da Helena": criar acesso ao portal para contas existentes (um por um ou todas).
 - [ ] **Eric**: combinar como a página dele chama a API (docs/INTEGRACAO-PAGAMENTO.md), gerar `PRE_SIGNUP_SECRET` na Vercel e passar por canal seguro; mapear produtos → `plan`.
-- [ ] **Vídeos**: gravar e colocar o link em cada passo de `templates/guia.json` (campo `video`); também `<chatbot>.video.txt` nos chatbots.
+- [x] **Vídeos**: gravar e colocar o link em cada passo de `templates/guia.json` (campo `video`); também `<chatbot>.video.txt` nos chatbots.
 - [ ] **Atalho na Frédy**: colocar `https://clonarfredy.vercel.app/portal` como atalho nas contas dos clientes (ou domínio próprio, se quiserem; aí definir `PUBLIC_URL`).
 - [ ] **Ativar para todos**: em Clientes → Contas da Helena, "Criar acesso para todas sem acesso" e mandar e-mail + senha para cada dono (as senhas só aparecem na hora).
 - [ ] Portal: ordem e textos dos passos (`templates/guia.json`) podem ser reorganizados quando os vídeos existirem.
@@ -44,12 +44,12 @@ Quando algo for resolvido, risque aqui (ou peça para o Claude atualizar).
 
 - [ ] Fluxo **"Alteração em painel"** (.json do n8n) para virar fluxo padrão.
 - [ ] Fluxo de **arquivar cards** que vocês usam hoje (.json): conferir se filtra por data de criação ou de atualização e como arquiva.
-- [x] Chatbots padrão recebidos (10/10): Pergunta IA (atendimento); Resposta IA, Follow up 1, 2 e 3 dias, Checkin e Feedback (automação). Faltam só os vídeos (`<nome>.video.txt`).
+- [x] Chatbots padrão recebidos (10/10): Pergunta IA (atendimento); Resposta IA, Follow up 1, 2 e 3 dias, Checkin e Feedback (automação). Vídeos ligados (01/11).
 - [ ] Checkin e Feedback têm textos da Berg Viagens (nome, Instagram, link de avaliação no Google). A tela avisa para trocar; ver se vale deixar um texto neutro na versão padrão.
 - [ ] Chatbot "Pergunta IA": a condição de entrada é "última mensagem = #teste-157" (parece sobra de teste). Confirmar se é isso mesmo ou mandar a versão de produção.
 - [ ] Follow-ups: os modelos "FollowUp Orçamento Após 1/2/3 dias" e as sequências "Follow 48 horas", "Follow 72 horas" e "Follow 7 dias" precisam existir na conta do cliente. Ver se entram no passo a passo.
 - [ ] Outros modelos de mensagem com **botões fixos** (além de checkin e feedback): nome do modelo + botões.
-- [ ] **Links dos vídeos** explicativos e em qual tela cada um entra.
+- [x] **Links dos vídeos** explicativos e em qual tela cada um entra.
 
 ## 4. Testar com contas reais
 
@@ -63,7 +63,7 @@ Quando algo for resolvido, risque aqui (ou peça para o Claude atualizar).
 
 ## 5. Esperando algo de fora
 
-- [ ] **Chave e créditos na API da Anthropic** para o "Montar prompt" automático e para o **"Montar minha IA" do portal** (sem a chave, o cliente vê o aviso "a IA ainda não está ligada"): criar a chave em console.anthropic.com, colocar `ANTHROPIC_API_KEY` na Vercel + Redeploy (hoje usa o botão "Copiar para o Claude.ai").
+- [x] **Chave e créditos na API da Anthropic** para o "Montar prompt" automático e para o **"Montar minha IA" do portal** (sem a chave, o cliente vê o aviso "a IA ainda não está ligada"): criar a chave em console.anthropic.com, colocar `ANTHROPIC_API_KEY` na Vercel + Redeploy (hoje usa o botão "Copiar para o Claude.ai").
 - [ ] **Perguntas para o suporte do WTS**: criar conta/empresa pela API, gerar token, criar painel/etapa, campos, chatbots, sequências, modelos, ler conteúdo de chatbots/sequências, botões dos modelos, conectar WhatsApp, alterar horário, criar carteira. Lista completa em `docs/AUTOATENDIMENTO.md`.
 
 ## 6. Decisões nossas
@@ -89,6 +89,7 @@ Quando algo for resolvido, risque aqui (ou peça para o Claude atualizar).
 
 ## Já feito (para referência)
 
+Vídeos tutoriais de todos os passos (01/11): 14 vídeos com voz e música no YouTube (não listados), ligados no guia e nos chatbots padrão ·
 Configurar tudo em passo a passo · Fluxos do n8n (agente + tools, mover card,
 rotativo) · Rotativo sem planilha (lista no fluxo, liga/desliga pela página) ·
 Montar prompt (Claude.ai) · Conferências com conteúdo completo e copiar ·
