@@ -81,7 +81,7 @@ Quando algo for resolvido, risque aqui (ou peça para o Claude atualizar).
 
 - [x] **Montar minha IA** no portal (27/10): conversa com a Frédy (prompt do Coletor adaptado em `templates/ia-coletor.md`), teste do agente e "Finalizar e enviar para a equipe"; resultado em Clientes → "Ver IA". Precisa da chave da Anthropic (item 5).
 - [x] Montar minha IA: testar com a chave real e ajustar o prompt do coletor conforme as primeiras conversas (tom, perguntas, quando entrar no teste). **(01/11: testado)**
-- [ ] Montar minha IA: gerar os fluxos do n8n direto da tela "Ver IA" com o token guardado do cliente (hoje a equipe cola o token na barra e usa "Gerar fluxo do n8n com este prompt").
+- [x] Montar minha IA: gerar os fluxos do n8n direto da tela "Ver IA" com o token guardado do cliente (hoje a equipe cola o token na barra e usa "Gerar fluxo do n8n com este prompt"). **(01/11: feito, falta testar com uma IA finalizada)**
 - [ ] Fluxo de **aniversário** como fluxo padrão. **(para depois)**
 - [ ] **Painel completo da Marité** montado com um clique (já existe o modelo; falta mandar). **(para depois)**
 - [ ] Mais automações e fluxos do dia a dia como padrão.
