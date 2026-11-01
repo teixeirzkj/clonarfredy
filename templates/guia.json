@@ -146,7 +146,7 @@
         "Responda como numa conversa: uma pergunta de cada vez. Se não souber algo, diga que decide depois.",
         "No fim ela vira o seu agente para você testar. Quando gostar, clique em \"Finalizar e enviar para a equipe\"."
       ],
-      "video": "",
+      "video": "https://youtu.be/TvPu4O_FBSw",
       "blocks": [
         "setupChat"
       ]
