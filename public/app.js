@@ -2104,8 +2104,14 @@ async function showClientIA(out, c) {
             state.builtPrompt = ia.prompt;
             state.clientName = c.company;
             state.preferAgent = true;
+            // Usa a conta guardada deste cliente (o servidor lê o token): não precisa colar o token no topo.
+            const tokenInput = $('client-token');
+            tokenInput.value = `cliente:${c.id}`;
+            tokenInput.dispatchEvent(new Event('input'));
+            tokenInput.dispatchEvent(new Event('change'));
             openBlock(BLOCK_BY_ID.n8n);
           }, { variant: 'btn-primary', icon: 'download' })),
+        h('p', { class: 'hint' }, `O fluxo usa a conta de ${c.company} guardada no portal: não precisa colar o token.`),
         h('details', { class: 'advanced' }, h('summary', {}, 'Ver o prompt'), h('pre', { class: 'detail-text' }, ia.prompt)))
       : notice('O prompt final não foi montado (o prompt padrão não estava disponível). Use o resumo acima no Montar prompt.', 'warn'),
     h('details', { class: 'advanced' }, h('summary', {}, 'Ver a conversa'), h('pre', { class: 'detail-text' }, ia.transcript))));
