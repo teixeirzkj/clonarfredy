@@ -1,6 +1,6 @@
 # Pendências do Setup da Conta (Frédy)
 
-Lista única do que falta fazer, decidir ou mandar. Atualizada em 01/11/2026.
+Lista única do que falta fazer, decidir ou mandar. Atualizada em 03/11/2026.
 Quando algo for resolvido, risque aqui (ou peça para o Claude atualizar).
 
 ## 0. Portal do cliente (para funcionar na Vercel)
@@ -86,6 +86,26 @@ Quando algo for resolvido, risque aqui (ou peça para o Claude atualizar).
 - [ ] **Painel completo da Marité** montado com um clique (já existe o modelo; falta mandar). **(para depois)**
 - [ ] Mais automações e fluxos do dia a dia como padrão.
 - [ ] **Módulo 2 – motor de automações**: especificado e planejado, ainda não construído. Uma tela onde a equipe monta automações sem n8n: escolhe um acontecimento no WTS (gatilho: conversa nova, mensagem recebida, card mudou de etapa, etiqueta, pagamento...), filtros (canal, painel, etapa, etiqueta) e uma lista de ações (etiquetar, criar/mover card, mandar mensagem ou modelo, iniciar sequência, transferir, chamar webhook), tudo pela API do WTS. **(para depois)**
+
+## 8. Duda (mesma página com a identidade da Duda) — 03/11
+
+No ar desde 03/11: `/duda/portal` (cliente), `/duda` (equipe, mesma senha) e `/duda/cadastro`. Laranja + grafite, logo e nome da Duda, botão para `duda.wts.chat`. Clientes, cadastros e logins separados por marca; a Frédy continua igual. Arquivos da Duda em `templates/duda/` (o que faltar lá vem do padrão da Frédy só no coletor da IA e no prompt padrão).
+
+Vídeos da Duda (editar os da Frédy em vez de gravar tudo):
+- [ ] Abrir o Chrome das gravações e deixar logado: uma conta Duda de teste em `duda.wts.chat` e um acesso em `/duda/portal` (criar em `/duda` → Clientes com o token da conta).
+- [ ] Confirmar a voz: usar o Régis também na Duda ou outra voz.
+- [ ] Partes no sistema: cobrir o logo "Frédy" com o da Duda, refazer a narração dizendo "Duda" e trocar as legendas que citam a Frédy.
+- [ ] Partes no portal: regravar em `/duda/portal` (já sai em laranja).
+- [ ] Ficam de fora (são de agência): campos "data de ida/retorno", Checkin e Feedback.
+- [ ] Subir no YouTube (não listado) e pôr os links em `templates/duda/guia.json` e nos `<chatbot>.video.txt` de `templates/duda/chatbots`.
+
+Configuração da Duda:
+- [ ] Conta modelo da Duda: `WTS_MODEL_TOKEN_DUDA` na Vercel + Redeploy. Libera etiquetas/equipes padrão, conferências e fluxos do n8n na Duda (até lá aparece "A conta modelo da Duda ainda não foi configurada").
+- [ ] Webhooks/fluxos do n8n da conta modelo da Duda (slug dos webhooks).
+- [ ] Planos da Duda em `templates/duda/planos.json` (o cadastro da Duda fica fechado até ter planos) e ver se a criação automática usa o mesmo Token de Parceiro da Helena ou outro.
+- [ ] Chatbots e modelos de mensagem próprios da Duda (hoje: Follow 1/2/3/7 dias, Pergunta IA e Resposta IA, que são genéricos; Checkin e Feedback não entram).
+- [ ] Prompt padrão genérico para o agente da Duda (`templates/duda/prompt-padrao.md`; hoje usa o de agência como molde).
+- [ ] (Opcional) `DUDA_APP_URL` na Vercel se o endereço do sistema não for `https://duda.wts.chat/`.
 
 ## Já feito (para referência)
 
