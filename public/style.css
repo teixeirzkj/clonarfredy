@@ -1395,3 +1395,50 @@ a.hero { text-decoration: none; }
 .pw-wrap input { width: 100%; padding-right: 48px; }
 .pw-wrap .input-action { top: 50%; transform: translateY(-50%); }
 .pw-wrap .input-action:active { transform: translateY(-50%) scale(0.88); }
+
+/* ---------- Tema Duda (/duda): branco + laranja da logo, grafite no lugar do azul-marinho ---------- */
+[data-brand="duda"] {
+  --navy-900: #1d1a18;
+  --ink: #1f1b18;
+  --muted: #5f5650;
+  --faint: #6c625b;
+  --line: #ece4de;
+  --line-strong: #dccfc5;
+  --surface-2: #fbf7f4;
+  --page: #f7f2ee;
+
+  --blue-50: #fff4ed;
+  --blue-100: #ffe4d3;
+  --blue-200: #fdc9a9;
+  --blue-500: #f0592a;
+  --blue-600: #c94a12; /* texto/botão sobre branco: 4,9:1 */
+  --blue-700: #a93c0c;
+  --blue-800: #84300b;
+  --ring: 0 0 0 3px rgba(240, 89, 42, 0.28);
+  --shadow-card: 0 14px 30px -18px rgba(80, 40, 20, 0.4);
+  --shadow-modal: 0 40px 90px -30px rgba(80, 40, 20, 0.3), 0 2px 6px rgba(80, 40, 20, 0.06);
+}
+[data-brand="duda"] body {
+  background:
+    radial-gradient(900px 520px at 0% 0%, rgba(240, 89, 42, 0.12), transparent 60%),
+    radial-gradient(800px 500px at 100% 100%, rgba(255, 169, 77, 0.1), transparent 60%),
+    var(--page);
+}
+[data-brand="duda"] .hero { background: linear-gradient(120deg, #1d1a18 0%, #6b2e12 55%, var(--blue-600) 100%); box-shadow: 0 18px 36px -18px rgba(201, 74, 18, 0.6); }
+[data-brand="duda"] .hero:hover { box-shadow: 0 24px 44px -18px rgba(201, 74, 18, 0.8); }
+[data-brand="duda"] .hero-app { background: linear-gradient(135deg, #1d1a18, #3d2b22); }
+[data-brand="duda"] .chip:hover { box-shadow: 0 10px 20px -12px rgba(201, 74, 18, 0.7); }
+[data-brand="duda"] .btn-primary { background: linear-gradient(135deg, #ee6a2c, var(--blue-700)); box-shadow: 0 8px 18px -10px rgba(201, 74, 18, 0.8); }
+[data-brand="duda"] .btn-primary:hover:not(:disabled) { box-shadow: 0 14px 26px -12px rgba(201, 74, 18, 0.9); }
+[data-brand="duda"] .side { background: linear-gradient(180deg, #1d1a18 0%, #2b2420 100%); color: #f3ebe5; }
+[data-brand="duda"] .side-brand .brand-logo { filter: none; }
+[data-brand="duda"] .side .brand-tag { color: #ffd9c4; }
+[data-brand="duda"] .side-label { color: #a8998e; }
+[data-brand="duda"] .side-item { color: #d6ccc5; }
+[data-brand="duda"] .side-item.is-active { background: var(--blue-600); box-shadow: inset 3px 0 #ffb38a; }
+[data-brand="duda"] .btn-light { box-shadow: 0 8px 20px rgba(40, 20, 10, 0.25); }
+[data-brand="duda"] .banner { background: linear-gradient(115deg, #1d1a18 0%, #5a2a14 55%, #e8590c 100%); box-shadow: 0 18px 40px -22px rgba(80, 40, 20, 0.7); }
+[data-brand="duda"] .banner-eyebrow { color: #ffc29e; }
+[data-brand="duda"] .banner p { color: #f1dfd3; }
+[data-brand="duda"] .section-label { color: #6b4a38; }
+[data-brand="duda"] .brand-bar::before { background: linear-gradient(90deg, #f0592a, #ffa94d, #f0592a); background-size: 200% 100%; }

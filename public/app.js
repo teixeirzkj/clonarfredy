@@ -101,13 +101,21 @@ const LOOKUPS = [
 
 // A mesma página tem três modos, pelo endereço: / (equipe), /cliente (portal do
 // cliente, login por e-mail) e /cadastro (cliente novo pede a conta, sem login).
-const PORTAL = /^\/(cliente|portal)\/?$/.test(location.pathname) ? 'cliente' : /^\/cadastro\/?$/.test(location.pathname) ? 'cadastro' : null;
+// Duas marcas na mesma página: Frédy (/, /portal, /cadastro) e Duda (/duda, /duda/portal, /duda/cadastro).
+const BRANDS = {
+  fredy: { id: 'fredy', name: 'Frédy', base: '', appUrl: 'https://fredy.wts.chat/', logo: '/fredy-logo-light.png', color: '#1F5FDB' },
+  duda: { id: 'duda', name: 'Duda', base: '/duda', appUrl: 'https://duda.wts.chat/', logo: '/duda-logo.png', color: '#F0592A' },
+};
+const BRAND = /^\/duda(\/|$)/.test(location.pathname) ? BRANDS.duda : BRANDS.fredy;
+const PAGE_PATH = location.pathname.replace(/^\/duda(?=\/|$)/, '') || '/';
+const SITE = location.origin + BRAND.base; // endereço desta marca, para links mandados ao cliente
+const PORTAL = /^\/(cliente|portal)\/?$/.test(PAGE_PATH) ? 'cliente' : /^\/cadastro\/?$/.test(PAGE_PATH) ? 'cadastro' : null;
 
 // O que o cliente vê no portal (Montar prompt, Fluxos do n8n, webhooks, Rotativo e
 // "Configurar tudo" ficam só com a equipe; o servidor também bloqueia).
 const CLIENT_BLOCK_IDS = ['setupChat', 'tags', 'departments', 'agents', 'archiveCards', 'importContacts', 'chatbotsPadrao', 'templates', 'panels', 'chatbots', 'sequences', 'fields', 'officeHours'];
 // Só no portal: o cliente conversa com a Frédy e monta o agente de IA dele.
-const IA_CHAT = { id: 'setupChat', kind: 'setupChat', icon: 'sparkle', title: 'Montar minha IA', desc: 'Converse com a Frédy: ela pergunta sobre sua empresa, monta o agente e testa com você.' };
+const IA_CHAT = { id: 'setupChat', kind: 'setupChat', icon: 'sparkle', title: 'Montar minha IA', desc: `Converse com a ${BRAND.name}: ela pergunta sobre sua empresa, monta o agente e testa com você.` };
 const GUIDE = { id: 'guide', kind: 'guide', title: 'Passo a passo da implantação', desc: 'Siga os passos com vídeos e deixe sua conta pronta.' };
 const ACCOUNT = { id: 'account', kind: 'account', icon: 'user', title: 'Minha conta', desc: 'Trocar a senha e sair.' };
 if (!PORTAL) {
@@ -123,7 +131,7 @@ const SETUP_ALL = { id: 'setupAll', kind: 'setupAll', title: 'Configurar tudo', 
 
 const APPLY_BATCH = 8;
 const SESSION_KEY_BASE = 'setup-session';
-const PROMPT_KEY = 'setup-prompt-padrao';
+const PROMPT_KEY = `setup-prompt-padrao${BRAND.id === 'fredy' ? '' : `-${BRAND.id}`}`; // prompt padrão editado, um por marca
 const PROFILES = [['Agent', 'Atendente'], ['Admin', 'Administrador'], ['RestrictedAgent', 'Atendente restrito']];
 const TOKEN_STATUS = { empty: 'Não informado', pending: 'Não verificado', ok: 'Conta verificada', error: 'Token com problema' };
 
@@ -332,7 +340,7 @@ const slug = (text) => String(text || 'cliente').normalize('NFD').replace(/[̀-�
 
 // ---------- Sessão e API ----------
 
-const sessionKey = () => `${SESSION_KEY_BASE}-${PORTAL || 'equipe'}`;
+const sessionKey = (mode = PORTAL || 'equipe') => `${SESSION_KEY_BASE}-${mode}${BRAND.id === 'fredy' ? '' : `-${BRAND.id}`}`;
 
 function loadSession() {
   try {
@@ -364,7 +372,7 @@ function expireSession() {
 async function api(path, body) {
   let res;
   try {
-    res = await fetch(`/api/${path}`, { method: 'POST', headers: authHeaders(), body: JSON.stringify(body ?? {}) });
+    res = await fetch(`/api/${path}`, { method: 'POST', headers: authHeaders(), body: JSON.stringify({ brand: BRAND.id, ...(body ?? {}) }) });
   } catch {
     throw new ApiError('Sem conexão com o servidor. Verifique a internet e tente de novo.');
   }
@@ -430,7 +438,7 @@ function showView(name) {
 
 function showLogin(message = '') {
   const client = PORTAL === 'cliente';
-  setHeader(client ? 'Portal do cliente Frédy' : 'Entrar', client ? 'Vídeos e passo a passo para configurar sua conta. Entre com o e-mail e a senha do cadastro.' : 'Acesso restrito à equipe Frédy', false);
+  setHeader(client ? `Portal do cliente ${BRAND.name}` : 'Entrar', client ? 'Vídeos e passo a passo para configurar sua conta. Entre com o e-mail e a senha do cadastro.' : `Acesso restrito à equipe ${BRAND.name}`, false);
   showView('login');
   $('top-pill').hidden = true;
   $('crumb').replaceChildren(h('span', {}, client ? 'Portal do cliente' : 'Implantação'));
@@ -459,7 +467,7 @@ function showGrid() {
   showView('grid');
   renderSideNav('home');
   const pill = $('top-pill');
-  pill.textContent = PORTAL === 'cliente' ? (state.session?.company ?? 'Portal do cliente') : 'Equipe Frédy';
+  pill.textContent = PORTAL === 'cliente' ? (state.session?.company ?? 'Portal do cliente') : `Equipe ${BRAND.name}`;
   pill.hidden = false;
   loadGuideSummary();
   renderGrid({ animate: true });
@@ -515,7 +523,7 @@ function sideNavItems() {
       { id: 'home', label: 'Início', icon: 'kanban', go: showGrid },
       { id: 'guide', label: 'Passo a passo', icon: 'play', go: () => openBlock(GUIDE) },
       { id: 'setupChat', label: 'Montar minha IA', icon: 'sparkle', go: () => openBlock(IA_CHAT) },
-      { id: 'app', label: 'Abrir a Frédy', icon: 'arrow', href: () => state.config?.appUrl || 'https://fredy.wts.chat/' },
+      { id: 'app', label: `Abrir a ${BRAND.name}`, icon: 'arrow', href: () => state.config?.appUrl || BRAND.appUrl },
       { id: 'chatbotsPadrao', label: 'Chatbots padrão', icon: 'bot', go: () => openBlock(block('chatbotsPadrao')) },
       { id: 'importContacts', label: 'Importar contatos', icon: 'upload', go: () => openBlock(block('importContacts')) },
       { id: 'account', label: 'Minha conta', icon: 'user', go: () => openBlock(ACCOUNT) },
@@ -540,9 +548,9 @@ function renderSideNav(activeId) {
   const active = nav.querySelector('.is-active');
   if (active && nav.scrollWidth > nav.clientWidth + 1) nav.scrollTo({ left: nav.scrollLeft + active.getBoundingClientRect().left - nav.getBoundingClientRect().left - 12, behavior: 'auto' });
   $('side-foot').replaceChildren(...(PORTAL === 'cliente'
-    ? [h('strong', {}, state.session?.company ?? 'Portal do cliente'), h('span', {}, 'Dúvidas? Fale com a equipe Frédy pelo WhatsApp.'),
+    ? [h('strong', {}, state.session?.company ?? 'Portal do cliente'), h('span', {}, `Dúvidas? Fale com a equipe ${BRAND.name} pelo WhatsApp.`),
       h('button', { type: 'button', class: 'btn btn-small btn-ghost-light', onclick: () => { saveSession(null); showLogin('Você saiu.'); } }, svg('back'), h('span', {}, 'Sair'))]
-    : [h('strong', {}, 'Equipe Frédy'), h('span', {}, 'Cole o token da conta do cliente para liberar as ferramentas.')]));
+    : [h('strong', {}, `Equipe ${BRAND.name}`), h('span', {}, 'Cole o token da conta do cliente para liberar as ferramentas.')]));
   $('brand-tag').textContent = PORTAL === 'cliente' ? 'Portal do cliente' : 'Implantação';
 }
 
@@ -561,12 +569,12 @@ function renderBanner() {
     const company = state.session?.company;
     box.replaceChildren(h('section', { class: 'banner' },
       h('div', { class: 'banner-text' },
-        h('div', { class: 'banner-eyebrow' }, 'SEU PORTAL FRÉDY'),
+        h('div', { class: 'banner-eyebrow' }, `SEU PORTAL ${BRAND.name.toUpperCase()}`),
         h('h2', {}, company ? `Olá, ${company}.` : 'Olá!', h('br'), 'Vamos deixar sua conta pronta.'),
-        h('p', {}, 'Assista ao vídeo de cada passo, faça na sua conta e marque como concluído. Para atender, abra a Frédy.')),
+        h('p', {}, `Assista ao vídeo de cada passo, faça na sua conta e marque como concluído. Para atender, abra a ${BRAND.name}.`)),
       h('div', { class: 'banner-actions' },
         h('button', { type: 'button', class: 'btn btn-light', onclick: () => openBlock(GUIDE) }, svg('play'), h('span', {}, 'Passo a passo em vídeo')),
-        h('a', { class: 'btn btn-ghost-light banner-app', href: state.config?.appUrl || 'https://fredy.wts.chat/', target: '_blank', rel: 'noopener' }, svg('arrow'), h('span', {}, 'Abrir a Frédy')))));
+        h('a', { class: 'btn btn-ghost-light banner-app', href: state.config?.appUrl || BRAND.appUrl, target: '_blank', rel: 'noopener' }, svg('arrow'), h('span', {}, `Abrir a ${BRAND.name}`)))));
     return;
   }
   box.replaceChildren(h('section', { class: 'banner' },
@@ -1945,7 +1953,7 @@ async function renderGuideBlock(view) {
         step.video && embedUrl(step.video)
           ? h('div', { class: 'guide-video' }, h('iframe', { src: embedUrl(step.video), title: `Vídeo: ${step.title}`, loading: 'lazy', allow: 'fullscreen; picture-in-picture', allowFullscreen: true, referrerpolicy: 'strict-origin' }))
           : step.video ? h('a', { class: 'btn btn-small', href: step.video, target: '_blank', rel: 'noopener' }, svg('play'), h('span', {}, 'Assistir vídeo'))
-            : h('div', { class: 'guide-novideo' }, svg('play'), h('span', {}, `Vídeo do passo ${i + 1} em breve: a equipe Frédy está gravando. Enquanto isso, siga as dicas abaixo.`)),
+            : h('div', { class: 'guide-novideo' }, svg('play'), h('span', {}, `Vídeo do passo ${i + 1} em breve: a equipe ${BRAND.name} está gravando. Enquanto isso, siga as dicas abaixo.`)),
         step.tips.length ? h('ul', { class: 'guide-tips' }, ...step.tips.map((t) => h('li', {}, t))) : null,
         h('div', { class: 'toolbar' },
           ...step.blocks.map((id) => BLOCK_BY_ID[id]).filter(Boolean)
@@ -1982,7 +1990,7 @@ async function renderGuideBlock(view) {
   swap(body,
     h('div', { class: 'guide-head' }, counter, bar, h('p', { class: 'guide-intro' }, 'Assista ao vídeo de cada passo e depois faça na sua conta. Ao terminar, marque "Concluído" para ir ao próximo.')),
     data.steps.length ? list : notice('O passo a passo ainda não foi configurado.', 'info'),
-    h('p', { class: 'hint' }, 'Dúvidas? Fale com a equipe Frédy pelo WhatsApp.'));
+    h('p', { class: 'hint' }, `Dúvidas? Fale com a equipe ${BRAND.name} pelo WhatsApp.`));
   stagger(list.querySelectorAll('.guide-step'), { step: 30, y: 8 });
 }
 
@@ -1992,7 +2000,7 @@ const IA_STEPS = [['coleta', 'Conversa'], ['simulacao', 'Teste'], ['fim', 'Envia
 
 async function renderSetupChat(view) {
   const body = h('div', { class: 'chat' });
-  view.append(h('p', { class: 'panel-desc' }, 'A Frédy pergunta sobre a sua empresa, monta o agente de IA e testa com você. No fim, o resultado vai para a equipe Frédy terminar a configuração.'), body);
+  view.append(h('p', { class: 'panel-desc' }, `A ${BRAND.name} pergunta sobre a sua empresa, monta o agente de IA e testa com você. No fim, o resultado vai para a equipe ${BRAND.name} terminar a configuração.`), body);
   let chat;
   try {
     chat = await api('portal', { action: 'setupChat', op: 'get' });
@@ -2005,7 +2013,7 @@ async function renderSetupChat(view) {
   const doneBox = h('div');
   const log = h('div', { class: 'chat-log', role: 'log', 'aria-live': 'polite' });
   const status = h('div');
-  const typing = h('div', { class: 'bubble is-bot is-typing', hidden: true }, h('span', { class: 'bubble-who' }, 'Frédy'), h('span', { class: 'dots' }, h('i', {}), h('i', {}), h('i', {})));
+  const typing = h('div', { class: 'bubble is-bot is-typing', hidden: true }, h('span', { class: 'bubble-who' }, `${BRAND.name}`), h('span', { class: 'dots' }, h('i', {}), h('i', {}), h('i', {})));
   const input = h('textarea', { rows: 2, placeholder: 'Escreva sua resposta... (Enter envia)', maxLength: 2000 });
   const sendBtn = button('Enviar', () => send(), { variant: 'btn-primary', icon: 'arrow' });
   const finishBtn = button('Finalizar e enviar para a equipe', () => finish(), { variant: 'btn-primary', icon: 'check' });
@@ -2013,11 +2021,11 @@ async function renderSetupChat(view) {
   const composer = h('div', { class: 'chat-composer' }, input, sendBtn);
 
   const bubble = (m) => h('div', { class: `bubble ${m.role === 'user' ? 'is-user' : m.sim ? 'is-sim' : 'is-bot'}` },
-    m.role !== 'user' ? h('span', { class: 'bubble-who' }, m.sim ? `${m.agentName || chat.agentName || 'Agente'} · teste` : 'Frédy') : null,
+    m.role !== 'user' ? h('span', { class: 'bubble-who' }, m.sim ? `${m.agentName || chat.agentName || 'Agente'} · teste` : `${BRAND.name}`) : null,
     h('div', { class: 'bubble-text' }, ...String(m.text).split('\n').flatMap((line, i) => (i ? [h('br', {}), line] : [line]))));
   const showDone = () => doneBox.replaceChildren(h('div', { class: 'signup-done chat-done' },
     h('span', { class: 'signup-done-icon', 'aria-hidden': 'true' }, svg('check')),
-    h('h2', {}, `Pronto! A equipe Frédy recebeu a sua IA${chat.agentName ? ` (${chat.agentName})` : ''}.`),
+    h('h2', {}, `Pronto! A equipe ${BRAND.name} recebeu a sua IA${chat.agentName ? ` (${chat.agentName})` : ''}.`),
     h('p', {}, 'Eles terminam a configuração e avisam quando estiver no ar. Se quiser mudar algo, é só conversar de novo.'),
     h('div', { class: 'toolbar' }, button('Conversar de novo', () => reset(), { icon: 'refresh' }))));
   const paint = () => {
@@ -2032,7 +2040,7 @@ async function renderSetupChat(view) {
     if (chat.status === 'finalizado') showDone();
     intro.replaceChildren(...(chat.messages.length || chat.status === 'finalizado' ? [] : [h('div', { class: 'chat-intro' },
       h('strong', {}, 'Como funciona'),
-      h('p', {}, 'A Frédy faz uma pergunta de cada vez sobre a sua empresa e o jeito de atender. Quando tiver tudo, ela vira o seu agente para você testar. Gostou? Clique em "Finalizar e enviar para a equipe".'),
+      h('p', {}, `A ${BRAND.name} faz uma pergunta de cada vez sobre a sua empresa e o jeito de atender. Quando tiver tudo, ela vira o seu agente para você testar. Gostou? Clique em "Finalizar e enviar para a equipe".`),
       h('div', { class: 'toolbar' }, h('span', { class: 'spacer' }), button('Começar a conversa', () => call('start'), { variant: 'btn-primary', icon: 'play' })))]));
   };
   const busy = (on) => { sendBtn.disabled = on; input.disabled = on; finishBtn.disabled = on; typing.hidden = !on; if (on) log.scrollTop = log.scrollHeight; };
@@ -2066,7 +2074,7 @@ async function renderSetupChat(view) {
   };
   input.addEventListener('keydown', (e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(); } });
   const finish = async () => {
-    if (!confirm('Enviar a sua IA para a equipe Frédy? Depois disso a conversa é fechada (dá para começar outra depois).')) return;
+    if (!confirm(`Enviar a sua IA para a equipe ${BRAND.name}? Depois disso a conversa é fechada (dá para começar outra depois).`)) return;
     status.replaceChildren(loading('Montando o prompt da sua IA... pode levar até 2 minutos.'));
     busy(true);
     try { chat = await api('portal', { action: 'setupChat', op: 'finish' }); status.replaceChildren(); paint(); } catch (err) { status.replaceChildren(notice(err.message)); } finally { busy(false); }
@@ -2154,8 +2162,8 @@ function renderAccountBlock(view) {
 // ---------- Cadastro de cliente novo (/cadastro, sem login) ----------
 
 function renderSignupPage() {
-  document.title = 'Cadastro · Frédy';
-  setHeader('Crie sua conta Frédy', 'Preencha os dados da empresa e da equipe. A gente cria a conta e te avisa.', false);
+  document.title = `Cadastro · ${BRAND.name}`;
+  setHeader(`Crie sua conta ${BRAND.name}`, 'Preencha os dados da empresa e da equipe. A gente cria a conta e te avisa.', false);
   showView('block');
   $('reopen').lastChild.textContent = ' Abrir cadastro';
   const view = $('view-block');
@@ -2315,31 +2323,31 @@ function renderSignupPage() {
     try {
       const result = await api('portal', { action: 'signup', data });
       if (result.created) {
-        const appUrl = result.appUrl || 'https://fredy.wts.chat/';
+        const appUrl = result.appUrl || BRAND.appUrl;
         // Acesso ao portal criado agora: entra direto nele (lá estão os vídeos e o botão da Frédy).
         const toPortal = Boolean(result.session);
-        if (toPortal) { try { sessionStorage.setItem('setup-session-cliente', JSON.stringify(result.session)); } catch { /* entra pelo login */ } }
-        const dest = toPortal ? '/portal' : appUrl;
+        if (toPortal) { try { sessionStorage.setItem(sessionKey('cliente'), JSON.stringify(result.session)); } catch { /* entra pelo login */ } }
+        const dest = toPortal ? `${BRAND.base}/portal` : appUrl;
         const countdown = h('strong', {}, '10');
-        setHeader('Conta criada!', toPortal ? 'Agora é só seguir o passo a passo no seu portal.' : 'Sua conta Frédy já está pronta para entrar.', false);
+        setHeader('Conta criada!', toPortal ? 'Agora é só seguir o passo a passo no seu portal.' : `Sua conta ${BRAND.name} já está pronta para entrar.`, false);
         swap(view, h('div', { class: 'signup-done' },
           h('span', { class: 'signup-done-icon', 'aria-hidden': 'true' }, svg('check')),
-          h('h2', {}, 'Sua conta Frédy foi criada'),
+          h('h2', {}, `Sua conta ${BRAND.name} foi criada`),
           h('p', {}, toPortal
-            ? `Ela já vem com seus usuários, equipes e etiquetas. No portal você assiste ao vídeo de cada passo e abre a Frédy. Para entrar na Frédy, use o e-mail ${result.email} ou o telefone cadastrado.`
+            ? `Ela já vem com seus usuários, equipes e etiquetas. No portal você assiste ao vídeo de cada passo e abre a ${BRAND.name}. Para entrar na ${BRAND.name}, use o e-mail ${result.email} ou o telefone cadastrado.`
             : `Ela já vem com seus usuários, equipes e etiquetas. Entre com o e-mail ${result.email}. No primeiro acesso, siga o e-mail de boas-vindas ou use "Esqueci minha senha".`),
-          h('a', { class: 'btn btn-primary', href: dest }, svg('arrow'), h('span', {}, toPortal ? 'Ir para o meu portal' : 'Entrar na Frédy agora')),
-          h('p', { class: 'hint' }, toPortal ? 'Abrindo o portal em ' : 'Abrindo a Frédy em ', countdown, ' segundos...'),
+          h('a', { class: 'btn btn-primary', href: dest }, svg('arrow'), h('span', {}, toPortal ? 'Ir para o meu portal' : `Entrar na ${BRAND.name} agora`)),
+          h('p', { class: 'hint' }, toPortal ? 'Abrindo o portal em ' : `Abrindo a ${BRAND.name} em `, countdown, ' segundos...'),
           toPortal
             ? h('div', { class: 'signup-next' },
-              h('strong', {}, 'Quer entrar na Frédy agora?'),
-              h('div', { class: 'toolbar' }, h('a', { class: 'btn btn-small', href: appUrl, target: '_blank', rel: 'noopener' }, svg('arrow'), h('span', {}, 'Abrir a Frédy'))))
+              h('strong', {}, `Quer entrar na ${BRAND.name} agora?`),
+              h('div', { class: 'toolbar' }, h('a', { class: 'btn btn-small', href: appUrl, target: '_blank', rel: 'noopener' }, svg('arrow'), h('span', {}, `Abrir a ${BRAND.name}`))))
             : h('div', { class: 'signup-next' },
               h('strong', {}, 'Depois: o passo a passo'),
-              h('p', {}, `O que não dá para criar sozinho (painéis, modelos de mensagem, chatbots, sequências) fica no portal, com vídeos. Entre em ${location.origin}/portal com o mesmo e-mail e a senha que você criou aqui.`),
+              h('p', {}, `O que não dá para criar sozinho (painéis, modelos de mensagem, chatbots, sequências) fica no portal, com vídeos. Entre em ${SITE}/portal com o mesmo e-mail e a senha que você criou aqui.`),
               h('div', { class: 'toolbar' },
-                h('a', { class: 'btn btn-small', href: '/portal', target: '_blank', rel: 'noopener' }, svg('arrow'), h('span', {}, 'Abrir o passo a passo')),
-                button('Copiar endereço', (e) => flashOnCopy(e.currentTarget, `${location.origin}/portal`), { variant: 'btn-small btn-ghost', icon: 'copy' })))));
+                h('a', { class: 'btn btn-small', href: `${BRAND.base}/portal`, target: '_blank', rel: 'noopener' }, svg('arrow'), h('span', {}, 'Abrir o passo a passo')),
+                button('Copiar endereço', (e) => flashOnCopy(e.currentTarget, `${SITE}/portal`), { variant: 'btn-small btn-ghost', icon: 'copy' })))));
         let left = 10;
         const tick = setInterval(() => {
           left -= 1;
@@ -2352,13 +2360,13 @@ function renderSignupPage() {
           h('span', { class: 'signup-done-icon', 'aria-hidden': 'true' }, svg('check')),
           h('h2', {}, 'Recebemos seu cadastro'),
           result.reason ? notice(result.reason, 'warn') : null,
-          h('p', {}, `A equipe Frédy vai finalizar sua conta e avisar em ${data.owner.email}.`),
+          h('p', {}, `A equipe ${BRAND.name} vai finalizar sua conta e avisar em ${data.owner.email}.`),
           h('div', { class: 'signup-next' },
             h('strong', {}, 'Seu portal: o passo a passo da implantação'),
-            h('p', {}, `Quando a conta estiver pronta, entre em ${location.origin}/portal com o e-mail ${data.owner.email} e a senha que você criou aqui. Guarde este endereço.`),
+            h('p', {}, `Quando a conta estiver pronta, entre em ${SITE}/portal com o e-mail ${data.owner.email} e a senha que você criou aqui. Guarde este endereço.`),
             h('div', { class: 'toolbar' },
-              h('a', { class: 'btn btn-small', href: '/portal' }, svg('arrow'), h('span', {}, 'Abrir o portal')),
-              button('Copiar endereço', (e) => flashOnCopy(e.currentTarget, `${location.origin}/portal`), { variant: 'btn-small btn-ghost', icon: 'copy' })))));
+              h('a', { class: 'btn btn-small', href: `${BRAND.base}/portal` }, svg('arrow'), h('span', {}, 'Abrir o portal')),
+              button('Copiar endereço', (e) => flashOnCopy(e.currentTarget, `${SITE}/portal`), { variant: 'btn-small btn-ghost', icon: 'copy' })))));
       }
       pop(view.querySelector('.signup-done-icon'));
     } catch (err) {
@@ -2422,7 +2430,7 @@ function renderSignupPage() {
       usersBox),
     section('5', 'Observações', f.notes),
     h('label', { class: 'signup-trap', 'aria-hidden': 'true' }, 'Não preencha', f.website),
-    h('label', { class: 'check-toggle signup-consent' }, consent, 'Autorizo a Frédy a usar estes dados para criar e configurar minha conta.'),
+    h('label', { class: 'check-toggle signup-consent' }, consent, `Autorizo a ${BRAND.name} a usar estes dados para criar e configurar minha conta.`),
     status,
     h('div', { class: 'toolbar' }, h('span', { class: 'spacer' }), sendBtn));
 }
@@ -2455,13 +2463,13 @@ async function loadClients(body, tab = 'signups') {
         'Na Vercel: Deployments → ⋯ no último deploy → Redeploy.'));
     return;
   }
-  const origin = location.origin;
+  const origin = SITE;
   const plans = (data.plans?.planos ?? []).filter((p) => !p.soPreCadastro); // esses só abrem pela página de pagamento
   const signupLink = (p) => `${origin}/cadastro${p.id === data.plans.padrao ? '' : `?plano=${encodeURIComponent(p.id)}`}`;
   const links = h('div', { class: 'portal-links' },
     ...(plans.length ? plans.map((p) => h('div', {}, h('span', { class: 'field-label' }, `Link do cadastro: plano ${p.nome}`), h('code', {}, signupLink(p)), copyButton(signupLink(p))))
       : [h('div', {}, h('span', { class: 'field-label' }, 'Link do cadastro (cliente novo)'), h('code', {}, `${origin}/cadastro`), copyButton(`${origin}/cadastro`))]),
-    h('div', {}, h('span', { class: 'field-label' }, 'Link do portal do cliente (atalho na Frédy)'), h('code', {}, `${origin}/portal`), copyButton(`${origin}/portal`)));
+    h('div', {}, h('span', { class: 'field-label' }, `Link do portal do cliente (atalho na ${BRAND.name})`), h('code', {}, `${origin}/portal`), copyButton(`${origin}/portal`)));
   const content = h('div');
   const newCount = data.signups.filter((s) => s.status === 'novo').length;
   // Contas da Helena: só com o Token de Parceiro (gera o token de cada conta para criar o acesso).
@@ -2638,7 +2646,7 @@ function helenaView(body) {
     const bulk = button(`Criar acesso para todas sem acesso (${pending().length})`, async (e) => {
       const list = pending();
       if (!list.length) return;
-      if (!confirm(`Criar o acesso ao portal de ${list.length} conta(s)? Em cada uma será gerado um token de API "Portal Frédy" e uma senha para o dono.`)) return;
+      if (!confirm(`Criar o acesso ao portal de ${list.length} conta(s)? Em cada uma será gerado um token de API "Portal ${BRAND.name}" e uma senha para o dono.`)) return;
       const btn = e.currentTarget;
       btn.disabled = true;
       const progress = h('div');
@@ -2659,7 +2667,7 @@ function helenaView(body) {
         msg ? h('div', { class: 'toolbar' }, h('span', { class: 'spacer' }), button('Copiar tudo', (ev) => flashOnCopy(ev.currentTarget, msg), { variant: 'btn-primary', icon: 'copy' })) : null);
     }, { variant: 'btn-primary', icon: 'rocket' });
     const top = h('div');
-    const paintTop = () => swap(top, notice(`${r.companies.length} conta(s) na Helena, ${pending().length} sem acesso ao portal. Criar acesso gera um token de API "Portal Frédy" na conta e uma senha para o dono (login = e-mail dele).`, 'info'));
+    const paintTop = () => swap(top, notice(`${r.companies.length} conta(s) na Helena, ${pending().length} sem acesso ao portal. Criar acesso gera um token de API "Portal ${BRAND.name}" na conta e uma senha para o dono (login = e-mail dele).`, 'info'));
     paintTop();
     paints.push(paintTop);
     swap(box,
@@ -2672,13 +2680,13 @@ function helenaView(body) {
 }
 
 function accessMessage(email, password) {
-  return `Seu acesso ao portal Frédy está pronto!\n\nEndereço: ${location.origin}/portal\nE-mail: ${email}\nSenha: ${password}\n\nNo primeiro acesso, troque a senha em "Minha conta".`;
+  return `Seu acesso ao portal ${BRAND.name} está pronto!\n\nEndereço: ${SITE}/portal\nE-mail: ${email}\nSenha: ${password}\n\nNo primeiro acesso, troque a senha em "Minha conta".`;
 }
 
 function credentialsBox(email, password) {
-  const msg = password ? accessMessage(email, password) : `Seu acesso ao portal Frédy está pronto!
+  const msg = password ? accessMessage(email, password) : `Seu acesso ao portal ${BRAND.name} está pronto!
 
-Endereço: ${location.origin}/portal
+Endereço: ${SITE}/portal
 E-mail: ${email}
 Senha: a que você criou no cadastro.`;
   return h('div', { class: 'credentials' },
@@ -3978,7 +3986,7 @@ async function renderPrompt(view, _block, options = {}) {
     claudeBox.hidden = false;
     claudeBox.scrollIntoView({ behavior: reducedMotion.matches ? 'auto' : 'smooth', block: 'start' });
   };
-  template.placeholder = 'Escreva o prompt padrão da Frédy.';
+  template.placeholder = `Escreva o prompt padrão da ${BRAND.name}.`;
   template.value = loadSavedPrompt() || defaultText;
 
   let controller = null;
@@ -4056,7 +4064,22 @@ async function streamPrompt(payload, signal, onEvent) {
 
 // ---------- Inicialização ----------
 
+// Marca no HTML fixo: cor, logos, título, ícone e links do login.
+function applyBrand() {
+  document.documentElement.dataset.brand = BRAND.id;
+  if (BRAND.id === 'fredy') return;
+  document.title = document.title.replace('Frédy', BRAND.name);
+  for (const img of document.querySelectorAll('img[src$="fredy-logo-light.png"]')) { img.src = BRAND.logo; img.alt = BRAND.name; }
+  for (const a of document.querySelectorAll('a[href="/cadastro"]')) a.href = `${BRAND.base}/cadastro`;
+  const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
+  for (let n = walker.nextNode(); n; n = walker.nextNode()) if (n.nodeValue.includes('Frédy')) n.nodeValue = n.nodeValue.replaceAll('Frédy', BRAND.name);
+  document.querySelector('meta[name="theme-color"]')?.setAttribute('content', '#1d1a18');
+  const icon = document.querySelector('link[rel="icon"]');
+  if (icon) icon.href = `data:image/svg+xml,${encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32"><rect width="32" height="32" rx="8" fill="#1d1a18"/><circle cx="16" cy="16" r="7" fill="${BRAND.color}"/></svg>`)}`;
+}
+
 function init() {
+  applyBrand();
   $('view-login').addEventListener('submit', async (e) => {
     e.preventDefault();
     const submit = e.target.querySelector('button[type="submit"]');
@@ -4143,7 +4166,7 @@ function init() {
     return;
   }
   if (PORTAL === 'cliente') {
-    document.title = 'Portal do cliente · Frédy';
+    document.title = `Portal do cliente · ${BRAND.name}`;
     $('reopen').lastChild.textContent = ' Abrir portal';
     $('search').placeholder = 'Procurar...';
   }

@@ -1,5 +1,6 @@
 import crypto from 'node:crypto';
 import { customerClient } from '../lib/accounts.js';
+import { currentBrand } from '../lib/brand.js';
 import { issueSession } from '../lib/auth.js';
 import { listChatbots } from '../lib/chatbots.js';
 import { authenticate, changePassword, createClient, deleteClient, listClients, setGuideDone, updateClient } from '../lib/clients.js';
@@ -13,7 +14,7 @@ import { autoCreateEnabled } from '../lib/provision.js';
 import { finishChat, getChat, getFinal, resetChat, sendMessage, startChat } from '../lib/setup-chat.js';
 import { hit } from '../lib/store.js';
 
-const APP_URL = () => process.env.FREDY_APP_URL || 'https://fredy.wts.chat/';
+const APP_URL = () => currentBrand().appUrl();
 // Endereço público desta página (links mandados para fora).
 const baseUrl = (req) => (process.env.PUBLIC_URL || `${req.headers['x-forwarded-proto'] || 'https'}://${req.headers['x-forwarded-host'] || req.headers.host}`).replace(/\/+$/, '');
 const sameSecret = (a, b) => a.length === b.length && crypto.timingSafeEqual(Buffer.from(a), Buffer.from(b));
@@ -65,7 +66,7 @@ async function clientsOp(body) {
       if (!/^[0-9a-f-]{36}$/i.test(companyId)) throw new HttpError(400, 'Conta inválida');
       const existing = (await listClients()).find((c) => c.companyId === companyId);
       if (existing) throw new HttpError(409, `Esta conta já tem acesso (${existing.email})`);
-      const token = await createCompanyToken(companyId, 'Portal Frédy');
+      const token = await createCompanyToken(companyId, `Portal ${currentBrand().name}`);
       const agents = (await customerClient(token).get('/core/v1/agent').catch(() => null)) ?? [];
       const owner = agents.find((a) => a.isOwner) ?? agents.find((a) => a.profile === 'Admin') ?? agents[0] ?? null;
       const email = String(body.email ?? '').trim() || owner?.email;
@@ -140,11 +141,11 @@ export default route(async ({ req, body }) => {
       }
     }
     case 'config':
-      return { modelSlug: resolveModelSlug(''), n8nConfigured: n8nConfigured(), appUrl: APP_URL() };
+      return { modelSlug: resolveModelSlug(''), n8nConfigured: n8nConfigured(), appUrl: APP_URL(), brand: currentBrand().id };
     case 'chatbots':
       return { chatbots: await listChatbots() };
     case 'me':
-      return { role: session.role, company: session.client?.company ?? 'Equipe Frédy', email: session.client?.email ?? null };
+      return { role: session.role, company: session.client?.company ?? `Equipe ${currentBrand().name}`, email: session.client?.email ?? null };
     case 'guide':
       return { steps: await readGuide(), done: session.client?.guideDone ?? [] };
     case 'guideDone':

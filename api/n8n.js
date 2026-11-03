@@ -1,4 +1,5 @@
 import { customerClient, openAccounts } from '../lib/accounts.js';
+import { currentBrand } from '../lib/brand.js';
 import { HttpError, route } from '../lib/http.js';
 import { buildPackage, createInN8n, createWtsCredential, listTemplates, loadPackage, n8nConfigured, scanTemplate } from '../lib/n8n.js';
 import { readRotativo, ROTATIVO_MARK, rotativoBuildOptions } from '../lib/rotativo.js';
@@ -29,7 +30,7 @@ export default route(async ({ body }) => {
     case 'scan': {
       const pkg = await loadPackage(body);
       const accounts = await openAccounts(body.clientToken);
-      const scan = await scanTemplate(pkg, { ...accounts, modelToken: process.env.WTS_MODEL_TOKEN, modelSlug: body.modelSlug });
+      const scan = await scanTemplate(pkg, { ...accounts, modelToken: currentBrand().modelToken(), modelSlug: body.modelSlug });
       // Rotativo: usuários do cliente e a lista atual (se o fluxo já estiver ativo no n8n).
       if (scan.rotativo) {
         const rot = await readRotativo(accounts.client).catch(() => readRotativo(accounts.client, { withConfig: false }));
@@ -51,7 +52,7 @@ export default route(async ({ body }) => {
         webhookPaths: pathOverrides(body.webhookPaths),
         clientName: body.clientName,
         prompt: body.prompt,
-        modelToken: process.env.WTS_MODEL_TOKEN,
+        modelToken: currentBrand().modelToken(),
         clientToken,
         replaceToken: Boolean(body.replaceToken),
         clientSlug: body.clientSlug,

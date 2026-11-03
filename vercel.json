@@ -11,6 +11,22 @@
     {
       "source": "/cadastro",
       "destination": "/index.html"
+    },
+    {
+      "source": "/duda",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/duda/cliente",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/duda/portal",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/duda/cadastro",
+      "destination": "/index.html"
     }
   ],
   "functions": {
