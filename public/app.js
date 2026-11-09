@@ -89,7 +89,7 @@ const LOOKUPS = [
   { id: 'lostReasons', icon: 'ban', title: 'Motivos de perda', desc: 'IDs dos motivos', needsPanel: true },
   { id: 'agents', icon: 'user', title: 'Usuários', desc: 'IDs e userIds' },
   { id: 'departments', icon: 'team', title: 'Equipes', desc: 'IDs das equipes' },
-  { id: 'tags', icon: 'tag', title: 'Etiquetas', desc: 'IDs das etiquetas' },
+  { id: 'tags', icon: 'tag', title: 'Etiquetas', desc: 'Etiquetas, quantos contatos cada uma tem e IDs' },
   { id: 'chatbots', icon: 'bot', title: 'Chatbots', desc: 'Bot keys' },
   { id: 'sequences', icon: 'repeat', title: 'Sequências', desc: 'IDs das sequências' },
   { id: 'templates', icon: 'message', title: 'Modelos', desc: 'IDs dos templates' },
@@ -3016,7 +3016,7 @@ function renderLookup(view, lookup) {
 }
 
 async function loadLookup(container, lookup, params) {
-  swap(container, loading('Consultando a conta...'));
+  swap(container, loading(lookup.id === 'tags' ? 'Contando os contatos de cada etiqueta (pode levar até 1 minuto)...' : 'Consultando a conta...'));
   let data;
   try {
     data = await api('lookup', { lookup: lookup.id, clientToken: clientToken(), params });
