@@ -98,7 +98,7 @@ Vídeos da Duda (editar os da Frédy em vez de gravar tudo):
 - [ ] Partes no portal: feitas chatbots, Pergunta/Resposta IA, contatos. Faltam equipe, etiquetas e horário (dependem da conta modelo da Duda).
 - [ ] Gravados do zero: "Monte sua IA, painéis e mensagens" ✅ (no ar); parte do portal de "Painéis" e "Modelos" ✅; falta a parte do sistema desses dois (gravar na Conta Exemplo da Frédy).
 - [ ] Ficam de fora (são de agência): campos "data de ida/retorno", Checkin e Feedback.
-- [ ] YouTube (canal rZ, não listado): no ar 1 Conheça, 2 WhatsApp, 4 IA, 10 Sequências, Follows ligar, Pergunta/Resposta IA, 12 Contatos (links no guia e chatbots). "9 Follows criar" em reenvio. Faltam 3 Equipe, 5 Etiquetas, 6 Painéis, 8 Modelos, 11 Horário.
+- [ ] YouTube (canal rZ, não listado): no ar 1 Conheça, 2 WhatsApp, 4 IA, 10 Sequências, Follows ligar, Pergunta/Resposta IA, 12 Contatos (links no guia e chatbots). 9 Follows criar. Faltam 3 Equipe, 5 Etiquetas, 6 Painéis, 8 Modelos, 11 Horário.
 
 Configuração da Duda:
 - [ ] Conta modelo da Duda: `WTS_MODEL_TOKEN_DUDA` na Vercel + Redeploy. Libera etiquetas/equipes padrão, conferências e fluxos do n8n na Duda (até lá aparece "A conta modelo da Duda ainda não foi configurada").
