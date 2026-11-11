@@ -92,7 +92,7 @@ Quando algo for resolvido, risque aqui (ou peça para o Claude atualizar).
 No ar desde 03/11: `/duda/portal` (cliente), `/duda` (equipe, mesma senha) e `/duda/cadastro`. Laranja + grafite, logo e nome da Duda, botão para `duda.wts.chat`. Clientes, cadastros e logins separados por marca; a Frédy continua igual. Arquivos da Duda em `templates/duda/` (o que faltar lá vem do padrão da Frédy só no coletor da IA e no prompt padrão).
 
 Vídeos da Duda (editar os da Frédy em vez de gravar tudo):
-- [x] Gravação: sistema na Conta Exemplo da Frédy com o logo da Duda por cima (decisão de 11/11: não há conta teste da Duda; o login da Duda só tem contas reais de clientes); portal no acesso de teste "TESTE Claude" em `/duda/portal`. Arquivos em `C:devideos-tutoriaisduda` (src, com-voz, FINAIS).
+- [x] Gravação: sistema na Conta Exemplo da Frédy com o logo da Duda por cima (decisão de 11/11: não há conta teste da Duda; o login da Duda só tem contas reais de clientes); portal no acesso de teste "TESTE Claude" em `/duda/portal`. Arquivos em `C:/dev/videos-tutoriais/duda` (src, com-voz, FINAIS).
 - [x] Voz: Régis também na Duda (11/11).
 - [x] Partes no sistema: logo trocado, legendas com "Frédy" redesenhadas e narração com "Duda" (equipe, etiquetas, horário, geral, WhatsApp, follows, Pergunta/Resposta IA).
 - [ ] Partes no portal: feitas chatbots, Pergunta/Resposta IA, contatos. Faltam equipe, etiquetas e horário (dependem da conta modelo da Duda).
