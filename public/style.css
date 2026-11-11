@@ -1442,3 +1442,7 @@ a.hero { text-decoration: none; }
 [data-brand="duda"] .banner p { color: #f1dfd3; }
 [data-brand="duda"] .section-label { color: #6b4a38; }
 [data-brand="duda"] .brand-bar::before { background: linear-gradient(90deg, #f0592a, #ffa94d, #f0592a); background-size: 200% 100%; }
+
+/* Colunas dos painéis montados pela IA (só leitura) */
+.col-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
+.col-chip { font-size: 12px; padding: 3px 8px; border-radius: 999px; background: var(--surface-2, rgba(0,0,0,.05)); border: 1px solid var(--border, rgba(0,0,0,.08)); }

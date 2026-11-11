@@ -1,0 +1,46 @@
+{
+  "_leia": "O que muda de acordo com o nicho na Duda. A IA do portal monta isso com o cliente na mesma conversa da 'Montar minha IA', depois do teste do agente: primeiro os painéis do CRM, depois as mensagens. O nome de cada mensagem é o do modelo de mensagem que o cliente cria no WTS e escolhe no chatbot de mesmo nome. Chatbots, sequências e etiquetas continuam os padrões.",
+  "paineis": {
+    "regras": [
+      "Sempre um painel de vendas (o funil comercial). A PRIMEIRA coluna dele é onde a IA coloca cada contato novo (o chatbot Pergunta IA cria o card ali), então ela recebe quem acabou de chegar: ex. 'Novo contato', 'Aguardando atendimento', 'Aguardando orçamento'.",
+      "As DUAS ÚLTIMAS colunas do painel de vendas são sempre 'Ganho' e 'Perdido' (servem para os relatórios).",
+      "No meio, as etapas reais do processo de venda do cliente, com as palavras dele (ex. clínica: Avaliação agendada, Avaliação feita, Plano enviado; loja: Pedido montado, Aguardando pagamento).",
+      "De 4 a 7 colunas por painel. Nome de coluna curto (até 30 caracteres).",
+      "Painel de pós-venda (depois de fechar: entrega, execução do serviço, retorno, avaliação) só se fizer sentido no negócio. O cliente pode pedir outros painéis (ex. Financeiro, Projetos)."
+    ],
+    "exemplo": [
+      { "nome": "Funil de Vendas", "etapas": ["Aguardando orçamento", "Orçamento enviado", "Em pagamento/Assinatura contrato", "Ganho", "Perdido"] },
+      { "nome": "Funil pós-vendas", "etapas": ["Em andamento", "Lembrete de retorno", "Concluído"] }
+    ]
+  },
+  "mensagens": [
+    {
+      "key": "follow_1_dia",
+      "nome": "Follow 1 dia",
+      "chatbot": "Follow up 1 dia",
+      "quando": "1 dia depois do atendimento, quando o cliente parou de responder",
+      "objetivo": "retomar com leveza: lembrar do que ele pediu (orçamento, agendamento, avaliação, pedido... o que fizer sentido no nicho) e perguntar se ficou alguma dúvida"
+    },
+    {
+      "key": "follow_2_dias",
+      "nome": "Follow 2 dias",
+      "chatbot": "Follow up 2 dias",
+      "quando": "2 dias depois, se ele ainda não respondeu",
+      "objetivo": "entender o que está travando a decisão (valor, prazo, dúvida sobre o produto/serviço) com uma pergunta simples de responder"
+    },
+    {
+      "key": "follow_3_dias",
+      "nome": "Follow 3 dias",
+      "chatbot": "Follow up 3 dias",
+      "quando": "3 dias depois, se ele ainda não respondeu",
+      "objetivo": "oferecer ajuda para ajustar a proposta ao que ele precisa; pode criar uma urgência leve só se for verdadeira no negócio (agenda cheia, estoque, validade do orçamento), sem inventar promoção"
+    },
+    {
+      "key": "follow_7_dias",
+      "nome": "Follow 7 dias",
+      "chatbot": "Follow up 7 dias",
+      "quando": "7 dias depois, última tentativa",
+      "objetivo": "encerrar com educação, deixando a porta aberta para ele voltar quando quiser"
+    }
+  ]
+}

@@ -1998,8 +1998,27 @@ async function renderGuideBlock(view) {
 
 // Na Duda (todos os nichos) a conversa também escreve as mensagens do nicho (follows) com o cliente.
 const IA_STEPS = BRAND.id === 'duda'
-  ? [['coleta', 'Conversa'], ['simulacao', 'Teste'], ['mensagens', 'Mensagens'], ['fim', 'Enviar']]
+  ? [['coleta', 'Conversa'], ['simulacao', 'Teste'], ['painel', 'Painéis'], ['mensagens', 'Mensagens'], ['fim', 'Enviar']]
   : [['coleta', 'Conversa'], ['simulacao', 'Teste'], ['fim', 'Enviar']];
+
+// Painéis do CRM montados na conversa: nome e colunas na ordem.
+function nichoPaineis(paineis, { team = false } = {}) {
+  const list = (paineis ?? []).filter((p) => p.etapas?.length);
+  if (!list.length) return null;
+  const asText = (p) => `${p.nome}\n${p.etapas.map((e, i) => `${i + 1}. ${e}`).join('\n')}`;
+  return h('div', { class: 'list' },
+    h('div', { class: 'list-title' }, team ? 'Painéis do CRM (criar na conta do cliente)' : 'Seus painéis do CRM'),
+    h('p', { class: 'hint' }, team
+      ? 'A API do WTS não cria painéis: crie em CRM → Painéis com estas colunas, nesta ordem. A primeira coluna do funil de vendas é a do "Criar card" do chatbot Pergunta IA.'
+      : `A equipe ${BRAND.name} cria estes painéis na sua conta com estas colunas, nesta ordem.`),
+    ...list.map((p) => h('div', { class: 'row' },
+      h('span', { class: `row-dot ${p.aprovado ? 'ok' : 'warn'}` }, svg(p.aprovado ? 'check' : 'minus')),
+      h('div', {},
+        h('div', { class: 'row-title' }, p.nome),
+        h('div', { class: 'row-detail' }, p.aprovado ? `${p.etapas.length} colunas` : `${p.etapas.length} colunas · sugestão (não aprovada na conversa)`),
+        h('div', { class: 'col-chips' }, p.etapas.map((e, i) => h('span', { class: 'col-chip' }, `${i + 1}. ${e}`)))),
+      button('Copiar', (e) => flashOnCopy(e.currentTarget, asText(p)), { variant: 'btn-small', icon: 'copy' }))));
+}
 
 // Mensagens do nicho prontas: cada uma com o nome do modelo de mensagem e o botão de copiar.
 function nichoMensagens(mensagens, { team = false } = {}) {
@@ -2020,7 +2039,7 @@ function nichoMensagens(mensagens, { team = false } = {}) {
 async function renderSetupChat(view) {
   const body = h('div', { class: 'chat' });
   view.append(h('p', { class: 'panel-desc' }, BRAND.id === 'duda'
-    ? `A ${BRAND.name} pergunta sobre a sua empresa, monta o agente de IA, testa com você e escreve as mensagens automáticas do seu nicho. No fim, o resultado vai para a equipe ${BRAND.name} terminar a configuração.`
+    ? `A ${BRAND.name} pergunta sobre a sua empresa, monta o agente de IA, testa com você e monta os painéis do CRM e as mensagens automáticas do seu nicho. No fim, o resultado vai para a equipe ${BRAND.name} terminar a configuração.`
     : `A ${BRAND.name} pergunta sobre a sua empresa, monta o agente de IA e testa com você. No fim, o resultado vai para a equipe ${BRAND.name} terminar a configuração.`), body);
   let chat;
   try {
@@ -2048,6 +2067,7 @@ async function renderSetupChat(view) {
     h('span', { class: 'signup-done-icon', 'aria-hidden': 'true' }, svg('check')),
     h('h2', {}, `Pronto! A equipe ${BRAND.name} recebeu a sua IA${chat.agentName ? ` (${chat.agentName})` : ''}.`),
     h('p', {}, 'Eles terminam a configuração e avisam quando estiver no ar. Se quiser mudar algo, é só conversar de novo.'),
+    nichoPaineis(chat.paineis),
     nichoMensagens(chat.mensagens),
     h('div', { class: 'toolbar' }, button('Conversar de novo', () => reset(), { icon: 'refresh' }))));
   const paint = () => {
@@ -2144,6 +2164,7 @@ async function showClientIA(out, c) {
         h('p', { class: 'hint' }, `O fluxo usa a conta de ${c.company} guardada no portal: não precisa colar o token.`),
         h('details', { class: 'advanced' }, h('summary', {}, 'Ver o prompt'), h('pre', { class: 'detail-text' }, ia.prompt)))
       : notice('O prompt final não foi montado (o prompt padrão não estava disponível). Use o resumo acima no Montar prompt.', 'warn'),
+    nichoPaineis(ia.paineis, { team: true }),
     nichoMensagens(ia.mensagens, { team: true }),
     h('details', { class: 'advanced' }, h('summary', {}, 'Ver a conversa'), h('pre', { class: 'detail-text' }, ia.transcript))));
   out.scrollIntoView({ behavior: 'smooth', block: 'start' });
