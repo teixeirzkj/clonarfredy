@@ -92,13 +92,13 @@ Quando algo for resolvido, risque aqui (ou peça para o Claude atualizar).
 No ar desde 03/11: `/duda/portal` (cliente), `/duda` (equipe, mesma senha) e `/duda/cadastro`. Laranja + grafite, logo e nome da Duda, botão para `duda.wts.chat`. Clientes, cadastros e logins separados por marca; a Frédy continua igual. Arquivos da Duda em `templates/duda/` (o que faltar lá vem do padrão da Frédy só no coletor da IA e no prompt padrão).
 
 Vídeos da Duda (editar os da Frédy em vez de gravar tudo):
-- [ ] Abrir o Chrome das gravações e deixar logado: uma conta Duda de teste em `duda.wts.chat` e um acesso em `/duda/portal` (criar em `/duda` → Clientes com o token da conta).
-- [ ] Confirmar a voz: usar o Régis também na Duda ou outra voz.
-- [ ] Partes no sistema: cobrir o logo "Frédy" com o da Duda, refazer a narração dizendo "Duda" e trocar as legendas que citam a Frédy.
-- [ ] Partes no portal: regravar em `/duda/portal` (já sai em laranja).
-- [ ] Gravar do zero na Duda (mudaram com a IA de nicho): "Monte sua IA, painéis e mensagens" (conversa completa até a tela final), "Painéis" (criar a partir da tela final da IA) e "Modelos de mensagem" (criar a partir das mensagens aprovadas).
+- [x] Gravação: sistema na Conta Exemplo da Frédy com o logo da Duda por cima (decisão de 11/11: não há conta teste da Duda; o login da Duda só tem contas reais de clientes); portal no acesso de teste "TESTE Claude" em `/duda/portal`. Arquivos em `C:devideos-tutoriaisduda` (src, com-voz, FINAIS).
+- [x] Voz: Régis também na Duda (11/11).
+- [x] Partes no sistema: logo trocado, legendas com "Frédy" redesenhadas e narração com "Duda" (equipe, etiquetas, horário, geral, WhatsApp, follows, Pergunta/Resposta IA).
+- [ ] Partes no portal: feitas chatbots, Pergunta/Resposta IA, contatos. Faltam equipe, etiquetas e horário (dependem da conta modelo da Duda).
+- [ ] Gravados do zero: "Monte sua IA, painéis e mensagens" ✅ (no ar); parte do portal de "Painéis" e "Modelos" ✅; falta a parte do sistema desses dois (gravar na Conta Exemplo da Frédy).
 - [ ] Ficam de fora (são de agência): campos "data de ida/retorno", Checkin e Feedback.
-- [ ] Subir no YouTube (não listado) e pôr os links em `templates/duda/guia.json` e nos `<chatbot>.video.txt` de `templates/duda/chatbots`.
+- [ ] YouTube (canal rZ, não listado): no ar 1 Conheça, 2 WhatsApp, 4 IA, 10 Sequências, Follows ligar, Pergunta/Resposta IA, 12 Contatos (links no guia e chatbots). "9 Follows criar" em reenvio. Faltam 3 Equipe, 5 Etiquetas, 6 Painéis, 8 Modelos, 11 Horário.
 
 Configuração da Duda:
 - [ ] Conta modelo da Duda: `WTS_MODEL_TOKEN_DUDA` na Vercel + Redeploy. Libera etiquetas/equipes padrão, conferências e fluxos do n8n na Duda (até lá aparece "A conta modelo da Duda ainda não foi configurada").
