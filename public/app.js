@@ -2534,7 +2534,7 @@ async function loadClients(body, tab = 'signups') {
   body.autoCreate = Boolean(data.autoCreate);
   const auto = data.autoCreate
     ? notice('Criação automática ligada: cadastros com CNPJ ativo viram conta sozinhos (status ONBOARDING).', 'ok')
-    : notice('Criação automática desligada: falta o HELENA_PARTNER_TOKEN na Vercel (ou PORTAL_AUTO_CREATE=off). Os cadastros chegam aqui para a equipe criar.', 'info');
+    : notice(`Criação automática desligada: falta o ${BRAND.id === 'duda' ? 'HELENA_PARTNER_TOKEN_DUDA' : 'HELENA_PARTNER_TOKEN'} na Vercel (ou PORTAL_AUTO_CREATE=off). Os cadastros chegam aqui para a equipe criar.`, 'info');
   swap(body, auto, links, tabs, content);
   draw();
 }
