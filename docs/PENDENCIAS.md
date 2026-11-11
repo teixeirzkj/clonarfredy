@@ -95,10 +95,11 @@ Vídeos da Duda (editar os da Frédy em vez de gravar tudo):
 - [x] Gravação: sistema na Conta Exemplo da Frédy com o logo da Duda por cima (decisão de 11/11: não há conta teste da Duda; o login da Duda só tem contas reais de clientes); portal no acesso de teste "TESTE Claude" em `/duda/portal`. Arquivos em `C:/dev/videos-tutoriais/duda` (src, com-voz, FINAIS).
 - [x] Voz: Régis também na Duda (11/11).
 - [x] Partes no sistema: logo trocado, legendas com "Frédy" redesenhadas e narração com "Duda" (equipe, etiquetas, horário, geral, WhatsApp, follows, Pergunta/Resposta IA).
-- [ ] Partes no portal: feitas chatbots, Pergunta/Resposta IA, contatos. Faltam equipe, etiquetas e horário (dependem da conta modelo da Duda).
-- [ ] Gravados do zero: "Monte sua IA, painéis e mensagens" ✅ (no ar); parte do portal de "Painéis" e "Modelos" ✅; falta a parte do sistema desses dois (gravar na Conta Exemplo da Frédy).
+- [x] Partes no portal: todas gravadas em `/duda/portal` (equipe, etiquetas e horário só com a abertura do passo, porque os blocos comparam com a conta modelo da Duda).
+- [x] Gravados do zero (12/11): IA + painéis + mensagens (regravado sem colunas Ganho/Perdido), Painéis e Modelos (sistema na Conta exemplo com logo da Duda; o modelo não foi salvo).
 - [ ] Ficam de fora (são de agência): campos "data de ida/retorno", Checkin e Feedback.
-- [ ] YouTube (canal rZ, não listado): no ar 1 Conheça, 2 WhatsApp, 4 IA, 10 Sequências, Follows ligar, Pergunta/Resposta IA, 12 Contatos (links no guia e chatbots). 9 Follows criar. Faltam 3 Equipe, 5 Etiquetas, 6 Painéis, 8 Modelos, 11 Horário.
+- [ ] YouTube (canal rZ, não listado): 12 de 13 no ar e ligados no guia/chatbots. Falta **11. Horário**: o canal bateu o limite diário de envios (ficou um rascunho "Duda | 11. Horário de atendimento"); terminar depois de 24 h ou da verificação do canal e pôr o link no passo `horario` de `templates/duda/guia.json`. O vídeo antigo da IA (oOnjtN67TGw) fica no canal (decisão de 12/11).
+- [ ] Conta exemplo da Frédy: excluir os 3 painéis de teste "Funil de Vendas" (chave FV) criados nas gravações (a exclusão automática foi bloqueada; fazer à mão em CRM → Painéis → engrenagem → Excluir).
 
 Configuração da Duda:
 - [ ] Conta modelo da Duda: `WTS_MODEL_TOKEN_DUDA` na Vercel + Redeploy. Libera etiquetas/equipes padrão, conferências e fluxos do n8n na Duda (até lá aparece "A conta modelo da Duda ainda não foi configurada").
