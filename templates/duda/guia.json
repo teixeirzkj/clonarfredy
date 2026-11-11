@@ -90,7 +90,7 @@
       "tips": [
         "Abra \"Montar minha IA\" aqui no portal: depois de finalizar, aparecem os seus painéis com as colunas na ordem.",
         "Na Duda: CRM → Painéis → Novo painel. Dê o nome e crie as colunas na mesma ordem.",
-        "A primeira coluna do funil de vendas é onde a IA coloca cada contato novo; Ganho e Perdido ficam no fim."
+        "A primeira coluna do funil de vendas é onde a IA coloca cada contato novo. Venda ganha ou perdida não vira coluna: marque no próprio card."
       ],
       "video": "",
       "blocks": [

@@ -3,13 +3,13 @@
   "paineis": {
     "regras": [
       "Sempre um painel de vendas (o funil comercial). A PRIMEIRA coluna dele é onde a IA coloca cada contato novo (o chatbot Pergunta IA cria o card ali), então ela recebe quem acabou de chegar: ex. 'Novo contato', 'Aguardando atendimento', 'Aguardando orçamento'.",
-      "As DUAS ÚLTIMAS colunas do painel de vendas são sempre 'Ganho' e 'Perdido' (servem para os relatórios).",
+      "NÃO crie colunas 'Ganho', 'Perdido', 'Fechado' ou 'Concluído' no painel de vendas: na Duda o card é marcado como Ganho ou Perda pelo botão do próprio card (com motivo de perda), fora das colunas.",
       "No meio, as etapas reais do processo de venda do cliente, com as palavras dele (ex. clínica: Avaliação agendada, Avaliação feita, Plano enviado; loja: Pedido montado, Aguardando pagamento).",
-      "De 4 a 7 colunas por painel. Nome de coluna curto (até 30 caracteres).",
+      "De 3 a 6 colunas por painel. Nome de coluna curto (até 30 caracteres).",
       "Painel de pós-venda (depois de fechar: entrega, execução do serviço, retorno, avaliação) só se fizer sentido no negócio. O cliente pode pedir outros painéis (ex. Financeiro, Projetos)."
     ],
     "exemplo": [
-      { "nome": "Funil de Vendas", "etapas": ["Aguardando orçamento", "Orçamento enviado", "Em pagamento/Assinatura contrato", "Ganho", "Perdido"] },
+      { "nome": "Funil de Vendas", "etapas": ["Aguardando orçamento", "Orçamento enviado", "Em pagamento/Assinatura contrato"] },
       { "nome": "Funil pós-vendas", "etapas": ["Em andamento", "Lembrete de retorno", "Concluído"] }
     ]
   },

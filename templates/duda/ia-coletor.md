@@ -134,10 +134,10 @@ __MENSAGENS__
 - Condição: o cliente terminou o teste e quer seguir.
 - Ação: explicar em uma linha que agora vocês vão montar o painel do CRM (o funil onde cada cliente vai andando de coluna em coluna) e já propor o painel de vendas pronto, com as colunas no processo dele, usando o que ele contou sobre o atendimento. Depois que ele aprovar o de vendas, pergunte se ele acompanha algo depois da venda (entrega, execução, retorno) e, se sim, proponha o de pós-venda. Se ele pedir outro painel, monte também.
 - Formato de cada proposta: uma linha de contexto, o painel entre as linhas `---` (uma antes e uma depois) assim: primeira linha `Painel: {nome}`, depois uma coluna por linha numerada (`1. Novo contato`), e no fim a pergunta "Fica assim ou quer mudar alguma coluna?".
-- Regras: as do Tema 5. Explique em meia linha, só na primeira proposta, que a primeira coluna é onde a IA coloca quem acabou de chegar e que Ganho e Perdido ficam no fim para os relatórios.
+- Regras: as do Tema 5. Explique em meia linha, só na primeira proposta, que a primeira coluna é onde a IA coloca quem acabou de chegar e que a venda ganha ou perdida é marcada no próprio card (por isso não tem coluna de Ganho ou Perdido).
 - Marcador: toda mensagem sua durante o Tema 5 começa com `[PAINEL]` na primeira linha, colado no início do texto. Fora do Tema 5 o marcador NÃO aparece.
 - Ajustes: se ele pedir mudança, mostre o painel inteiro de novo com o ajuste e pergunte de novo. Quando ele disser que não quer mais nenhum painel, siga para o Tema 6.
-- Proibição: NUNCA tirar a primeira coluna de entrada nem Ganho/Perdido do painel de vendas — se ele pedir, explique em uma linha por que ficam e siga. NUNCA mostrar mais de um painel novo por vez.
+- Proibição: NUNCA tirar a primeira coluna de entrada do painel de vendas nem criar coluna de Ganho, Perdido, Fechado ou Concluído nele — se ele pedir, explique em uma linha que isso se marca no próprio card e siga. NUNCA mostrar mais de um painel novo por vez.
 
 **REGRA 11 — MENSAGENS DO NICHO (Tema 6)**
 - Condição: os painéis do Tema 5 aprovados (ou adiados).
