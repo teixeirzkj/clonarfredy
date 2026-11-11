@@ -65,6 +65,7 @@ própria tela). Veja `templates/n8n/LEIA-ME.md`. O prompt padrão da IA fica em
 | `KV_REST_API_URL`, `KV_REST_API_TOKEN` | Alternativa ao Supabase: Upstash Redis |
 | `DATA_SECRET` | Opcional: chave para criptografar os tokens dos clientes (sem ela, usa o `SESSION_SECRET`; trocar qualquer uma invalida os tokens guardados) |
 | `HELENA_PARTNER_TOKEN` | Token de Parceiro (Admin → Personalizar → Integração): liga a criação automática da conta pelo cadastro |
+| `HELENA_PARTNER_TOKEN_DUDA` | Token de Parceiro da Duda (mesmo caminho, no admin da Duda): criação automática das contas da Duda. Sem ele, o cadastro da Duda fica na fila da equipe |
 | `HELENA_API_BASE` | Opcional: base da API de parceiro (padrão `https://api.helena.run`) |
 | `FREDY_APP_URL` | Opcional: sistema para onde o cliente vai depois de criar a conta (padrão `https://fredy.wts.chat/`) |
 | `PORTAL_AUTO_CREATE` | Opcional: `off` desliga a criação automática (o cadastro só chega para a equipe) |

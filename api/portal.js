@@ -111,7 +111,7 @@ export default route(async ({ req, body }) => {
       const given = String(body.secret ?? req.headers['x-integracao'] ?? '');
       if (!secret || !sameSecret(given, secret)) throw new HttpError(401, 'Chave de integração inválida');
       const pre = await createPreSignup(body.data ?? body);
-      return { ok: true, id: pre.id, url: `${baseUrl(req)}/cadastro?pre=${pre.id}`, expiresAt: pre.expiresAt, plan: pre.plan, maxUsers: pre.maxUsers };
+      return { ok: true, id: pre.id, brand: pre.brand, url: `${baseUrl(req)}${pre.brand === 'duda' ? '/duda' : ''}/cadastro?pre=${pre.id}`, expiresAt: pre.expiresAt, plan: pre.plan, maxUsers: pre.maxUsers };
     }
     case 'preSignupGet':
       if ((await hit(`pre-ip:${clientIp(req)}`, 60 * 60)) > 60) throw new HttpError(429, 'Muitas consultas. Tente de novo mais tarde.');

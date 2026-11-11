@@ -13,6 +13,7 @@ o botão da Frédy e o passo a passo em vídeo.
 ```json
 {
   "action": "preSignup",
+  "brand": "fredy",
   "secret": "<PRE_SIGNUP_SECRET>",
   "data": {
     "plan": "padrao",
@@ -30,6 +31,10 @@ o botão da Frédy e o passo a passo em vídeo.
 }
 ```
 
+- **Marca:** `"brand": "fredy"` (padrão, se não mandar) ou `"brand": "duda"`. Pedido da Duda devolve o link
+  `/duda/cadastro?pre=...` e a conta é criada no parceiro da Duda (`HELENA_PARTNER_TOKEN_DUDA` na Vercel;
+  sem ele, o cadastro da Duda vai para a fila da equipe em `/duda` → Clientes). O link de uma marca não abre
+  na página da outra. Os planos são os mesmos nas duas (`padrao`, `teste`, `plug-and-play`).
 - A chave também pode ir no header `X-Integracao` em vez de `secret`. Ela fica na
   variável `PRE_SIGNUP_SECRET` da Vercel; combinar o valor com a equipe Frédy.
 - Só `plan` é obrigatório: é o `id` de um plano em `templates/planos.json` (`padrao`, `teste` e
@@ -47,7 +52,7 @@ o botão da Frédy e o passo a passo em vídeo.
 ## Resposta
 
 ```json
-{ "ok": true, "id": "k3Jf9...", "url": "https://clonarfredy.vercel.app/cadastro?pre=k3Jf9...", "expiresAt": "2026-11-03T12:00:00.000Z", "plan": "padrao", "maxUsers": 3 }
+{ "ok": true, "id": "k3Jf9...", "brand": "fredy", "url": "https://clonarfredy.vercel.app/cadastro?pre=k3Jf9...", "expiresAt": "2026-11-03T12:00:00.000Z", "plan": "padrao", "maxUsers": 3 }
 ```
 
 Mande o cliente para `url` (redirecionamento ou botão "Continuar o cadastro"). O link vale
