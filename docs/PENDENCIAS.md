@@ -96,6 +96,7 @@ Vídeos da Duda (editar os da Frédy em vez de gravar tudo):
 - [ ] Confirmar a voz: usar o Régis também na Duda ou outra voz.
 - [ ] Partes no sistema: cobrir o logo "Frédy" com o da Duda, refazer a narração dizendo "Duda" e trocar as legendas que citam a Frédy.
 - [ ] Partes no portal: regravar em `/duda/portal` (já sai em laranja).
+- [ ] Gravar do zero na Duda (mudaram com a IA de nicho): "Monte sua IA, painéis e mensagens" (conversa completa até a tela final), "Painéis" (criar a partir da tela final da IA) e "Modelos de mensagem" (criar a partir das mensagens aprovadas).
 - [ ] Ficam de fora (são de agência): campos "data de ida/retorno", Checkin e Feedback.
 - [ ] Subir no YouTube (não listado) e pôr os links em `templates/duda/guia.json` e nos `<chatbot>.video.txt` de `templates/duda/chatbots`.
 
