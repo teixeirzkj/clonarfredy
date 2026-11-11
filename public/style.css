@@ -1447,3 +1447,5 @@ a.hero { text-decoration: none; }
 .col-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
 .col-chip { font-size: 12px; padding: 3px 8px; border-radius: 999px; background: var(--surface-2, rgba(0,0,0,.05)); border: 1px solid var(--border, rgba(0,0,0,.08)); }
 .chat-done .list { text-align: left; width: 100%; }
+.nicho-text { white-space: pre-wrap; margin-top: 8px; padding: 10px 12px; border-radius: 10px; font-size: 14px; line-height: 1.45; background: var(--surface-2, rgba(0,0,0,.04)); border: 1px solid var(--border, rgba(0,0,0,.08)); }
+.nicho-actions { margin-top: 8px; }

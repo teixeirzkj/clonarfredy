@@ -2016,8 +2016,9 @@ function nichoPaineis(paineis, { team = false } = {}) {
       h('div', {},
         h('div', { class: 'row-title' }, p.nome),
         h('div', { class: 'row-detail' }, p.aprovado ? `${p.etapas.length} colunas` : `${p.etapas.length} colunas · sugestão (não aprovada na conversa)`),
-        h('div', { class: 'col-chips' }, p.etapas.map((e, i) => h('span', { class: 'col-chip' }, `${i + 1}. ${e}`)))),
-      button('Copiar', (e) => flashOnCopy(e.currentTarget, asText(p)), { variant: 'btn-small', icon: 'copy' }))));
+        h('div', { class: 'col-chips' }, p.etapas.map((e, i) => h('span', { class: 'col-chip' }, `${i + 1}. ${e}`))),
+        h('div', { class: 'nicho-actions' }, button('Copiar colunas', (e) => flashOnCopy(e.currentTarget, asText(p)), { variant: 'btn-small', icon: 'copy' }))),
+      h('span'))));
 }
 
 // Mensagens do nicho prontas: cada uma com o nome do modelo de mensagem e o botão de copiar.
@@ -2032,8 +2033,9 @@ function nichoMensagens(mensagens, { team = false } = {}) {
       h('div', {},
         h('div', { class: 'row-title' }, m.nome),
         h('div', { class: 'row-detail' }, `Sai ${m.quando} · chatbot "${m.chatbot}"${m.aprovado ? '' : ' · sugestão (não aprovada na conversa)'}`),
-        h('div', { class: 'detail-text', style: 'white-space:pre-wrap;margin-top:6px' }, m.texto)),
-      button('Copiar', (e) => flashOnCopy(e.currentTarget, m.texto), { variant: 'btn-small', icon: 'copy' }))));
+        h('div', { class: 'nicho-text' }, m.texto),
+        h('div', { class: 'nicho-actions' }, button('Copiar mensagem', (e) => flashOnCopy(e.currentTarget, m.texto), { variant: 'btn-small', icon: 'copy' }))),
+      h('span'))));
 }
 
 async function renderSetupChat(view) {
