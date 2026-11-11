@@ -52,6 +52,20 @@
       }
     },
     {
+      "id": "ia",
+      "title": "Monte sua IA, painéis e mensagens",
+      "desc": "Converse com a Duda: ela entende o seu negócio, monta o agente e testa com você, monta os painéis do CRM e escreve as mensagens automáticas do seu nicho.",
+      "tips": [
+        "Responda como numa conversa: uma pergunta de cada vez. Se não souber algo, diga que decide depois.",
+        "Depois do teste do agente, ela propõe os painéis (as colunas do funil) e as mensagens de follow. Peça os ajustes que quiser até ficar do seu jeito.",
+        "No fim, clique em \"Finalizar e enviar para a equipe\": os painéis e as mensagens aparecem prontos para os próximos passos."
+      ],
+      "video": "",
+      "blocks": [
+        "setupChat"
+      ]
+    },
+    {
       "id": "etiquetas",
       "title": "Etiquetas",
       "desc": "As etiquetas padrão já foram copiadas. Confira e ajuste se precisar.",
@@ -72,13 +86,15 @@
     {
       "id": "paineis",
       "title": "Painéis e etapas (CRM)",
-      "desc": "Monte o funil de vendas com as mesmas etapas do modelo.",
+      "desc": "Crie na sua conta os painéis que você montou com a Duda no passo anterior.",
       "tips": [
-        "Abra cada painel aqui no portal, copie as etapas na ordem e crie na Duda em CRM → Painéis."
+        "Abra \"Montar minha IA\" aqui no portal: depois de finalizar, aparecem os seus painéis com as colunas na ordem.",
+        "Na Duda: CRM → Painéis → Novo painel. Dê o nome e crie as colunas na mesma ordem.",
+        "A primeira coluna do funil de vendas é onde a IA coloca cada contato novo; Ganho e Perdido ficam no fim."
       ],
       "video": "",
       "blocks": [
-        "panels"
+        "setupChat"
       ],
       "link": {
         "label": "Abrir a Duda",
@@ -105,14 +121,16 @@
     {
       "id": "modelos",
       "title": "Modelos de mensagem",
-      "desc": "Copie os modelos de mensagem (texto, variáveis e botões) e cadastre na sua conta.",
+      "desc": "Crie um modelo de mensagem para cada mensagem que você aprovou com a Duda (Follow 1 dia, 2 dias, 3 dias e 7 dias).",
       "tips": [
-        "Na Duda: Ajustes → Modelos de mensagens → Novo.",
+        "Abra \"Montar minha IA\" aqui no portal: depois de finalizar, cada mensagem tem o nome do modelo e o botão \"Copiar mensagem\".",
+        "Na Duda: Ajustes → Modelos de mensagens → Novo. Use o nome indicado e cole o texto.",
+        "Regra do WhatsApp: a mensagem não pode começar nem terminar com variável ([nome]). As mensagens da Duda já vêm assim (\"Olá, [nome]!...\").",
         "Os modelos do WhatsApp oficial passam por aprovação antes de poder usar."
       ],
       "video": "",
       "blocks": [
-        "templates"
+        "setupChat"
       ],
       "link": {
         "label": "Abrir a Duda",
@@ -137,19 +155,6 @@
         "label": "Abrir a Duda",
         "url": "https://duda.wts.chat/chatbots/list/automation"
       }
-    },
-    {
-      "id": "ia",
-      "title": "Monte o agente de IA",
-      "desc": "Converse com a Duda: ela pergunta sobre sua empresa, monta o agente e testa com você.",
-      "tips": [
-        "Responda como numa conversa: uma pergunta de cada vez. Se não souber algo, diga que decide depois.",
-        "No fim ela vira o seu agente para você testar. Quando gostar, clique em \"Finalizar e enviar para a equipe\"."
-      ],
-      "video": "",
-      "blocks": [
-        "setupChat"
-      ]
     },
     {
       "id": "sequencias",

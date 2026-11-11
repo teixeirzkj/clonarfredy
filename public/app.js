@@ -2010,7 +2010,7 @@ function nichoPaineis(paineis, { team = false } = {}) {
     h('div', { class: 'list-title' }, team ? 'Painéis do CRM (criar na conta do cliente)' : 'Seus painéis do CRM'),
     h('p', { class: 'hint' }, team
       ? 'A API do WTS não cria painéis: crie em CRM → Painéis com estas colunas, nesta ordem. A primeira coluna do funil de vendas é a do "Criar card" do chatbot Pergunta IA.'
-      : `A equipe ${BRAND.name} cria estes painéis na sua conta com estas colunas, nesta ordem.`),
+      : `Crie estes painéis na sua conta (CRM → Painéis) com estas colunas, nesta ordem.`),
     ...list.map((p) => h('div', { class: 'row' },
       h('span', { class: `row-dot ${p.aprovado ? 'ok' : 'warn'}` }, svg(p.aprovado ? 'check' : 'minus')),
       h('div', {},
