@@ -103,7 +103,7 @@ Configuração da Duda:
 - [ ] Conta modelo da Duda: `WTS_MODEL_TOKEN_DUDA` na Vercel + Redeploy. Libera etiquetas/equipes padrão, conferências e fluxos do n8n na Duda (até lá aparece "A conta modelo da Duda ainda não foi configurada").
 - [ ] Webhooks/fluxos do n8n da conta modelo da Duda (slug dos webhooks).
 - [ ] Planos da Duda em `templates/duda/planos.json` (o cadastro da Duda fica fechado até ter planos) e ver se a criação automática usa o mesmo Token de Parceiro da Helena ou outro.
-- [ ] Chatbots e modelos de mensagem próprios da Duda (hoje: Follow 1/2/3/7 dias, Pergunta IA e Resposta IA, que são genéricos; Checkin e Feedback não entram).
+- [x] Mensagens do nicho pela IA (11/11): na Duda, a "Montar minha IA" também escreve com o cliente os 4 follows no nicho dele (`templates/duda/mensagens.json` + `templates/duda/ia-coletor.md`); no fim aparecem prontas para copiar e em Clientes → Ver IA. Chatbots, sequências e etiquetas continuam os padrões. **Falta testar com a chave da Anthropic.**
 - [ ] Prompt padrão genérico para o agente da Duda (`templates/duda/prompt-padrao.md`; hoje usa o de agência como molde).
 - [ ] (Opcional) `DUDA_APP_URL` na Vercel se o endereço do sistema não for `https://duda.wts.chat/`.
 

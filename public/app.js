@@ -1996,11 +1996,32 @@ async function renderGuideBlock(view) {
 
 // ---------- Montar minha IA (portal): conversa com a Frédy ----------
 
-const IA_STEPS = [['coleta', 'Conversa'], ['simulacao', 'Teste'], ['fim', 'Enviar']];
+// Na Duda (todos os nichos) a conversa também escreve as mensagens do nicho (follows) com o cliente.
+const IA_STEPS = BRAND.id === 'duda'
+  ? [['coleta', 'Conversa'], ['simulacao', 'Teste'], ['mensagens', 'Mensagens'], ['fim', 'Enviar']]
+  : [['coleta', 'Conversa'], ['simulacao', 'Teste'], ['fim', 'Enviar']];
+
+// Mensagens do nicho prontas: cada uma com o nome do modelo de mensagem e o botão de copiar.
+function nichoMensagens(mensagens, { team = false } = {}) {
+  const list = (mensagens ?? []).filter((m) => m.texto);
+  if (!list.length) return null;
+  return h('div', { class: 'list' },
+    h('div', { class: 'list-title' }, team ? 'Mensagens do nicho (modelos de mensagem dos follows)' : 'Suas mensagens prontas'),
+    h('p', { class: 'hint' }, `Na sua conta, em Modelos de mensagem, crie um modelo para cada uma com o nome indicado e cole o texto. Depois, em cada chatbot de follow, escolha o modelo de mesmo nome.`),
+    ...list.map((m) => h('div', { class: 'row' },
+      h('span', { class: `row-dot ${m.aprovado ? 'ok' : 'warn'}` }, svg(m.aprovado ? 'check' : 'minus')),
+      h('div', {},
+        h('div', { class: 'row-title' }, m.nome),
+        h('div', { class: 'row-detail' }, `Sai ${m.quando} · chatbot "${m.chatbot}"${m.aprovado ? '' : ' · sugestão (não aprovada na conversa)'}`),
+        h('div', { class: 'detail-text', style: 'white-space:pre-wrap;margin-top:6px' }, m.texto)),
+      button('Copiar', (e) => flashOnCopy(e.currentTarget, m.texto), { variant: 'btn-small', icon: 'copy' }))));
+}
 
 async function renderSetupChat(view) {
   const body = h('div', { class: 'chat' });
-  view.append(h('p', { class: 'panel-desc' }, `A ${BRAND.name} pergunta sobre a sua empresa, monta o agente de IA e testa com você. No fim, o resultado vai para a equipe ${BRAND.name} terminar a configuração.`), body);
+  view.append(h('p', { class: 'panel-desc' }, BRAND.id === 'duda'
+    ? `A ${BRAND.name} pergunta sobre a sua empresa, monta o agente de IA, testa com você e escreve as mensagens automáticas do seu nicho. No fim, o resultado vai para a equipe ${BRAND.name} terminar a configuração.`
+    : `A ${BRAND.name} pergunta sobre a sua empresa, monta o agente de IA e testa com você. No fim, o resultado vai para a equipe ${BRAND.name} terminar a configuração.`), body);
   let chat;
   try {
     chat = await api('portal', { action: 'setupChat', op: 'get' });
@@ -2027,9 +2048,10 @@ async function renderSetupChat(view) {
     h('span', { class: 'signup-done-icon', 'aria-hidden': 'true' }, svg('check')),
     h('h2', {}, `Pronto! A equipe ${BRAND.name} recebeu a sua IA${chat.agentName ? ` (${chat.agentName})` : ''}.`),
     h('p', {}, 'Eles terminam a configuração e avisam quando estiver no ar. Se quiser mudar algo, é só conversar de novo.'),
+    nichoMensagens(chat.mensagens),
     h('div', { class: 'toolbar' }, button('Conversar de novo', () => reset(), { icon: 'refresh' }))));
   const paint = () => {
-    const idx = chat.status === 'finalizado' ? 3 : Math.max(0, IA_STEPS.findIndex(([s]) => s === chat.status));
+    const idx = chat.status === 'finalizado' ? IA_STEPS.length : Math.max(0, IA_STEPS.findIndex(([s]) => s === chat.status));
     steps.replaceChildren(...IA_STEPS.map(([s, label], i) => h('span', { class: `chat-step${i < idx ? ' is-done' : i === idx ? ' is-current' : ''}` }, h('span', { class: 'step-num' }, String(i + 1)), label)));
     log.replaceChildren(...chat.messages.map(bubble), typing);
     log.scrollTop = log.scrollHeight;
@@ -2122,6 +2144,7 @@ async function showClientIA(out, c) {
         h('p', { class: 'hint' }, `O fluxo usa a conta de ${c.company} guardada no portal: não precisa colar o token.`),
         h('details', { class: 'advanced' }, h('summary', {}, 'Ver o prompt'), h('pre', { class: 'detail-text' }, ia.prompt)))
       : notice('O prompt final não foi montado (o prompt padrão não estava disponível). Use o resumo acima no Montar prompt.', 'warn'),
+    nichoMensagens(ia.mensagens, { team: true }),
     h('details', { class: 'advanced' }, h('summary', {}, 'Ver a conversa'), h('pre', { class: 'detail-text' }, ia.transcript))));
   out.scrollIntoView({ behavior: 'smooth', block: 'start' });
 }

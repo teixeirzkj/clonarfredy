@@ -1,0 +1,33 @@
+{
+  "_leia": "Mensagens que mudam de acordo com o nicho. A IA do portal da Duda escreve cada uma com o cliente, na mesma conversa, depois do teste do agente. O nome é o do modelo de mensagem que o cliente cria no WTS e escolhe no chatbot de mesmo nome. Chatbots, sequências e etiquetas continuam os padrões.",
+  "mensagens": [
+    {
+      "key": "follow_1_dia",
+      "nome": "Follow 1 dia",
+      "chatbot": "Follow up 1 dia",
+      "quando": "1 dia depois do atendimento, quando o cliente parou de responder",
+      "objetivo": "retomar com leveza: lembrar do que ele pediu (orçamento, agendamento, avaliação, pedido... o que fizer sentido no nicho) e perguntar se ficou alguma dúvida"
+    },
+    {
+      "key": "follow_2_dias",
+      "nome": "Follow 2 dias",
+      "chatbot": "Follow up 2 dias",
+      "quando": "2 dias depois, se ele ainda não respondeu",
+      "objetivo": "entender o que está travando a decisão (valor, prazo, dúvida sobre o produto/serviço) com uma pergunta simples de responder"
+    },
+    {
+      "key": "follow_3_dias",
+      "nome": "Follow 3 dias",
+      "chatbot": "Follow up 3 dias",
+      "quando": "3 dias depois, se ele ainda não respondeu",
+      "objetivo": "oferecer ajuda para ajustar a proposta ao que ele precisa; pode criar uma urgência leve só se for verdadeira no negócio (agenda cheia, estoque, validade do orçamento), sem inventar promoção"
+    },
+    {
+      "key": "follow_7_dias",
+      "nome": "Follow 7 dias",
+      "chatbot": "Follow up 7 dias",
+      "quando": "7 dias depois, última tentativa",
+      "objetivo": "encerrar com educação, deixando a porta aberta para ele voltar quando quiser"
+    }
+  ]
+}
