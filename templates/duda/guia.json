@@ -10,7 +10,7 @@
         "No primeiro acesso, siga o e-mail de boas-vindas ou use \"Esqueci minha senha\" na tela de login.",
         "Depois volte aqui e siga os próximos passos na ordem."
       ],
-      "video": "",
+      "video": "https://youtu.be/N8BmveQNsA8",
       "link": {
         "label": "Abrir a Duda",
         "url": "https://duda.wts.chat/"
@@ -25,7 +25,7 @@
         "Na Duda: Ajustes → Conta → Canais de atendimento, e conecte o número.",
         "Use o celular com o WhatsApp da empresa por perto para ler o QR code."
       ],
-      "video": "",
+      "video": "https://youtu.be/slY8IxZVCow",
       "blocks": [],
       "link": {
         "label": "Abrir a Duda",
@@ -60,7 +60,7 @@
         "Depois do teste do agente, ela propõe os painéis (as colunas do funil) e as mensagens de follow. Peça os ajustes que quiser até ficar do seu jeito.",
         "No fim, clique em \"Finalizar e enviar para a equipe\": os painéis e as mensagens aparecem prontos para os próximos passos."
       ],
-      "video": "",
+      "video": "https://youtu.be/oOnjtN67TGw",
       "blocks": [
         "setupChat"
       ]
@@ -164,7 +164,7 @@
         "Na Duda: Apps → Sequências → Nova.",
         "Veja o vídeo e monte cada sequência seguindo o modelo."
       ],
-      "video": "",
+      "video": "https://youtu.be/9K5hSpfNIYk",
       "blocks": [
         "sequences"
       ],
@@ -197,7 +197,7 @@
         "Até 5.000 linhas de contatos por planilha. Com mais contatos, divida em mais de uma planilha.",
         "Depois de importar, confira os contatos na Duda em CRM → Contatos."
       ],
-      "video": "",
+      "video": "https://youtu.be/cGTUC1GO_rw",
       "blocks": [
         "importContacts"
       ],
