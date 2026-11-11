@@ -40,7 +40,7 @@
         "Na Duda: Ajustes → Usuários e Ajustes → Equipes.",
         "Cada pessoa recebe um e-mail para criar a senha dela."
       ],
-      "video": "",
+      "video": "https://youtu.be/uQqxRNQt0gk",
       "blocks": [
         "departments",
         "agents"
@@ -60,7 +60,7 @@
         "Depois do teste do agente, ela propõe os painéis (as colunas do funil) e as mensagens de follow. Peça os ajustes que quiser até ficar do seu jeito.",
         "No fim, clique em \"Finalizar e enviar para a equipe\": os painéis e as mensagens aparecem prontos para os próximos passos."
       ],
-      "video": "https://youtu.be/oOnjtN67TGw",
+      "video": "https://youtu.be/wQEfKZ2OEkQ",
       "blocks": [
         "setupChat"
       ]
@@ -73,7 +73,7 @@
         "Aqui no portal, \"Etiquetas padrão\" copia as etiquetas do modelo para a sua conta.",
         "Na Duda, as etiquetas aparecem em cada contato (CRM → Contatos → abrir o contato → Etiquetas)."
       ],
-      "video": "",
+      "video": "https://youtu.be/Mn7kagWmDWg",
       "blocks": [
         "tags"
       ],
@@ -92,7 +92,7 @@
         "Na Duda: CRM → Painéis → Novo painel. Dê o nome e crie as colunas na mesma ordem.",
         "A primeira coluna do funil de vendas é onde a IA coloca cada contato novo. Venda ganha ou perdida não vira coluna: marque no próprio card."
       ],
-      "video": "",
+      "video": "https://youtu.be/MGGMbNNxVcQ",
       "blocks": [
         "setupChat"
       ],
@@ -128,7 +128,7 @@
         "Regra do WhatsApp: a mensagem não pode começar nem terminar com variável ([nome]). As mensagens da Duda já vêm assim (\"Olá, [nome]!...\").",
         "Os modelos do WhatsApp oficial passam por aprovação antes de poder usar."
       ],
-      "video": "",
+      "video": "https://youtu.be/EWtm-FQFV7s",
       "blocks": [
         "setupChat"
       ],
