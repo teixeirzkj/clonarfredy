@@ -137,6 +137,9 @@ const TOKEN_STATUS = { empty: 'Não informado', pending: 'Não verificado', ok: 
 
 const state = {
   session: null,
+  navStack: [], // telas anteriores, para o "Voltar" voltar onde estava
+  currentBlock: null,
+  guideFocus: null, // passo do guia de onde o cliente abriu uma ferramenta
   status: {}, // blockId -> { tone, text }
   view: 'grid',
   busy: false,
@@ -461,6 +464,8 @@ async function loadConfig() {
 
 function showGrid() {
   if (state.busy) return;
+  state.navStack = [];
+  state.currentBlock = null;
   loadConfig();
   if (PORTAL === 'cliente') setHeader(state.session?.company ? `Olá, ${state.session.company}` : 'Portal do cliente', 'Assista aos vídeos e configure sua conta passo a passo', false);
   else setHeader('Setup da Conta', 'Escolha o que configurar na conta do cliente', false);
@@ -473,7 +478,13 @@ function showGrid() {
   renderGrid({ animate: true });
 }
 
-function openBlock(block) {
+function openBlock(block, { fromBack = false } = {}) {
+  // Guarda a tela de onde veio (ex.: passo a passo), para o Voltar retornar a ela.
+  if (!fromBack && state.currentBlock && state.currentBlock.id !== block.id) {
+    state.navStack.push(state.currentBlock);
+    if (state.navStack.length > 10) state.navStack.shift();
+  }
+  state.currentBlock = block;
   setHeader(block.title, block.desc, true);
   showView('block');
   renderSideNav(block.id);
@@ -765,7 +776,7 @@ function renderPreview(container, groups) {
   const lists = groups.map((g) => {
     const rows = g.items.map((item) => {
       const text = h('div', {}, h('div', { class: 'row-title' }, item.label), item.detail && h('div', { class: 'row-detail' }, item.detail));
-      if (item.exists) return h('div', { class: 'row muted' }, h('span', { class: 'row-dot' }, svg('check')), text, badge('', 'Já existe'));
+      if (item.exists) return h('div', { class: 'row muted' }, h('span', { class: `row-dot${item.done ? ' ok' : ''}` }, svg('check')), text, item.done ? badge('ok', 'Criado') : badge('', 'Já existe'));
       const key = `${g.block.id}:${item.key}`;
       const checkbox = h('input', {
         type: 'checkbox',
@@ -780,8 +791,12 @@ function renderPreview(container, groups) {
       rows.length ? rows : h('p', { class: 'empty' }, 'A conta modelo não tem itens deste tipo.'));
   });
 
+  // Etapa já feita: tudo existe na conta (criado pelo portal ou que já estava lá).
+  const allDone = groups.every((g) => g.items.every((i) => i.exists));
   swap(container,
-    notice('Prévia: nada foi criado ainda. Desmarque o que não quiser criar.', 'info'),
+    allDone
+      ? notice('Etapa concluída: tudo desta etapa já está criado na conta. Não precisa executar de novo.', 'ok')
+      : notice('Prévia: nada foi criado ainda. Desmarque o que não quiser criar.', 'info'),
     ...groups.map((g) => g.meta?.warning && notice(g.meta.warning, 'warn')),
     tiles,
     toolbar,
@@ -1943,7 +1958,7 @@ async function renderGuideBlock(view) {
 
   const list = h('div', { class: 'guide' }, ...data.steps.map((step, i) => {
     const check = h('button', { type: 'button', class: 'guide-check', 'aria-pressed': String(done.has(step.id)), 'aria-label': `Marcar "${step.title}" como concluído` }, svg('check'));
-    const item = h('details', { class: `guide-step${done.has(step.id) ? ' is-done' : ''}`, open: !done.has(step.id) && i === data.steps.findIndex((s) => !done.has(s.id)) },
+    const item = h('details', { class: `guide-step${done.has(step.id) ? ' is-done' : ''}`, open: state.guideFocus ? step.id === state.guideFocus : !done.has(step.id) && i === data.steps.findIndex((s) => !done.has(s.id)), 'data-step': step.id },
       h('summary', {},
         h('span', { class: 'guide-num' }, String(i + 1)),
         h('span', { class: 'guide-title' }, step.title, h('span', { class: 'guide-desc' }, step.desc)),
@@ -1958,7 +1973,7 @@ async function renderGuideBlock(view) {
         h('div', { class: 'toolbar' },
           ...step.blocks.map((id) => BLOCK_BY_ID[id]).filter(Boolean)
             .filter((b) => PORTAL !== 'cliente' || CLIENT_BLOCK_IDS.includes(b.id))
-            .map((b) => button(`Abrir ${b.title}`, () => openBlock(b), { icon: b.icon })),
+            .map((b) => button(`Abrir ${b.title}`, () => { state.guideFocus = step.id; openBlock(b); }, { icon: b.icon })),
           step.link ? h('a', { class: 'btn btn-primary', href: step.link.url, target: '_blank', rel: 'noopener' }, svg('arrow'), h('span', {}, step.link.label)) : null,
           h('span', { class: 'spacer' }),
           h('label', { class: 'guide-done' }, check, 'Concluído'))));
@@ -1992,6 +2007,9 @@ async function renderGuideBlock(view) {
     data.steps.length ? list : notice('O passo a passo ainda não foi configurado.', 'info'),
     h('p', { class: 'hint' }, `Dúvidas? Fale com a equipe ${BRAND.name} pelo WhatsApp.`));
   stagger(list.querySelectorAll('.guide-step'), { step: 30, y: 8 });
+  // Voltando de uma ferramenta: rola até o passo de onde o cliente saiu.
+  const focused = state.guideFocus && list.querySelector(`[data-step="${CSS.escape(state.guideFocus)}"]`);
+  if (focused) setTimeout(() => focused.scrollIntoView({ block: 'start', behavior: 'smooth' }), 150);
 }
 
 // ---------- Montar minha IA (portal): conversa com a Frédy ----------
@@ -2056,7 +2074,7 @@ async function renderSetupChat(view) {
   const log = h('div', { class: 'chat-log', role: 'log', 'aria-live': 'polite' });
   const status = h('div');
   const typing = h('div', { class: 'bubble is-bot is-typing', hidden: true }, h('span', { class: 'bubble-who' }, `${BRAND.name}`), h('span', { class: 'dots' }, h('i', {}), h('i', {}), h('i', {})));
-  const input = h('textarea', { rows: 2, placeholder: 'Escreva sua resposta... (Enter envia)', maxLength: 2000 });
+  const input = h('textarea', { rows: 2, placeholder: 'Escreva sua resposta... (Enter envia). Pode colar uma conversa inteira.' });
   const sendBtn = button('Enviar', () => send(), { variant: 'btn-primary', icon: 'arrow' });
   const finishBtn = button('Finalizar e enviar para a equipe', () => finish(), { variant: 'btn-primary', icon: 'check' });
   const resetBtn = button('Recomeçar', () => reset(), { variant: 'btn-ghost btn-small', icon: 'refresh' });
@@ -4149,7 +4167,13 @@ function init() {
 
   document.addEventListener('pointerdown', ripple);
   $('search').addEventListener('input', () => renderGrid());
-  $('back').addEventListener('click', showGrid);
+  // Voltar: retorna para a tela anterior (ex.: o mesmo passo do guia); sem histórico, vai para o início.
+  $('back').addEventListener('click', () => {
+    if (state.busy) return;
+    const prev = state.navStack.pop();
+    if (prev) openBlock(prev, { fromBack: true });
+    else showGrid();
+  });
   // Filtros do início (Todas / Pendentes / Concluídas) e logo do menu lateral.
   $('filters').addEventListener('click', (e) => {
     const b = e.target.closest('.filter');

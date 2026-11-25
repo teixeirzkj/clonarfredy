@@ -1,6 +1,7 @@
 import { openAccounts } from '../lib/accounts.js';
 import { getBlock } from '../lib/blocks.js';
 import { HttpError, route } from '../lib/http.js';
+import { doneKeys, markDone, withDone } from '../lib/done.js';
 
 // O front envia lotes pequenos para o log aparecer ao vivo e nenhuma chamada
 // passar do timeout da função.
@@ -18,7 +19,9 @@ export default route(async ({ body, session }) => {
 
   const accounts = await openAccounts(body.clientToken);
   // Recalcula o plano: o que já existe na conta do cliente nunca é recriado.
-  const plan = new Map((await block.plan({ ...accounts, input: body.input })).map((item) => [item.key, item]));
+  // Inclui o que o portal acabou de criar (a lista do WTS demora a mostrar): nunca cria duplicado.
+  const fresh = withDone(await block.plan({ ...accounts, input: body.input }), await doneKeys(accounts.clientId, body.block));
+  const plan = new Map(fresh.map((item) => [item.key, item]));
 
   const results = [];
   for (const key of keys) {
@@ -37,5 +40,6 @@ export default route(async ({ body, session }) => {
       }
     }
   }
+  await markDone(accounts.clientId, body.block, results.filter((r) => r.status === 'created' || r.status === 'exists').map((r) => r.key));
   return { results };
 }, { roles: ['admin', 'client'] });
