@@ -2810,6 +2810,18 @@ function clientsView(data, body) {
         h('div', { class: 'row-detail' }, `${c.email} · ${c.lastLoginAt ? `último acesso ${new Date(c.lastLoginAt).toLocaleDateString('pt-BR')}` : 'ainda não entrou'} · ${c.guideDone.length} passo(s) concluído(s)`)),
       h('div', { class: 'row-actions' },
         c.ia?.status === 'finalizado' ? button('Ver IA', () => showClientIA(out, c), { variant: 'btn-small btn-primary', icon: 'sparkle' }) : null,
+        // Adicionais vendidos depois (usuário R$ 47/mês, canal R$ 97/mês): aumenta o limite da conta na plataforma.
+        c.companyId ? button('Adicionais', async () => {
+          const users = Number(prompt(`Quantos USUÁRIOS a mais para ${c.company}? (0 se nenhum)`, '0'));
+          if (Number.isNaN(users)) return;
+          const channels = Number(prompt(`Quantos CANAIS de WhatsApp a mais para ${c.company}? (0 se nenhum)`, '0'));
+          if (Number.isNaN(channels) || (!users && !channels)) return;
+          if (!confirm(`Somar ${users} usuário(s) e ${channels} canal(is) na conta de ${c.company}?`)) return;
+          try {
+            const r = await api('portal', { action: 'clients', op: 'addOn', id: c.id, users, channels });
+            alert(`Pronto! Agora: ${r.depois.users} usuário(s) e ${r.depois.channels} canal(is) de WhatsApp (antes: ${r.antes.users} e ${r.antes.channels}).`);
+          } catch (err) { alert(err.message); }
+        }, { variant: 'btn-small', icon: 'plus' }) : null,
         button('Nova senha', async () => {
           if (!confirm(`Gerar uma senha nova para ${c.email}? A atual deixa de funcionar.`)) return;
           const r = await api('portal', { action: 'clients', op: 'update', id: c.id, changes: { resetPassword: true } });

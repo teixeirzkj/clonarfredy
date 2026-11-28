@@ -40,7 +40,9 @@ o botão da Frédy e o passo a passo em vídeo.
 - Só `plan` é obrigatório: é o `id` de um plano em `templates/planos.json` (`padrao`, `teste` e
   `plug-and-play`). Tudo o mais é opcional e só preenche a tela; o cliente pode corrigir.
 - Plano com `soPreCadastro: true` (o `plug-and-play`) só abre por este link: `/cadastro?plano=` não serve.
-- `usersCount` maior que o plano aumenta o limite de usuários (o cliente pagou por mais).
+- **Adicionais na compra:** `usersCount` (total de usuários) maior que o plano aumenta o limite de usuários; `extraChannels`
+  (canais de WhatsApp a mais, R$ 97/mês cada) ou `channelsCount` (total de canais) aumenta o limite de canais. A conta já nasce
+  com esses limites. Usuário extra: R$ 47/mês cada. A primeira parcela dos adicionais é cobrada junto, na página de pagamento.
 - Um `order.id` vira um pré-cadastro só: chamar de novo devolve o mesmo link; depois do cadastro feito
   responde `409` ("esse pagamento já virou cadastro").
 - Os nomes dos campos também podem vir em português: `plano`, `empresa` (`razaoSocial`,
@@ -48,6 +50,21 @@ o botão da Frédy e o passo a passo em vídeo.
   `bairro`, `cidade`, `uf`), `responsavel` (`nome`, `email`, `telefone`), `usuarios`
   (quantidade), `pedido`, `produto`, `valor`.
 - `profile`: `Admin` ou `Agent` (atendente).
+
+## Adicional comprado depois (usuário ou canal)
+
+Quando o cliente que já tem conta paga um adicional, a página de pagamento chama:
+
+```json
+{ "action": "addOn", "brand": "fredy", "secret": "<PRE_SIGNUP_SECRET>",
+  "data": { "cnpj": "12.345.678/0001-90", "users": 2, "channels": 1, "order": { "id": "PED-456" } } }
+```
+
+- Identifica a conta por `cnpj`, `email` (login do portal) ou `companyId`.
+- `users` e `channels` são as quantidades **a mais** (somam ao limite atual da conta na plataforma).
+- O mesmo `order.id` só é aplicado uma vez (chamar de novo devolve `"repetido": true`).
+- Resposta: `{ "ok": true, "companyId": "...", "antes": { "users": 3, "channels": 1 }, "depois": { "users": 5, "channels": 2 } }`.
+- A equipe também pode somar à mão em Clientes → botão **Adicionais**.
 
 ## Resposta
 

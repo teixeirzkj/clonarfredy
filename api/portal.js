@@ -13,6 +13,7 @@ import { createPreSignup, createSignup, deleteSignup, getPreSignup, listSignups,
 import { autoCreateEnabled } from '../lib/provision.js';
 import { finishChat, getChat, getFinal, resetChat, sendMessage, startChat } from '../lib/setup-chat.js';
 import { hit } from '../lib/store.js';
+import { applyAddOn } from '../lib/addons.js';
 
 const APP_URL = () => currentBrand().appUrl();
 // Endereço público desta página (links mandados para fora).
@@ -27,7 +28,8 @@ import { storeConfigured } from '../lib/store.js';
 //   aberta: login do portal, CEP, CNPJ (Receita), planos (nomes) e envio do cadastro
 //   equipe ou cliente: config, chatbots, me, guide, guideDone, changePassword
 //   só cliente: setupChat (op: get, start, send, finish, reset) — "Montar minha IA"
-//   só equipe: clients (op: list, provision, create, update, delete, signupStatus, signupPlan, signupDelete, helenaCompanies, helenaAccess, ia)
+//   só equipe: clients (op: list, provision, create, update, delete, signupStatus, signupPlan, signupDelete, helenaCompanies, helenaAccess, ia, addOn)
+//   integração (chave PRE_SIGNUP_SECRET): preSignup e addOn (adicional pago: usuários e canais)
 const BOTH = ['admin', 'client'];
 
 async function clientsOp(body) {
@@ -74,6 +76,9 @@ async function clientsOp(body) {
       const result = await createClient({ company: body.company, email, wtsToken: token, companyId });
       return { ...result, owner: owner ? { name: owner.name ?? '', email: owner.email ?? '', phone: owner.phoneNumber ?? '' } : null };
     }
+    case 'addOn':
+      // Equipe: soma usuários/canais na conta de um cliente do portal.
+      return applyAddOn({ clientId: body.id, users: body.users, channels: body.channels });
     case 'ia':
       // IA montada pelo cliente no portal: resumo, prompt final e conversa (equipe gera os fluxos).
       return getFinal(String(body.id ?? ''));
@@ -111,7 +116,14 @@ export default route(async ({ req, body }) => {
       const given = String(body.secret ?? req.headers['x-integracao'] ?? '');
       if (!secret || !sameSecret(given, secret)) throw new HttpError(401, 'Chave de integração inválida');
       const pre = await createPreSignup(body.data ?? body);
-      return { ok: true, id: pre.id, brand: pre.brand, url: `${baseUrl(req)}${pre.brand === 'duda' ? '/duda' : ''}/cadastro?pre=${pre.id}`, expiresAt: pre.expiresAt, plan: pre.plan, maxUsers: pre.maxUsers };
+      return { ok: true, id: pre.id, brand: pre.brand, url: `${baseUrl(req)}${pre.brand === 'duda' ? '/duda' : ''}/cadastro?pre=${pre.id}`, expiresAt: pre.expiresAt, plan: pre.plan, maxUsers: pre.maxUsers, maxChannels: pre.maxChannels };
+    }
+    case 'addOn': {
+      // Página de pagamento: adicional pago depois do plano (usuário ou canal) → aumenta o limite da conta.
+      const secret = process.env.PRE_SIGNUP_SECRET || '';
+      const given = String(body.secret ?? req.headers['x-integracao'] ?? '');
+      if (!secret || !sameSecret(given, secret)) throw new HttpError(401, 'Chave de integração inválida');
+      return { ok: true, ...(await applyAddOn(body.data ?? body)) };
     }
     case 'preSignupGet':
       if ((await hit(`pre-ip:${clientIp(req)}`, 60 * 60)) > 60) throw new HttpError(429, 'Muitas consultas. Tente de novo mais tarde.');
