@@ -12,17 +12,18 @@ Legenda: ✅ conferido no sistema · 🔧 corrigido agora · 👥 tarefa da equi
 |---|---|---|
 | Estrutura do plano Plug & Play | ✅ | `templates/planos.json` → `plug-and-play` (só abre pela página de pagamento) |
 | Funcionalidades do plano básico | ✅ | Ver seção 2 |
-| Oferta a partir de R$ 497 | 👥 | O preço fica na página de pagamento (Asaas), não neste sistema |
+| Oferta a partir de R$ 497 | ✅ | Confirmado pela equipe (preço na página de pagamento) |
 | Três usuários | ✅ | `agents: 3` |
 | Uma inteligência artificial | ✅ | `aiAgents: 1` + app `AI_AGENT` |
-| Nome "Lambus Base" | 👥 | Não aparece no sistema; validar com quem citou na reunião |
+| Nome "Lambus Base" | 👥 | Não aparece no sistema nem na busca na internet: falta saber o que é para ver se integra |
 | Estrutura padrão da IA básica | ✅ | "Montar minha IA" no portal + `templates/prompt-padrao.md` + fluxos do n8n |
 | Modelo de configuração replicável | ✅ | Conta Exemplo (conta modelo) → etiquetas e equipes copiadas na criação; chatbots padrão para copiar |
 | Fluxo de instalação padronizado | ✅ | Passo a passo do portal (12 passos, todos com vídeo) |
 | Cliente faz a própria instalação | ✅ | Portal do cliente (`/portal`) com vídeos, ferramentas e a IA |
 | Contratação com suporte de setup | 👥 | Decidir o que muda (preço/plano). Técnica: a equipe já faz tudo pela página da equipe ("Configurar tudo") |
-| Usuários extras | 🔧 | O pré-cadastro já aceitava `usersCount`; **agora a conta também nasce com esse limite** (antes, quem pagava 5 e cadastrava 3 ficava com limite 3) |
-| Funcionalidades adicionais depois | ✅ / 👥 | A equipe troca o plano do cadastro em Clientes; a lista do que vender a mais é decisão comercial |
+| Usuários extras (R$ 47/mês cada) | 🔧 | Na compra (`usersCount`) a conta já nasce com o limite pago; comprado depois: API `addOn` ou botão **Adicionais** em Clientes |
+| Canal extra (R$ 97/mês cada) | 🔧 | Na compra (`extraChannels`) a conta já nasce com o canal a mais; comprado depois: API `addOn` ou botão **Adicionais** |
+| Funcionalidades adicionais depois | ✅ | Adicionais = usuário e canal (acima); primeira parcela cobrada junto na página de pagamento |
 | Configuração inicial do WhatsApp | ✅ | Passo 2 do guia, com vídeo (API oficial pela Meta) |
 | Testar a IA básica | 👥 | A conversa "Montar minha IA" foi testada em 11/11; o agente respondendo no WhatsApp é teste da equipe na primeira conta |
 | Testar o atendimento pelo WhatsApp | 👥 | Precisa de número conectado: teste da equipe |
